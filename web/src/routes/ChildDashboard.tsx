@@ -10,6 +10,7 @@ export default function ChildDashboard() {
   const [balance, setBalance] = useState<{ available: number; reserved: number } | null>(null);
   const [ledger, setLedger] = useState<any[]>([]);
   const { push } = useToast();
+  const [savers, setSavers] = useState<any[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem('childToken');
@@ -28,6 +29,8 @@ export default function ChildDashboard() {
         const r2 = await fetch(`/children/${data.id}/chores/week`);
         setToday(r1.ok ? await r1.json() : []);
         setWeekData(r2.ok ? await r2.json() : null);
+        const rs = await fetch(`/children/${data.id}/savers`);
+        setSavers(rs.ok ? await rs.json() : []);
         const rb = await fetch(`/bank/${data.id}`);
         if (rb.ok) {
           const b = await rb.json();
@@ -196,7 +199,7 @@ export default function ChildDashboard() {
             </div>
           </div>
         </div>
-        <div className="col-12 col-lg-12">
+        <div className="col-12 col-lg-8">
           <div className="card h-100">
             <div className="card-body">
               <h2 className="h6">This Week</h2>
@@ -251,6 +254,54 @@ export default function ChildDashboard() {
                     </table>
                   </div>
                 </>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="col-12 col-lg-4">
+          <div className="card h-100">
+            <div className="card-body">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <h2 className="h6 mb-0">Saver Items</h2>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={async () => {
+                    const cid = child?.id; if (!cid) return;
+                    const name = window.prompt('Item name'); if (!name) return;
+                    const targetStr = window.prompt('Target coins'); if (!targetStr) return;
+                    const target = parseInt(targetStr, 10) || 0; if (!target) return;
+                    const r = await fetch(`/children/${cid}/savers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, target }) });
+                    if (r.ok) {
+                      push('success', 'Item added');
+                      const rs = await fetch(`/children/${cid}/savers`);
+                      setSavers(rs.ok ? await rs.json() : []);
+                    } else push('error', 'Failed to add');
+                  }}
+                >Add</button>
+              </div>
+              {savers.length === 0 ? (
+                <div className="text-muted">No saver items yet.</div>
+              ) : (
+                <ul className="list-group list-group-flush">
+                  {savers.map((s) => {
+                    const prog = s.target ? Math.min(100, Math.max(0, Math.round(((balance?.reserved || 0) / s.target) * 100))) : 0;
+                    return (
+                      <li key={s.id} className="list-group-item">
+                        <div className="d-flex justify-content-between align-items-center">
+                          <div>
+                            <div className="fw-semibold">{s.name}</div>
+                            <div className="small text-muted">Goal: {s.isGoal ? `${s.allocation}%` : 'not a goal'}</div>
+                          </div>
+                          <div>
+                            <span className={`badge ${balance && balance.available >= s.target ? 'bg-success' : 'bg-light text-dark'}`}>
+                              {balance?.available ?? 0} / {s.target}
+                            </span>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </div>
           </div>

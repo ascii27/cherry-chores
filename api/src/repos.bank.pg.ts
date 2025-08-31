@@ -71,7 +71,9 @@ export class PgBankRepo implements BankRepository {
   async getBalance(childId: string): Promise<{ available: number; reserved: number }> {
     const r = await this.pool.query('SELECT COALESCE(SUM(amount),0) AS bal FROM ledger WHERE child_id=$1', [childId]);
     const available = Number(r.rows[0]?.bal || 0);
-    return { available, reserved: 0 };
+    const rr = await this.pool.query("SELECT COALESCE(SUM(amount),0) AS r FROM ledger WHERE child_id=$1 AND type IN ('reserve','release')", [childId]);
+    const reserved = -Number(rr.rows[0]?.r || 0);
+    return { available, reserved };
   }
 
   async findPayoutForWeek(childId: string, familyId: string, weekStart: string): Promise<LedgerEntry | undefined> {

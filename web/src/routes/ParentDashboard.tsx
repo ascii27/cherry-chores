@@ -19,6 +19,7 @@ export default function ParentDashboard() {
   const [balances, setBalances] = useState<Record<string, { available: number; reserved: number }>>({});
   const [payoutBusy, setPayoutBusy] = useState(false);
   const { push } = useToast();
+  const [saversByChild, setSaversByChild] = useState<Record<string, any[]>>({});
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
 
   useEffect(() => {
@@ -69,6 +70,7 @@ export default function ParentDashboard() {
     (async () => {
       const map: Record<string, any> = {};
       const bal: Record<string, { available: number; reserved: number }> = {};
+      const sav: Record<string, any[]> = {};
       for (const c of children) {
         try {
           const rw = await fetch(`/children/${c.id}/chores/week`);
@@ -78,10 +80,13 @@ export default function ParentDashboard() {
             const data = await rb.json();
             bal[c.id] = data.balance;
           }
+          const rs = await fetch(`/children/${c.id}/savers`);
+          sav[c.id] = rs.ok ? await rs.json() : [];
         } catch {}
       }
       setWeeklyByChild(map);
       setBalances(bal);
+      setSaversByChild(sav);
     })();
   }, [token, selectedFamily, children]);
 
@@ -117,6 +122,7 @@ export default function ParentDashboard() {
   async function refreshWeekly() {
     const map: Record<string, any> = {};
     const bal: Record<string, { available: number; reserved: number }> = {};
+    const sav: Record<string, any[]> = {};
     for (const c of children) {
       try {
         const rw = await fetch(`/children/${c.id}/chores/week`);
@@ -126,10 +132,13 @@ export default function ParentDashboard() {
           const data = await rb.json();
           bal[c.id] = data.balance;
         }
+        const rs = await fetch(`/children/${c.id}/savers`);
+        sav[c.id] = rs.ok ? await rs.json() : [];
       } catch {}
     }
     setWeeklyByChild(map);
     setBalances(bal);
+    setSaversByChild(sav);
   }
 
   const handleAddCoParent = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -329,6 +338,7 @@ export default function ParentDashboard() {
                           <th scope="col">Display name</th>
                           <th scope="col">Username</th>
                           <th scope="col">Balance</th>
+                          <th scope="col">Goals</th>
                           <th scope="col" className="text-end">Actions</th>
                         </tr>
                       </thead>
@@ -369,6 +379,43 @@ export default function ParentDashboard() {
                                   }}
                                 >- Debit</button>
                               </form>
+                            </td>
+                            <td>
+                              <div className="small">
+                                {(saversByChild[c.id] || []).length === 0 ? (
+                                  <span className="text-muted">No items</span>
+                                ) : (
+                                  <ul className="list-unstyled mb-0">
+                                    {(saversByChild[c.id] || []).map((s) => (
+                                      <li key={s.id}>
+                                        {s.name} {s.isGoal ? <span className="text-muted">({s.allocation}%)</span> : <span className="badge bg-light text-dark">not goal</span>}
+                                        {s.isGoal ? (
+                                          <input
+                                            type="range"
+                                            min={0}
+                                            max={100}
+                                            defaultValue={s.allocation}
+                                            className="form-range"
+                                            onMouseUp={async (e) => {
+                                              const pct = parseInt((e.target as HTMLInputElement).value, 10);
+                                              await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ allocation: pct }) });
+                                              await refreshWeekly();
+                                            }}
+                                          />
+                                        ) : (
+                                          <button
+                                            className="btn btn-sm btn-outline-primary"
+                                            onClick={async () => {
+                                              await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ isGoal: true, allocation: 10 }) });
+                                              await refreshWeekly();
+                                            }}
+                                          >Make goal</button>
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
                             </td>
                             <td className="text-end">
                               <button className="btn btn-sm btn-outline-secondary me-2" type="button" onClick={() => handleRenameChild(c.id)}>Rename</button>
