@@ -154,7 +154,31 @@ Validation Tests (examples)
 
 ---
 
-## Phase 5 – Bonus Opportunities and Claims
+## Phase 5 – UX Polish, Customization, and Accessibility
+Branch: `phase-6-ux-customization`
+
+Scope
+- Update the layout with a top bar that includes the signed in user and logout button
+- Profile section where kids can customize their names, their avatar, and the theme and colors for their experience
+- Avatars: curated set + upload (validation), select per user.
+- Kid theming: per-child accent color and optional background from curated set; persists to profile. We should have lots of cartoonish icons for things.
+- In-app indicators: badges for pending approvals; gentle celebrations on completion.
+- Accessibility pass: contrast, focus states, reduced motion support.
+
+Deliverables
+- Usable: kids can personalize their dashboard; visuals consistent and accessible.
+
+Completion Criteria
+- Theme settings persist and apply across sessions; no cross-user bleed.
+- A11y checks: keyboard focus visible, color contrast passes, animations respect reduced-motion.
+
+Validation Tests (examples)
+- Web: theme context applies accent color; avatar selection persists (mock API).
+- Lighthouse/axe checks for key pages (informational, not gating if minor issues).
+
+---
+
+## Phase 6 – Bonus Opportunities and Claims
 Branch: `phase-5-bonuses`
 
 Scope
@@ -172,28 +196,6 @@ Completion Criteria
 Validation Tests (examples)
 - API: POST `/bonuses` creates; child GET `/bonuses` filtered by visibility.
 - API: POST `/bonuses/:id/claim` => pending; parent approve => ledger credit; duplicate one-time claim rejected.
-
----
-
-## Phase 6 – UX Polish, Customization, and Accessibility
-Branch: `phase-6-ux-customization`
-
-Scope
-- Avatars: curated set + upload (validation), select per user.
-- Kid theming: per-child accent color and optional background from curated set; persists to profile.
-- In-app indicators: badges for pending approvals; gentle celebrations on completion.
-- Accessibility pass: contrast, focus states, reduced motion support.
-
-Deliverables
-- Usable: kids can personalize their dashboard; visuals consistent and accessible.
-
-Completion Criteria
-- Theme settings persist and apply across sessions; no cross-user bleed.
-- A11y checks: keyboard focus visible, color contrast passes, animations respect reduced-motion.
-
-Validation Tests (examples)
-- Web: theme context applies accent color; avatar selection persists (mock API).
-- Lighthouse/axe checks for key pages (informational, not gating if minor issues).
 
 ---
 

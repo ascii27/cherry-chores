@@ -9,13 +9,16 @@ export function saversRoutes(opts: { savers: SaversRepository; users: UsersRepos
 
   async function reservedForSaver(childId: string, saverId: string) {
     const ledger = await bank.getLedgerByChild(childId);
-    let res = 0;
+    let sum = 0;
     for (const e of ledger) {
       if ((e.type === 'reserve' || e.type === 'release') && e.meta?.saverId === saverId) {
-        res += e.type === 'reserve' ? -e.amount : e.amount;
+        sum += e.amount;
       }
     }
-    return res;
+    // Reserve entries are negative amounts; release entries are positive.
+    // Reserved total equals the negative of the sum.
+    const reserved = -sum;
+    return reserved > 0 ? reserved : 0;
   }
 
   // List savers for a child (parent or child self)
@@ -115,13 +118,12 @@ export function saversRoutes(opts: { savers: SaversRepository; users: UsersRepos
     const bal = await bank.getBalance(child.id);
     const needed = Math.max(0, cur.target - reserved);
     if (bal.available < needed) return res.status(400).json({ error: 'insufficient funds' });
-    // release reserved used (if any)
-    const useReserved = Math.min(cur.target, reserved);
-    if (useReserved > 0) {
+    // release all reserved (return to available) before spending target
+    if (reserved > 0) {
       await bank.addLedgerEntry({
         id: `release_${child.id}_${cur.id}_${Date.now()}`,
         childId: child.id,
-        amount: useReserved,
+        amount: reserved,
         type: 'release',
         note: `Purchase ${cur.name} (release reserve)`,
         createdAt: new Date().toISOString(),
@@ -139,6 +141,8 @@ export function saversRoutes(opts: { savers: SaversRepository; users: UsersRepos
       createdAt: new Date().toISOString(),
       actor: isParent ? { role: 'parent', id: actor!.id } : { role: 'child', id: child.id }
     });
+    // mark saver as completed and remove from active goals
+    await savers.updateSaver({ ...cur, isGoal: false, allocation: 0, completed: true, completedAt: new Date().toISOString() });
     res.status(204).send();
   });
 

@@ -15,21 +15,27 @@ export class PgSaversRepo implements SaversRepository {
         image_url TEXT,
         target INTEGER NOT NULL,
         is_goal BOOLEAN NOT NULL,
-        allocation INTEGER NOT NULL
+        allocation INTEGER NOT NULL,
+        completed BOOLEAN NOT NULL DEFAULT false,
+        completed_at TIMESTAMPTZ
       );
       CREATE INDEX IF NOT EXISTS idx_savers_child ON savers(child_id);
+    `);
+    await this.pool.query(`
+      ALTER TABLE savers ADD COLUMN IF NOT EXISTS completed BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE savers ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
     `);
   }
 
   async createSaver(item: SaverItem): Promise<SaverItem> {
     await this.pool.query(
-      'INSERT INTO savers(id,child_id,name,description,image_url,target,is_goal,allocation) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-      [item.id, item.childId, item.name, item.description ?? null, item.imageUrl ?? null, item.target, item.isGoal, item.allocation]
+      'INSERT INTO savers(id,child_id,name,description,image_url,target,is_goal,allocation,completed,completed_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+      [item.id, item.childId, item.name, item.description ?? null, item.imageUrl ?? null, item.target, item.isGoal, item.allocation, item.completed ?? false, item.completedAt ?? null]
     );
     return item;
   }
   async listSaversByChild(childId: string): Promise<SaverItem[]> {
-    const r = await this.pool.query('SELECT * FROM savers WHERE child_id=$1 ORDER BY name', [childId]);
+    const r = await this.pool.query('SELECT * FROM savers WHERE child_id=$1 ORDER BY completed ASC, name', [childId]);
     return r.rows.map((row: any) => ({
       id: row.id,
       childId: row.child_id,
@@ -38,13 +44,15 @@ export class PgSaversRepo implements SaversRepository {
       imageUrl: row.image_url ?? undefined,
       target: Number(row.target),
       isGoal: row.is_goal,
-      allocation: Number(row.allocation)
+      allocation: Number(row.allocation),
+      completed: !!row.completed,
+      completedAt: row.completed_at ? (row.completed_at instanceof Date ? row.completed_at.toISOString() : new Date(row.completed_at).toISOString()) : undefined
     }));
   }
   async updateSaver(item: SaverItem): Promise<SaverItem> {
     await this.pool.query(
-      'UPDATE savers SET name=$1, description=$2, image_url=$3, target=$4, is_goal=$5, allocation=$6 WHERE id=$7',
-      [item.name, item.description ?? null, item.imageUrl ?? null, item.target, item.isGoal, item.allocation, item.id]
+      'UPDATE savers SET name=$1, description=$2, image_url=$3, target=$4, is_goal=$5, allocation=$6, completed=$7, completed_at=$8 WHERE id=$9',
+      [item.name, item.description ?? null, item.imageUrl ?? null, item.target, item.isGoal, item.allocation, !!item.completed, item.completedAt ?? null, item.id]
     );
     return item;
   }
@@ -60,11 +68,12 @@ export class PgSaversRepo implements SaversRepository {
       imageUrl: row.image_url ?? undefined,
       target: Number(row.target),
       isGoal: row.is_goal,
-      allocation: Number(row.allocation)
+      allocation: Number(row.allocation),
+      completed: !!row.completed,
+      completedAt: row.completed_at ? (row.completed_at instanceof Date ? row.completed_at.toISOString() : new Date(row.completed_at).toISOString()) : undefined
     };
   }
   async deleteSaver(id: string): Promise<void> {
     await this.pool.query('DELETE FROM savers WHERE id=$1', [id]);
   }
 }
-

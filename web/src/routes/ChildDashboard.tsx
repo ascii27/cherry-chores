@@ -337,8 +337,9 @@ export default function ChildDashboard() {
               {savers.length === 0 ? (
                 <div className="text-muted">No saver items yet.</div>
               ) : (
+                <>
                 <ul className="list-group list-group-flush">
-                  {savers.map((s) => (
+                  {savers.filter((x) => !x.completed).map((s) => (
                     <li key={s.id} className="list-group-item">
                       <div className="d-flex justify-content-between align-items-center">
                         <div>
@@ -371,14 +372,12 @@ export default function ChildDashboard() {
                             <span className="text-muted">Weekly allocation:</span>
                             {weekData && weekData.totalPlanned > 0 ? (
                               <>
-                                <input
-                                  type="number"
-                                  className="form-control form-control-sm"
-                                  style={{ width: '6rem' }}
-                                  min={0}
-                                  defaultValue={Math.round((s.allocation * weekData.totalPlanned) / 100)}
-                                  onBlur={async (e) => {
-                                    const coins = parseInt((e.target as HTMLInputElement).value || '0', 10);
+                                <select
+                                  className="form-select form-select-sm"
+                                  style={{ width: '7rem' }}
+                                  defaultValue={String(Math.round((s.allocation * weekData.totalPlanned) / 100))}
+                                  onChange={async (e) => {
+                                    const coins = parseInt((e.target as HTMLSelectElement).value || '0', 10);
                                     const denom = weekData?.totalPlanned || 0;
                                     const pct = denom > 0 ? Math.max(0, Math.min(100, Math.round((coins / denom) * 100))) : s.allocation;
                                     const tok = localStorage.getItem('childToken');
@@ -388,9 +387,11 @@ export default function ChildDashboard() {
                                     const rs = await fetch(`/children/${cid}/savers`, { headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
                                     setSavers(rs.ok ? await rs.json() : []);
                                   }}
-                                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                                />
-                                <span className="text-muted">coins/week</span>
+                                >
+                                  {Array.from({ length: (weekData?.totalPlanned || 0) + 1 }).map((_, i) => (
+                                    <option key={`alloc-opt-${s.id}-${i}`} value={i}>{i} {i === 1 ? 'coin' : 'coins'}</option>
+                                  ))}
+                                </select>
                               </>
                             ) : (
                               <span className="text-muted">(no weekly plan yet)</span>
@@ -474,6 +475,23 @@ export default function ChildDashboard() {
                     </li>
                   ))}
                 </ul>
+                {savers.filter((x) => x.completed).length > 0 ? (
+                  <div className="mt-3">
+                    <div className="small text-muted mb-1">Achieved</div>
+                    <ul className="list-group list-group-flush">
+                      {savers.filter((x) => x.completed).map((s) => (
+                        <li key={`hist-${s.id}`} className="list-group-item d-flex justify-content-between align-items-center">
+                          <div>
+                            <div className="fw-semibold">{s.name}</div>
+                            <div className="small text-muted">Completed {s.completedAt ? new Date(s.completedAt).toLocaleDateString() : ''}</div>
+                          </div>
+                          <span className="badge bg-light text-dark">{s.target} coins</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                </>
               )}
             </div>
           </div>

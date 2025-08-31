@@ -337,7 +337,7 @@ export default function ParentDashboard() {
                         <tr>
                           <th scope="col">Display name</th>
                           <th scope="col">Username</th>
-                          <th scope="col">Balance</th>
+                          <th scope="col">Total</th>
                           <th scope="col">Goals</th>
                           <th scope="col" className="text-end">Actions</th>
                         </tr>
@@ -348,7 +348,10 @@ export default function ParentDashboard() {
                             <td>{c.displayName}</td>
                             <td className="text-muted">{c.username}</td>
                             <td>
-                              <span className="badge bg-light text-dark">{balances[c.id]?.available ?? 0}</span>
+                              <div className="d-flex flex-column gap-1">
+                                <div><span className="badge bg-light text-dark">{(balances[c.id]?.available ?? 0) + (balances[c.id]?.reserved ?? 0)}</span> <span className="text-muted small">total</span></div>
+                                <div className="small text-muted">Available: {balances[c.id]?.available ?? 0} • Allocated: {balances[c.id]?.reserved ?? 0}</div>
+                              </div>
                               <form
                                 className="d-flex gap-2 align-items-center mt-2"
                                 onSubmit={(e) => e.preventDefault()}
@@ -386,21 +389,10 @@ export default function ParentDashboard() {
                                   <span className="text-muted">No items</span>
                                 ) : (
                                   <ul className="list-unstyled mb-0">
-                                    {(saversByChild[c.id] || []).map((s) => (
+                                    {(saversByChild[c.id] || []).filter((s) => !s.completed).map((s) => (
                                       <li key={s.id}>
-                                        {s.name} <span className="text-muted">({s.allocation}%)</span>
-                                        <input
-                                          type="range"
-                                          min={0}
-                                          max={100}
-                                          defaultValue={s.allocation}
-                                          className="form-range"
-                                          onMouseUp={async (e) => {
-                                            const pct = parseInt((e.target as HTMLInputElement).value, 10);
-                                            await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ allocation: pct }) });
-                                            await refreshWeekly();
-                                          }}
-                                        />
+                                        <span className="fw-semibold">{s.name}</span>
+                                        <span className="text-muted"> — saved {s.reserved || 0} / {s.target}</span>
                                       </li>
                                     ))}
                                   </ul>

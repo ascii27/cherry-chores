@@ -7,5 +7,6 @@ export interface SaverItem {
   target: number; // target coins to purchase
   isGoal: boolean; // whether this saver is active as a goal
   allocation: number; // 0..100 percentage of credits to reserve
+  completed?: boolean;
+  completedAt?: string; // ISO when purchased
 }
-
