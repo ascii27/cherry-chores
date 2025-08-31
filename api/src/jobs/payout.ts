@@ -1,11 +1,13 @@
-import { BankRepository, ChoresRepository, FamiliesRepository, UsersRepository } from '../repositories';
+import { BankRepository, ChoresRepository, FamiliesRepository, UsersRepository, SaversRepository } from '../repositories';
 import { LedgerEntry } from '../bank.types';
+import { applyAllocation } from '../alloc';
 
 export interface PayoutDeps {
   bank: BankRepository;
   chores: ChoresRepository;
   users: UsersRepository;
   families: FamiliesRepository;
+  savers?: SaversRepository;
 }
 
 // Compute week range given a weekStart (YYYY-MM-DD, Sunday) inclusive..inclusive
@@ -52,5 +54,6 @@ export async function runWeeklyPayout(deps: PayoutDeps, familyId: string, weekSt
       createdAt: new Date().toISOString()
     };
     await bank.addLedgerEntry(entry);
+    if (deps.savers) await applyAllocation(bank, deps.savers, childId, total);
   }
 }

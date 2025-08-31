@@ -1,6 +1,7 @@
 import { ChildUser, Family, ParentUser } from './types';
 import { Chore, Completion } from './chores.types';
 import { LedgerEntry } from './bank.types';
+import { SaverItem } from './savers.types';
 
 export interface UsersRepository {
   getParentByEmail(email: string): Promise<ParentUser | undefined>;
@@ -41,13 +42,22 @@ export interface BankRepository {
   findPayoutForWeek(childId: string, familyId: string, weekStart: string): Promise<LedgerEntry | undefined>;
 }
 
-export class InMemoryRepos implements UsersRepository, FamiliesRepository, ChoresRepository, BankRepository {
+export interface SaversRepository {
+  createSaver(item: SaverItem): Promise<SaverItem>;
+  listSaversByChild(childId: string): Promise<SaverItem[]>;
+  updateSaver(item: SaverItem): Promise<SaverItem>;
+  getSaverById(id: string): Promise<SaverItem | undefined>;
+  deleteSaver(id: string): Promise<void>;
+}
+
+export class InMemoryRepos implements UsersRepository, FamiliesRepository, ChoresRepository, BankRepository, SaversRepository {
   private parents = new Map<string, ParentUser>();
   private children = new Map<string, ChildUser>();
   private families = new Map<string, Family>();
   private chores = new Map<string, Chore>();
   private completions = new Map<string, Completion>();
   private ledger = new Map<string, LedgerEntry[]>(); // key: childId
+  private savers = new Map<string, SaverItem>(); // key: saverId
 
   async getParentByEmail(email: string) {
     for (const p of this.parents.values()) if (p.email === email) return p;
@@ -192,5 +202,24 @@ export class InMemoryRepos implements UsersRepository, FamiliesRepository, Chore
   async findPayoutForWeek(childId: string, familyId: string, weekStart: string) {
     const entries = this.ledger.get(childId) || [];
     return entries.find((e) => e.type === 'payout' && e.meta?.familyId === familyId && e.meta?.weekStart === weekStart);
+  }
+
+  // SaversRepository
+  async createSaver(item: SaverItem) {
+    this.savers.set(item.id, item);
+    return item;
+  }
+  async listSaversByChild(childId: string) {
+    return Array.from(this.savers.values()).filter((s) => s.childId === childId);
+  }
+  async updateSaver(item: SaverItem) {
+    this.savers.set(item.id, item);
+    return item;
+  }
+  async getSaverById(id: string) {
+    return this.savers.get(id);
+  }
+  async deleteSaver(id: string) {
+    this.savers.delete(id);
   }
 }

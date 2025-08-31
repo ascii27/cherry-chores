@@ -19,7 +19,9 @@ export class InMemoryBankRepo implements BankRepository {
   async getBalance(childId: string): Promise<{ available: number; reserved: number }> {
     const entries = this.ledger.get(childId) || [];
     const available = entries.reduce((sum, e) => sum + (e.amount || 0), 0);
-    return { available, reserved: 0 };
+    const rr = entries.filter((e) => e.type === 'reserve' || e.type === 'release').reduce((s, e) => s + (e.amount || 0), 0);
+    const reserved = -rr;
+    return { available, reserved };
   }
 
   async findPayoutForWeek(childId: string, familyId: string, weekStart: string): Promise<LedgerEntry | undefined> {

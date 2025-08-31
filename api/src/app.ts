@@ -7,8 +7,10 @@ import { InMemoryRepos } from './repositories';
 import { PgRepos } from './repos.pg';
 import { PgChoresRepo } from './repos.chores.pg';
 import { PgBankRepo } from './repos.bank.pg';
+import { PgSaversRepo } from './repos.savers.pg';
 import { bankRoutes } from './routes/bank';
 import { InMemoryBankRepo } from './bank.memory';
+import { saversRoutes } from './routes/savers';
 import { choresRoutes } from './routes/chores';
 import { Pool } from 'pg';
 import { DevAuthProvider, JwtService } from './auth';
@@ -53,14 +55,18 @@ export function createApp(deps?: { useDb?: boolean }) {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     const choresRepo = new PgChoresRepo(pool);
     const bankRepo = new PgBankRepo(pool);
+    const saversRepo = new PgSaversRepo(pool);
     // fire and forget init
     choresRepo.init().catch(() => {});
     bankRepo.init().catch(() => {});
+    saversRepo.init().catch(() => {});
     app.use(choresRoutes({ chores: choresRepo, families: repos, users: repos }));
-    app.use(bankRoutes({ bank: bankRepo, users: repos, families: repos, chores: choresRepo }));
+    app.use(bankRoutes({ bank: bankRepo, users: repos, families: repos, chores: choresRepo, savers: saversRepo }));
+    app.use(saversRoutes({ savers: saversRepo, users: repos, families: repos, bank: bankRepo }));
   } else {
     app.use(choresRoutes({ chores: repos as any, families: repos, users: repos }));
-    app.use(bankRoutes({ bank: repos as any, users: repos, families: repos, chores: repos as any }));
+    app.use(bankRoutes({ bank: repos as any, users: repos, families: repos, chores: repos as any, savers: repos as any }));
+    app.use(saversRoutes({ savers: repos as any, users: repos, families: repos, bank: repos as any }));
   }
 
   // Serve built web app statically if present (single-container runtime)

@@ -19,6 +19,7 @@ export default function ParentDashboard() {
   const [balances, setBalances] = useState<Record<string, { available: number; reserved: number }>>({});
   const [payoutBusy, setPayoutBusy] = useState(false);
   const { push } = useToast();
+  const [saversByChild, setSaversByChild] = useState<Record<string, any[]>>({});
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
 
   useEffect(() => {
@@ -69,6 +70,7 @@ export default function ParentDashboard() {
     (async () => {
       const map: Record<string, any> = {};
       const bal: Record<string, { available: number; reserved: number }> = {};
+      const sav: Record<string, any[]> = {};
       for (const c of children) {
         try {
           const rw = await fetch(`/children/${c.id}/chores/week`);
@@ -78,10 +80,13 @@ export default function ParentDashboard() {
             const data = await rb.json();
             bal[c.id] = data.balance;
           }
+          const rs = await fetch(`/children/${c.id}/savers`, { headers: { Authorization: `Bearer ${token}` } });
+          sav[c.id] = rs.ok ? await rs.json() : [];
         } catch {}
       }
       setWeeklyByChild(map);
       setBalances(bal);
+      setSaversByChild(sav);
     })();
   }, [token, selectedFamily, children]);
 
@@ -117,6 +122,7 @@ export default function ParentDashboard() {
   async function refreshWeekly() {
     const map: Record<string, any> = {};
     const bal: Record<string, { available: number; reserved: number }> = {};
+    const sav: Record<string, any[]> = {};
     for (const c of children) {
       try {
         const rw = await fetch(`/children/${c.id}/chores/week`);
@@ -126,10 +132,13 @@ export default function ParentDashboard() {
           const data = await rb.json();
           bal[c.id] = data.balance;
         }
+        const rs = await fetch(`/children/${c.id}/savers`, { headers: { Authorization: `Bearer ${token}` } });
+        sav[c.id] = rs.ok ? await rs.json() : [];
       } catch {}
     }
     setWeeklyByChild(map);
     setBalances(bal);
+    setSaversByChild(sav);
   }
 
   const handleAddCoParent = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -328,7 +337,8 @@ export default function ParentDashboard() {
                         <tr>
                           <th scope="col">Display name</th>
                           <th scope="col">Username</th>
-                          <th scope="col">Balance</th>
+                          <th scope="col">Total</th>
+                          <th scope="col">Goals</th>
                           <th scope="col" className="text-end">Actions</th>
                         </tr>
                       </thead>
@@ -338,7 +348,10 @@ export default function ParentDashboard() {
                             <td>{c.displayName}</td>
                             <td className="text-muted">{c.username}</td>
                             <td>
-                              <span className="badge bg-light text-dark">{balances[c.id]?.available ?? 0}</span>
+                              <div className="d-flex flex-column gap-1">
+                                <div><span className="badge bg-light text-dark">{(balances[c.id]?.available ?? 0) + (balances[c.id]?.reserved ?? 0)}</span> <span className="text-muted small">total</span></div>
+                                <div className="small text-muted">Available: {balances[c.id]?.available ?? 0} • Allocated: {balances[c.id]?.reserved ?? 0}</div>
+                              </div>
                               <form
                                 className="d-flex gap-2 align-items-center mt-2"
                                 onSubmit={(e) => e.preventDefault()}
@@ -369,6 +382,22 @@ export default function ParentDashboard() {
                                   }}
                                 >- Debit</button>
                               </form>
+                            </td>
+                            <td>
+                              <div className="small">
+                                {(saversByChild[c.id] || []).length === 0 ? (
+                                  <span className="text-muted">No items</span>
+                                ) : (
+                                  <ul className="list-unstyled mb-0">
+                                    {(saversByChild[c.id] || []).filter((s) => !s.completed).map((s) => (
+                                      <li key={s.id}>
+                                        <span className="fw-semibold">{s.name}</span>
+                                        <span className="text-muted"> — saved {s.reserved || 0} / {s.target}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
                             </td>
                             <td className="text-end">
                               <button className="btn btn-sm btn-outline-secondary me-2" type="button" onClick={() => handleRenameChild(c.id)}>Rename</button>

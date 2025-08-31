@@ -9,6 +9,7 @@ const config: Config = {
     '<rootDir>/src/repos\\.pg\\.ts',
     '<rootDir>/src/repos\\.chores\\.pg\\.ts',
     '<rootDir>/src/repos\\.bank\\.pg\\.ts',
+    '<rootDir>/src/repos\\.savers\\.pg\\.ts',
     '<rootDir>/src/auth\\.google\\.ts'
   ],
   collectCoverageFrom: [
