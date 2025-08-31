@@ -116,14 +116,21 @@ export default function ChildDashboard() {
                 <div className="text-muted">No chores this week.</div>
               ) : (
                 <>
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <div className="small text-muted">Total: {weekData.totalApproved} / {weekData.totalPlanned}</div>
-                    <div className="flex-grow-1 ms-3">
-                      <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={weekData.totalPlanned} aria-valuenow={weekData.totalApproved} style={{height: '10px'}}>
-                        <div className="progress-bar" style={{ width: `${weekData.totalPlanned ? Math.round((weekData.totalApproved/Math.max(1, weekData.totalPlanned))*100) : 0}%` }}></div>
+                  {(() => {
+                    const plannedCount = weekData.days.reduce((s, d) => s + d.items.length, 0);
+                    const completedCount = weekData.days.reduce((s, d) => s + d.items.filter((it: any) => it.status === 'approved' || it.status === 'pending').length, 0);
+                    const pct = plannedCount ? Math.round((completedCount / plannedCount) * 100) : 0;
+                    return (
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <div className="small text-muted">Completed: {completedCount} / {plannedCount} • Coins: {weekData.totalApproved} / {weekData.totalPlanned}</div>
+                        <div className="flex-grow-1 ms-3">
+                          <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={plannedCount} aria-valuenow={completedCount} style={{height: '10px'}}>
+                            <div className="progress-bar" style={{ width: `${pct}%` }}></div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                   <div className="table-responsive">
                     <table className="table table-sm align-middle mb-0">
                       <thead>
