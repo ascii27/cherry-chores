@@ -4,6 +4,12 @@ const config: Config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
+  // Ensure DB/OAuth runtime files are ignored even if imported
+  coveragePathIgnorePatterns: [
+    '<rootDir>/src/repos\\.pg\\.ts',
+    '<rootDir>/src/repos\\.chores\\.pg\\.ts',
+    '<rootDir>/src/auth\\.google\\.ts'
+  ],
   collectCoverageFrom: [
     '<rootDir>/src/**/*.ts',
     '!<rootDir>/src/repos.prisma.ts',
