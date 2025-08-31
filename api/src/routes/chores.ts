@@ -192,5 +192,34 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
     res.status(204).send();
   });
 
+  // Bulk approve/reject
+  router.post('/approvals/bulk-approve', requireRole('parent'), async (req: Request, res) => {
+    const { familyId, ids } = req.body || {};
+    if (!familyId || !Array.isArray(ids)) return res.status(400).json({ error: 'missing fields' });
+    const fam = await families.getFamilyById(familyId);
+    if (!fam || !fam.parentIds.includes((req as AuthedRequest).user!.id)) return res.status(403).json({ error: 'forbidden' });
+    const pend = await chores.listPendingCompletionsByFamily(familyId);
+    for (const id of ids) {
+      const p = pend.find((x) => x.id === id);
+      if (p) {
+        await chores.deleteCompletion(p.id);
+        await chores.createCompletion({ ...p, id: `comp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, status: 'approved' });
+      }
+    }
+    res.status(204).send();
+  });
+  router.post('/approvals/bulk-reject', requireRole('parent'), async (req: Request, res) => {
+    const { familyId, ids } = req.body || {};
+    if (!familyId || !Array.isArray(ids)) return res.status(400).json({ error: 'missing fields' });
+    const fam = await families.getFamilyById(familyId);
+    if (!fam || !fam.parentIds.includes((req as AuthedRequest).user!.id)) return res.status(403).json({ error: 'forbidden' });
+    const pend = await chores.listPendingCompletionsByFamily(familyId);
+    for (const id of ids) {
+      const p = pend.find((x) => x.id === id);
+      if (p) await chores.deleteCompletion(p.id);
+    }
+    res.status(204).send();
+  });
+
   return router;
 }

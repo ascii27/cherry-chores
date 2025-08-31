@@ -13,6 +13,7 @@ export default function ParentDashboard() {
   const [chores, setChores] = useState<any[]>([]);
   const [approvals, setApprovals] = useState<any[]>([]);
   const [editingChore, setEditingChore] = useState<any | null>(null);
+  const [bulk, setBulk] = useState<{ [id: string]: boolean }>({});
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
 
   useEffect(() => {
@@ -474,6 +475,23 @@ export default function ParentDashboard() {
                             <td>{h.value}</td>
                             <td className="text-muted">{children.filter((c) => h.assignedChildIds?.includes(c.id)).map((c) => c.displayName).join(', ') || '-'}</td>
                             <td className="text-end">
+                              <div className="form-check form-switch d-inline-block me-2">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id={`active-${h.id}`}
+                                  defaultChecked={h.active !== false}
+                                  onChange={async (e) => {
+                                    await fetch(`/chores/${h.id}`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                      body: JSON.stringify({ active: e.target.checked })
+                                    });
+                                    await refreshChores();
+                                  }}
+                                />
+                                <label className="form-check-label small" htmlFor={`active-${h.id}`}>Active</label>
+                              </div>
                               <button
                                 className="btn btn-sm btn-outline-secondary me-2"
                                 type="button"
@@ -510,9 +528,42 @@ export default function ParentDashboard() {
                   <div className="text-muted">No pending approvals.</div>
                 ) : (
                   <div className="table-responsive">
+                    <div className="d-flex justify-content-end mb-2 gap-2">
+                      <button
+                        className="btn btn-sm btn-outline-secondary"
+                        onClick={() => setBulk(Object.fromEntries(approvals.map((a) => [a.id, true])))}
+                      >
+                        Select all
+                      </button>
+                      <button
+                        className="btn btn-sm btn-success"
+                        onClick={async () => {
+                          const ids = approvals.filter((a) => bulk[a.id]).map((a) => a.id);
+                          if (ids.length === 0) return;
+                          await fetch('/approvals/bulk-approve', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id, ids }) });
+                          await refreshApprovals();
+                          setBulk({});
+                        }}
+                      >
+                        Approve selected
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={async () => {
+                          const ids = approvals.filter((a) => bulk[a.id]).map((a) => a.id);
+                          if (ids.length === 0) return;
+                          await fetch('/approvals/bulk-reject', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id, ids }) });
+                          await refreshApprovals();
+                          setBulk({});
+                        }}
+                      >
+                        Reject selected
+                      </button>
+                    </div>
                     <table className="table align-middle">
                       <thead>
                         <tr>
+                          <th scope="col" style={{width: '2rem'}}></th>
                           <th scope="col">Child</th>
                           <th scope="col">Chore</th>
                           <th scope="col">Date</th>
@@ -525,6 +576,14 @@ export default function ParentDashboard() {
                           const chore = chores.find((h) => h.id === a.choreId);
                           return (
                             <tr key={a.id}>
+                              <td>
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  checked={!!bulk[a.id]}
+                                  onChange={(e) => setBulk((prev) => ({ ...prev, [a.id]: e.target.checked }))}
+                                />
+                              </td>
                               <td>{child?.displayName || a.childId}</td>
                               <td>{chore?.name || a.choreId}</td>
                               <td className="text-muted">{a.date}</td>
