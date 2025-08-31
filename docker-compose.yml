@@ -3,3 +3,27 @@ services:
     build: .
     ports:
       - "3000:3000"
+    environment:
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL-http://localhost:3000/auth/google/callback}
+      - POST_LOGIN_REDIRECT_URL=${POST_LOGIN_REDIRECT_URL-http://localhost:3000/parent}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - USE_DB=${USE_DB-true}
+      - DATABASE_URL=${DATABASE_URL-postgresql://postgres:postgres@db:5432/cherry_chores?schema=public}
+      - JWT_SECRET=${JWT_SECRET-dev-secret}
+    depends_on:
+      - db
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=cherry_chores
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
