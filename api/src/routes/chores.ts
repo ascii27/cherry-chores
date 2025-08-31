@@ -127,6 +127,46 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
     res.json(items);
   });
 
+  // Child: weekly overview (Sun..Sat)
+  router.get('/children/:childId/chores/week', async (req: Request, res) => {
+    const child = await users.getChildById(req.params.childId);
+    if (!child) return res.status(404).json({ error: 'child not found' });
+    const famChores = await chores.listChoresByFamily(child.familyId);
+    const assigned = famChores.filter((c) => c.active && c.assignedChildIds.includes(child.id));
+    const now = new Date();
+    const dowToday = now.getDay();
+    // compute week start (Sunday)
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(now.getDate() - dowToday);
+    function fmt(d: Date) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    }
+    const days: any[] = [];
+    const completions = await chores.listCompletionsForChildInRange(child.id, fmt(start), fmt(new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6)));
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const dateStr = fmt(d);
+      const dow = d.getDay();
+      const dueItems = assigned.filter((c) => c.recurrence === 'daily' || (c.recurrence === 'weekly' && c.dueDay === dow));
+      const items = dueItems.map((c) => {
+        const comp = completions.find((x) => x.choreId === c.id && x.date === dateStr);
+        const status = comp ? comp.status : (i < dowToday ? 'missed' : (i === dowToday ? 'due' : 'planned'));
+        return { id: c.id, name: c.name, value: c.value, status };
+      });
+      const plannedValue = dueItems.reduce((s, c) => s + (c.value || 0), 0);
+      const approvedValue = completions.filter((x) => x.date === dateStr && x.status === 'approved').reduce((s, x) => {
+        const ch = dueItems.find((c) => c.id === x.choreId);
+        return s + (ch?.value || 0);
+      }, 0);
+      days.push({ date: dateStr, dow, items, plannedValue, approvedValue });
+    }
+    const totalPlanned = days.reduce((s, d) => s + d.plannedValue, 0);
+    const totalApproved = days.reduce((s, d) => s + d.approvedValue, 0);
+    res.json({ weekStart: fmt(start), days, totalPlanned, totalApproved, today: dowToday });
+  });
+
   // Child marks chore complete
   router.post('/chores/:id/complete', async (req: Request, res) => {
     const { childId } = req.body || {};

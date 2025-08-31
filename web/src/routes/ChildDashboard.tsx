@@ -5,7 +5,7 @@ export default function ChildDashboard() {
   const nav = useNavigate();
   const [child, setChild] = useState<{ id: string; familyId: string } | null>(null);
   const [today, setToday] = useState<any[]>([]);
-  const [week, setWeek] = useState<any[]>([]);
+  const [weekData, setWeekData] = useState<{ days: any[]; totalPlanned: number; totalApproved: number; today: number } | null>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('childToken');
@@ -21,9 +21,9 @@ export default function ChildDashboard() {
         if (!data?.id || data?.role === 'parent') { nav('/'); return; }
         setChild({ id: data.id, familyId: data.familyId });
         const r1 = await fetch(`/children/${data.id}/chores?scope=today`);
-        const r2 = await fetch(`/children/${data.id}/chores?scope=week`);
+        const r2 = await fetch(`/children/${data.id}/chores/week`);
         setToday(r1.ok ? await r1.json() : []);
-        setWeek(r2.ok ? await r2.json() : []);
+        setWeekData(r2.ok ? await r2.json() : null);
       } catch {
         nav('/');
       }
@@ -112,20 +112,49 @@ export default function ChildDashboard() {
           <div className="card h-100">
             <div className="card-body">
               <h2 className="h6">This Week</h2>
-              {week.length === 0 ? (
+              {!weekData ? (
                 <div className="text-muted">No chores this week.</div>
               ) : (
-                <ul className="list-group list-group-flush">
-                  {week.map((w) => (
-                    <li key={w.id} className="list-group-item d-flex justify-content-between align-items-center">
-                      <div>
-                        <div className="fw-semibold">{w.name}</div>
-                        <div className="small text-muted">{w.description || ''}</div>
+                <>
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <div className="small text-muted">Total: {weekData.totalApproved} / {weekData.totalPlanned}</div>
+                    <div className="flex-grow-1 ms-3">
+                      <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={weekData.totalPlanned} aria-valuenow={weekData.totalApproved} style={{height: '10px'}}>
+                        <div className="progress-bar" style={{ width: `${weekData.totalPlanned ? Math.round((weekData.totalApproved/Math.max(1, weekData.totalPlanned))*100) : 0}%` }}></div>
                       </div>
-                      <span className="badge bg-light text-dark">{w.dueDay !== undefined ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][w.dueDay] : 'Daily'}</span>
-                    </li>
-                  ))}
-                </ul>
+                    </div>
+                  </div>
+                  <div className="table-responsive">
+                    <table className="table table-sm align-middle mb-0">
+                      <thead>
+                        <tr>
+                          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
+                            <th key={d} className={weekData.today === i ? 'table-primary' : ''}>{d}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          {weekData.days.map((day, i) => (
+                            <td key={day.date} className={weekData.today === i ? 'table-primary' : ''}>
+                              {day.items.length === 0 ? (
+                                <span className="text-muted small">-</span>
+                              ) : (
+                                <ul className="list-unstyled mb-0 small">
+                                  {day.items.map((it: any) => (
+                                    <li key={it.id}>
+                                      {it.name} <span className="text-muted">(+{it.value})</span> {it.status === 'approved' ? '✅' : it.status === 'pending' ? '⏳' : it.status === 'missed' ? '⚠️' : ''}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </div>
           </div>

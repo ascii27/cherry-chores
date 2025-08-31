@@ -14,6 +14,7 @@ export default function ParentDashboard() {
   const [approvals, setApprovals] = useState<any[]>([]);
   const [editingChore, setEditingChore] = useState<any | null>(null);
   const [bulk, setBulk] = useState<{ [id: string]: boolean }>({});
+  const [weeklyByChild, setWeeklyByChild] = useState<Record<string, any>>({});
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
 
   useEffect(() => {
@@ -60,7 +61,18 @@ export default function ParentDashboard() {
       .then((r) => (r.ok ? r.json() : []))
       .then(setApprovals)
       .catch(() => setApprovals([]));
-  }, [token, selectedFamily]);
+    // Weekly overview per child
+    (async () => {
+      const map: Record<string, any> = {};
+      for (const c of children) {
+        try {
+          const rw = await fetch(`/children/${c.id}/chores/week`);
+          map[c.id] = rw.ok ? await rw.json() : null;
+        } catch {}
+      }
+      setWeeklyByChild(map);
+    })();
+  }, [token, selectedFamily, children]);
 
   const handleCreateFamily = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -603,6 +615,54 @@ export default function ParentDashboard() {
                                   }}
                                 >Reject</button>
                               </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <h2 className="h5">Week Overview</h2>
+                {children.length === 0 ? (
+                  <div className="text-muted">No children.</div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table align-middle">
+                      <thead>
+                        <tr>
+                          <th scope="col">Child</th>
+                          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => (
+                            <th key={d} scope="col">{d}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {children.map((c) => {
+                          const w = weeklyByChild[c.id];
+                          if (!w) return (
+                            <tr key={c.id}>
+                              <td className="fw-semibold">{c.displayName}</td>
+                              {Array.from({ length: 7 }).map((_, i) => <td key={`${c.id}-empty-${i}`}>-</td>)}
+                            </tr>
+                          );
+                          return (
+                            <tr key={c.id}>
+                              <td className="fw-semibold">{c.displayName}</td>
+                              {w.days.map((day: any, i: number) => {
+                                const planned = day.items.length;
+                                const completed = day.items.filter((it: any) => it.status === 'approved' || it.status === 'pending').length;
+                                return (
+                                  <td key={`${c.id}-${day.date}`} className={w.today === i ? 'table-primary' : ''}>
+                                    <span className="small">{completed}/{planned}</span>
+                                  </td>
+                                );
+                              })}
                             </tr>
                           );
                         })}
