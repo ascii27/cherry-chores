@@ -6,6 +6,9 @@ import pkg from '../package.json';
 import { InMemoryRepos } from './repositories';
 import { PgRepos } from './repos.pg';
 import { PgChoresRepo } from './repos.chores.pg';
+import { PgBankRepo } from './repos.bank.pg';
+import { bankRoutes } from './routes/bank';
+import { InMemoryBankRepo } from './bank.memory';
 import { choresRoutes } from './routes/chores';
 import { Pool } from 'pg';
 import { DevAuthProvider, JwtService } from './auth';
@@ -49,11 +52,15 @@ export function createApp(deps?: { useDb?: boolean }) {
   if (useDb) {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     const choresRepo = new PgChoresRepo(pool);
+    const bankRepo = new PgBankRepo(pool);
     // fire and forget init
     choresRepo.init().catch(() => {});
+    bankRepo.init().catch(() => {});
     app.use(choresRoutes({ chores: choresRepo, families: repos, users: repos }));
+    app.use(bankRoutes({ bank: bankRepo, users: repos, families: repos }));
   } else {
     app.use(choresRoutes({ chores: repos as any, families: repos, users: repos }));
+    app.use(bankRoutes({ bank: repos as any, users: repos, families: repos }));
   }
 
   // Serve built web app statically if present (single-container runtime)
