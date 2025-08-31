@@ -74,8 +74,12 @@ export default function ChildDashboard() {
                                 body: JSON.stringify({ childId: cid })
                               });
                               if (!res.ok) return;
-                              const r1 = await fetch(`/children/${cid}/chores?scope=today`);
+                              const [r1, r2] = await Promise.all([
+                                fetch(`/children/${cid}/chores?scope=today`),
+                                fetch(`/children/${cid}/chores/week`)
+                              ]);
                               setToday(r1.ok ? await r1.json() : []);
+                              setWeekData(r2.ok ? await r2.json() : null);
                             }}
                           >
                             Not done
@@ -93,8 +97,12 @@ export default function ChildDashboard() {
                                 body: JSON.stringify({ childId: cid })
                               });
                               if (!res.ok) return;
-                              const r1 = await fetch(`/children/${cid}/chores?scope=today`);
+                              const [r1, r2] = await Promise.all([
+                                fetch(`/children/${cid}/chores?scope=today`),
+                                fetch(`/children/${cid}/chores/week`)
+                              ]);
                               setToday(r1.ok ? await r1.json() : []);
+                              setWeekData(r2.ok ? await r2.json() : null);
                             }}
                           >
                             Done

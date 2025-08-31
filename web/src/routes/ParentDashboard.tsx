@@ -103,6 +103,17 @@ export default function ParentDashboard() {
     if (r.ok) setApprovals(await r.json());
   }
 
+  async function refreshWeekly() {
+    const map: Record<string, any> = {};
+    for (const c of children) {
+      try {
+        const rw = await fetch(`/children/${c.id}/chores/week`);
+        map[c.id] = rw.ok ? await rw.json() : null;
+      } catch {}
+    }
+    setWeeklyByChild(map);
+  }
+
   const handleAddCoParent = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!token || !selectedFamily) return;
@@ -325,6 +336,7 @@ export default function ParentDashboard() {
                     const r = await fetch(`/chores?familyId=${selectedFamily.id}`, { headers: { Authorization: `Bearer ${token}` } });
                     if (r.ok) setChores(await r.json());
                     (e.currentTarget as HTMLFormElement).reset();
+                    await refreshWeekly();
                   }}
                 >
                   <div className="col-md-4">
@@ -406,6 +418,7 @@ export default function ParentDashboard() {
                       });
                       setEditingChore(null);
                       await refreshChores();
+                      await refreshWeekly();
                     }}
                   >
                     <div className="col-12">
@@ -518,6 +531,7 @@ export default function ParentDashboard() {
                                   if (!window.confirm('Delete this chore?')) return;
                                   await fetch(`/chores/${h.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
                                   setChores((prev) => prev.filter((x) => x.id !== h.id));
+                                  await refreshWeekly();
                                 }}
                               >
                                 Delete
@@ -554,6 +568,7 @@ export default function ParentDashboard() {
                           if (ids.length === 0) return;
                           await fetch('/approvals/bulk-approve', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id, ids }) });
                           await refreshApprovals();
+                          await refreshWeekly();
                           setBulk({});
                         }}
                       >
@@ -566,6 +581,7 @@ export default function ParentDashboard() {
                           if (ids.length === 0) return;
                           await fetch('/approvals/bulk-reject', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id, ids }) });
                           await refreshApprovals();
+                          await refreshWeekly();
                           setBulk({});
                         }}
                       >
@@ -605,6 +621,7 @@ export default function ParentDashboard() {
                                   onClick={async () => {
                                     await fetch(`/approvals/${a.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id }) });
                                     await refreshApprovals();
+                                    await refreshWeekly();
                                   }}
                                 >Approve</button>
                                 <button
@@ -612,6 +629,7 @@ export default function ParentDashboard() {
                                   onClick={async () => {
                                     await fetch(`/approvals/${a.id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id }) });
                                     await refreshApprovals();
+                                    await refreshWeekly();
                                   }}
                                 >Reject</button>
                               </td>
