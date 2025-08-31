@@ -9,6 +9,7 @@ export interface LedgerEntry {
   meta?: {
     familyId?: string;
     weekStart?: string; // YYYY-MM-DD (Sunday start)
+    saverId?: string; // for reserve/release against a saver goal
   };
   actor?: {
     role: 'parent' | 'child' | 'system';

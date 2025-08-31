@@ -92,5 +92,36 @@ export function bankRoutes(opts: { bank: BankRepository; users: UsersRepository;
     res.status(204).send();
   });
 
+  // Manually allocate coins from available to a specific goal (reserve)
+  router.post('/bank/:childId/allocate', async (req: Request, res) => {
+    if (!savers) return res.status(501).json({ error: 'savers not configured' });
+    const child = await users.getChildById(req.params.childId);
+    if (!child) return res.status(404).json({ error: 'not found' });
+    const actor = (req as AuthedRequest).user;
+    const fam = await families.getFamilyById(child.familyId);
+    const isParent = actor?.role === 'parent' && !!fam && fam.parentIds.includes(actor.id);
+    const isChildSelf = actor?.role === 'child' && actor.id === child.id;
+    if (!(isParent || isChildSelf)) return res.status(403).json({ error: 'forbidden' });
+    const { saverId, amount } = req.body || {};
+    if (!saverId || typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: 'invalid fields' });
+    const saver = await savers.getSaverById(saverId);
+    if (!saver || saver.childId !== child.id) return res.status(404).json({ error: 'saver not found' });
+    if (!saver.isGoal) return res.status(400).json({ error: 'saver is not a goal' });
+    const bal = await bank.getBalance(child.id);
+    if (bal.available < amount) return res.status(400).json({ error: 'insufficient funds' });
+    await bank.addLedgerEntry({
+      id: `reserve_${child.id}_${saver.id}_${Date.now()}`,
+      childId: child.id,
+      amount: -Math.abs(amount),
+      type: 'reserve',
+      note: `Manual allocation to ${saver.name}`,
+      createdAt: new Date().toISOString(),
+      actor: isParent ? { role: 'parent', id: actor!.id } : { role: 'child', id: child.id },
+      meta: { saverId: saver.id }
+    });
+    const newBal = await bank.getBalance(child.id);
+    res.status(201).json({ ok: true, balance: newBal });
+  });
+
   return router;
 }

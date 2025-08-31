@@ -80,7 +80,7 @@ export default function ParentDashboard() {
             const data = await rb.json();
             bal[c.id] = data.balance;
           }
-          const rs = await fetch(`/children/${c.id}/savers`);
+          const rs = await fetch(`/children/${c.id}/savers`, { headers: { Authorization: `Bearer ${token}` } });
           sav[c.id] = rs.ok ? await rs.json() : [];
         } catch {}
       }
@@ -132,7 +132,7 @@ export default function ParentDashboard() {
           const data = await rb.json();
           bal[c.id] = data.balance;
         }
-        const rs = await fetch(`/children/${c.id}/savers`);
+        const rs = await fetch(`/children/${c.id}/savers`, { headers: { Authorization: `Bearer ${token}` } });
         sav[c.id] = rs.ok ? await rs.json() : [];
       } catch {}
     }
@@ -388,29 +388,19 @@ export default function ParentDashboard() {
                                   <ul className="list-unstyled mb-0">
                                     {(saversByChild[c.id] || []).map((s) => (
                                       <li key={s.id}>
-                                        {s.name} {s.isGoal ? <span className="text-muted">({s.allocation}%)</span> : <span className="badge bg-light text-dark">not goal</span>}
-                                        {s.isGoal ? (
-                                          <input
-                                            type="range"
-                                            min={0}
-                                            max={100}
-                                            defaultValue={s.allocation}
-                                            className="form-range"
-                                            onMouseUp={async (e) => {
-                                              const pct = parseInt((e.target as HTMLInputElement).value, 10);
-                                              await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ allocation: pct }) });
-                                              await refreshWeekly();
-                                            }}
-                                          />
-                                        ) : (
-                                          <button
-                                            className="btn btn-sm btn-outline-primary"
-                                            onClick={async () => {
-                                              await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ isGoal: true, allocation: 10 }) });
-                                              await refreshWeekly();
-                                            }}
-                                          >Make goal</button>
-                                        )}
+                                        {s.name} <span className="text-muted">({s.allocation}%)</span>
+                                        <input
+                                          type="range"
+                                          min={0}
+                                          max={100}
+                                          defaultValue={s.allocation}
+                                          className="form-range"
+                                          onMouseUp={async (e) => {
+                                            const pct = parseInt((e.target as HTMLInputElement).value, 10);
+                                            await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ allocation: pct }) });
+                                            await refreshWeekly();
+                                          }}
+                                        />
                                       </li>
                                     ))}
                                   </ul>
