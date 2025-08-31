@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useToast } from '../components/Toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function ParentDashboard() {
@@ -17,6 +18,7 @@ export default function ParentDashboard() {
   const [weeklyByChild, setWeeklyByChild] = useState<Record<string, any>>({});
   const [balances, setBalances] = useState<Record<string, { available: number; reserved: number }>>({});
   const [payoutBusy, setPayoutBusy] = useState(false);
+  const { push } = useToast();
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
 
   useEffect(() => {
@@ -239,8 +241,9 @@ export default function ParentDashboard() {
                         body: JSON.stringify({ familyId: selectedFamily.id })
                       });
                       if (!res.ok) {
-                        try { const err = await res.json(); alert(err?.error || 'Payout failed'); } catch { alert('Payout failed'); }
+                        try { const err = await res.json(); push('error', err?.error || 'Payout failed'); } catch { push('error', 'Payout failed'); }
                       } else {
+                        push('success', 'Payout complete for this week');
                         await refreshWeekly();
                       }
                     } finally {
@@ -348,7 +351,8 @@ export default function ParentDashboard() {
                                     if (!token) return;
                                     const amt = parseInt((document.getElementById(`adj-${c.id}`) as HTMLInputElement).value || '0', 10);
                                     if (!amt) return;
-                                    await fetch(`/bank/${c.id}/adjust`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount: Math.abs(amt), note: 'credit' }) });
+                                    const r = await fetch(`/bank/${c.id}/adjust`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount: Math.abs(amt), note: 'credit' }) });
+                                    if (r.ok) push('success', `Credited ${Math.abs(amt)} to ${c.displayName}`); else push('error', 'Credit failed');
                                     await refreshWeekly();
                                   }}
                                 >+ Credit</button>
@@ -359,7 +363,8 @@ export default function ParentDashboard() {
                                     if (!token) return;
                                     const amt = parseInt((document.getElementById(`adj-${c.id}`) as HTMLInputElement).value || '0', 10);
                                     if (!amt) return;
-                                    await fetch(`/bank/${c.id}/adjust`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount: -Math.abs(amt), note: 'debit' }) });
+                                    const r = await fetch(`/bank/${c.id}/adjust`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount: -Math.abs(amt), note: 'debit' }) });
+                                    if (r.ok) push('success', `Debited ${Math.abs(amt)} from ${c.displayName}`); else push('error', 'Debit failed');
                                     await refreshWeekly();
                                   }}
                                 >- Debit</button>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useToast } from '../components/Toast';
 import { useNavigate } from 'react-router-dom';
 
 export default function ChildDashboard() {
@@ -8,6 +9,7 @@ export default function ChildDashboard() {
   const [weekData, setWeekData] = useState<{ days: any[]; totalPlanned: number; totalApproved: number; today: number } | null>(null);
   const [balance, setBalance] = useState<{ available: number; reserved: number } | null>(null);
   const [ledger, setLedger] = useState<any[]>([]);
+  const { push } = useToast();
 
   useEffect(() => {
     const token = localStorage.getItem('childToken');
@@ -77,6 +79,7 @@ export default function ChildDashboard() {
                       body: JSON.stringify({ amount: amt, note: 'spend' })
                     });
                     if (res.ok) {
+                      push('success', `Spent ${amt}`);
                       const rb = await fetch(`/bank/${cid}`);
                       if (rb.ok) {
                         const b = await rb.json();
@@ -87,9 +90,9 @@ export default function ChildDashboard() {
                     } else {
                       try {
                         const err = await res.json();
-                        alert(err?.error || 'Spend failed');
+                        push('error', err?.error || 'Spend failed');
                       } catch {
-                        alert('Spend failed');
+                        push('error', 'Spend failed');
                       }
                     }
                   }}
@@ -105,13 +108,14 @@ export default function ChildDashboard() {
                 <ul className="list-unstyled small mb-0">
                   {ledger.slice(0, 5).map((e) => {
                     const when = e.createdAt ? new Date(e.createdAt).toLocaleString() : '';
-                    const who = e.actor?.name || e.actor?.email || (e.actor?.role ? e.actor.role : '');
+                    const whoName = e.actor?.name || e.actor?.email || '';
+                    const role = e.actor?.role ? ` (${e.actor.role})` : '';
                     const label = e.type === 'payout' ? 'Payout' : e.type === 'spend' ? 'Spend' : 'Adjust';
                     return (
                       <li key={e.id}>
                         <span className={e.amount >= 0 ? 'text-success' : 'text-danger'}>{e.amount >= 0 ? '+' : ''}{e.amount}</span>
                         {' '}• {label}
-                        {who ? <> • <span className="text-muted">{who}</span></> : null}
+                        {(whoName || role) ? <> • <span className="text-muted">{whoName}{role}</span></> : null}
                         {when ? <> • <span className="text-muted">{when}</span></> : null}
                       </li>
                     );
