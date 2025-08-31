@@ -62,36 +62,42 @@ export default function ChildDashboard() {
                       <div className="d-flex align-items-center gap-2">
                         {t.status === 'pending' && <span className="badge bg-warning text-dark">Pending</span>}
                         {t.status === 'approved' && <span className="badge bg-success">Done</span>}
-                        {t.status ? (
+                        {t.status && (
                           <button
                             className="btn btn-sm btn-outline-secondary"
                             onClick={async () => {
-                              const token = localStorage.getItem('childToken');
-                              await fetch(`/chores/${t.id}/uncomplete`, {
+                              const cid = child?.id;
+                              if (!cid) return;
+                              const res = await fetch(`/chores/${t.id}/uncomplete`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ childId: child?.id })
+                                body: JSON.stringify({ childId: cid })
                               });
-                              const r1 = await fetch(`/children/${child?.id}/chores?scope=today`);
+                              if (!res.ok) return;
+                              const r1 = await fetch(`/children/${cid}/chores?scope=today`);
                               setToday(r1.ok ? await r1.json() : []);
                             }}
                           >
-                            Unmark
+                            Not done
                           </button>
-                        ) : (
+                        )}
+                        {(!t.status || t.status === null) && (
                           <button
                             className="btn btn-sm btn-primary"
                             onClick={async () => {
-                              await fetch(`/chores/${t.id}/complete`, {
+                              const cid = child?.id;
+                              if (!cid) return;
+                              const res = await fetch(`/chores/${t.id}/complete`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ childId: child?.id })
+                                body: JSON.stringify({ childId: cid })
                               });
-                              const r1 = await fetch(`/children/${child?.id}/chores?scope=today`);
+                              if (!res.ok) return;
+                              const r1 = await fetch(`/children/${cid}/chores?scope=today`);
                               setToday(r1.ok ? await r1.json() : []);
                             }}
                           >
-                            Mark done
+                            Done
                           </button>
                         )}
                       </div>

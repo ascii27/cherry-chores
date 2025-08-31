@@ -150,7 +150,7 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
     const comps = await chores.listCompletionsForChildInRange(childId, compDate, compDate);
     const comp = comps.find((x) => x.choreId === req.params.id && x.date === compDate);
     if (!comp) return res.status(404).json({ error: 'not found' });
-    if (comp.status !== 'pending') return res.status(400).json({ error: 'cannot unmark approved' });
+    // Allow reverting even if already approved (no ledger impact in Phase 2)
     await chores.deleteCompletion(comp.id);
     res.status(204).send();
   });
@@ -194,4 +194,3 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
 
   return router;
 }
-
