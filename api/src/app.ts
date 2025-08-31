@@ -57,10 +57,10 @@ export function createApp(deps?: { useDb?: boolean }) {
     choresRepo.init().catch(() => {});
     bankRepo.init().catch(() => {});
     app.use(choresRoutes({ chores: choresRepo, families: repos, users: repos }));
-    app.use(bankRoutes({ bank: bankRepo, users: repos, families: repos }));
+    app.use(bankRoutes({ bank: bankRepo, users: repos, families: repos, chores: choresRepo }));
   } else {
     app.use(choresRoutes({ chores: repos as any, families: repos, users: repos }));
-    app.use(bankRoutes({ bank: repos as any, users: repos, families: repos }));
+    app.use(bankRoutes({ bank: repos as any, users: repos, families: repos, chores: repos as any }));
   }
 
   // Serve built web app statically if present (single-container runtime)

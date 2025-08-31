@@ -16,6 +16,7 @@ export default function ParentDashboard() {
   const [bulk, setBulk] = useState<{ [id: string]: boolean }>({});
   const [weeklyByChild, setWeeklyByChild] = useState<Record<string, any>>({});
   const [balances, setBalances] = useState<Record<string, { available: number; reserved: number }>>({});
+  const [payoutBusy, setPayoutBusy] = useState(false);
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
 
   useEffect(() => {
@@ -218,12 +219,39 @@ export default function ParentDashboard() {
       ) : (
         <div className="row g-4">
           <div className="col-md-6">
-            <div className="card h-100">
-              <div className="card-body">
-                <h2 className="h5">Family</h2>
-                <p className="mb-1"><strong>Name:</strong> {selectedFamily?.name}</p>
-                <p className="mb-3"><strong>Timezone:</strong> {selectedFamily?.timezone}</p>
-                <h3 className="h6">Parents</h3>
+          <div className="card h-100">
+            <div className="card-body">
+              <h2 className="h5">Family</h2>
+              <p className="mb-1"><strong>Name:</strong> {selectedFamily?.name}</p>
+              <p className="mb-3"><strong>Timezone:</strong> {selectedFamily?.timezone}</p>
+              <div className="mb-3">
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  type="button"
+                  disabled={payoutBusy || !selectedFamily}
+                  onClick={async () => {
+                    if (!token || !selectedFamily) return;
+                    setPayoutBusy(true);
+                    try {
+                      const res = await fetch('/bank/payout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ familyId: selectedFamily.id })
+                      });
+                      if (!res.ok) {
+                        try { const err = await res.json(); alert(err?.error || 'Payout failed'); } catch { alert('Payout failed'); }
+                      } else {
+                        await refreshWeekly();
+                      }
+                    } finally {
+                      setPayoutBusy(false);
+                    }
+                  }}
+                >
+                  {payoutBusy ? 'Paying…' : 'Run payout for this week'}
+                </button>
+              </div>
+              <h3 className="h6">Parents</h3>
                 {parents.length === 0 ? (
                   <div className="text-muted mb-3">No parents yet.</div>
                 ) : (

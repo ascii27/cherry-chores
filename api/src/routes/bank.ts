@@ -1,11 +1,12 @@
 import { Request, Router } from 'express';
 import { AuthedRequest, requireRole } from '../middleware/auth';
-import { BankRepository, FamiliesRepository, UsersRepository } from '../repositories';
+import { BankRepository, ChoresRepository, FamiliesRepository, UsersRepository } from '../repositories';
 import { LedgerEntry } from '../bank.types';
+import { runWeeklyPayout } from '../jobs/payout';
 
-export function bankRoutes(opts: { bank: BankRepository; users: UsersRepository; families: FamiliesRepository }) {
+export function bankRoutes(opts: { bank: BankRepository; users: UsersRepository; families: FamiliesRepository; chores: ChoresRepository }) {
   const router = Router();
-  const { bank, users, families } = opts;
+  const { bank, users, families, chores } = opts;
 
   // Get balance and recent ledger entries for a child
   router.get('/bank/:childId', async (req: Request, res) => {
@@ -67,6 +68,26 @@ export function bankRoutes(opts: { bank: BankRepository; users: UsersRepository;
     await bank.addLedgerEntry(entry);
     const newBal = await bank.getBalance(child.id);
     res.status(201).json({ ok: true, balance: newBal });
+  });
+
+  // Parent manually triggers payout for current week (or provided weekStart)
+  router.post('/bank/payout', requireRole('parent'), async (req: Request, res) => {
+    const { familyId, weekStart } = req.body || {};
+    if (!familyId) return res.status(400).json({ error: 'missing familyId' });
+    const fam = await families.getFamilyById(familyId);
+    if (!fam) return res.status(404).json({ error: 'family not found' });
+    if (!fam.parentIds.includes((req as AuthedRequest).user!.id)) return res.status(403).json({ error: 'forbidden' });
+    function currentWeekStartStr() {
+      const now = new Date();
+      const dow = now.getDay();
+      const start = new Date(now);
+      start.setHours(0, 0, 0, 0);
+      start.setDate(now.getDate() - dow);
+      return `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
+    }
+    const ws = typeof weekStart === 'string' && weekStart.length >= 8 ? weekStart : currentWeekStartStr();
+    await runWeeklyPayout({ bank, chores, users, families }, familyId, ws);
+    res.status(204).send();
   });
 
   return router;
