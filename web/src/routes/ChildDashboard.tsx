@@ -5,6 +5,7 @@ import TopBar from '../components/TopBar';
 import Celebration from '../components/Celebration';
 import StatCard from '../components/StatCard';
 import ProgressBar from '../components/ProgressBar';
+import Coin from '../components/Coin';
 
 export default function ChildDashboard() {
   const nav = useNavigate();
@@ -97,7 +98,7 @@ export default function ChildDashboard() {
             </div>
             {/* Today (left), This Week (right) */}
             <div className="row g-3">
-        <div className="col-12 col-lg-6">
+        <div className="col-12">
           <div className="card h-100">
             <div className="card-body">
               <h2 className="h6">Today</h2>
@@ -108,7 +109,10 @@ export default function ChildDashboard() {
                   {today.map((t) => (
                     <li key={t.id} className="list-group-item d-flex justify-content-between align-items-center">
                       <div>
-                        <div className="fw-semibold">{t.name}</div>
+                        <div className="fw-semibold d-flex align-items-center gap-2">
+                          <span>{t.name}</span>
+                          <span title={`+${t.value} coins`} className="align-middle"><Coin value={t.value || 0} /></span>
+                        </div>
                         <div className="small text-muted">{t.description || ''}</div>
                       </div>
                       <div className="d-flex align-items-center gap-2">
@@ -132,7 +136,6 @@ export default function ChildDashboard() {
                               ]);
                               setToday(r1.ok ? await r1.json() : []);
                               setWeekData(r2.ok ? await r2.json() : null);
-                              setCelebrate((n) => n + 1);
                             }}
                           >
                             Not done
@@ -156,6 +159,7 @@ export default function ChildDashboard() {
                               ]);
                               setToday(r1.ok ? await r1.json() : []);
                               setWeekData(r2.ok ? await r2.json() : null);
+                              setCelebrate((n) => n + 1);
                             }}
                           >
                             Done
@@ -169,7 +173,7 @@ export default function ChildDashboard() {
             </div>
           </div>
         </div>
-        <div className="col-12 col-lg-6">
+        <div className="col-12">
           <div className="card h-100">
             <div className="card-body">
               <h2 className="h6">This Week</h2>
@@ -194,7 +198,7 @@ export default function ChildDashboard() {
                     );
                   })()}
                   <div className="table-responsive">
-                    <table className="table table-sm align-middle mb-0">
+                    <table className="table table-sm table-bordered align-middle mb-0">
                       <thead>
                         <tr>
                           {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
@@ -211,8 +215,11 @@ export default function ChildDashboard() {
                               ) : (
                                 <ul className="list-unstyled mb-0 small">
                                   {day.items.map((it: any) => (
-                                    <li key={it.id} className="d-flex justify-content-between">
-                                      <span>{it.name} <span className="text-muted">(+{it.value})</span></span>
+                                    <li key={it.id} className="d-flex justify-content-between align-items-center">
+                                      <span className="d-flex align-items-center gap-2">
+                                        <span>{it.name}</span>
+                                        <span title={`+${it.value} coins`} className="align-middle"><Coin value={it.value || 0} size={18} /></span>
+                                      </span>
                                       {it.status === 'approved' ? <span className="cc-chip cc-chip--done">Done</span> : it.status === 'pending' ? <span className="cc-chip cc-chip--pending">Pending</span> : it.status === 'missed' ? <span className="cc-chip">Missed</span> : null}
                                     </li>
                                   ))}
