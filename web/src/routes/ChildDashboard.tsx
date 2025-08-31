@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useToast } from '../components/Toast';
 import { useNavigate } from 'react-router-dom';
 
 export default function ChildDashboard() {
@@ -6,6 +7,9 @@ export default function ChildDashboard() {
   const [child, setChild] = useState<{ id: string; familyId: string } | null>(null);
   const [today, setToday] = useState<any[]>([]);
   const [weekData, setWeekData] = useState<{ days: any[]; totalPlanned: number; totalApproved: number; today: number } | null>(null);
+  const [balance, setBalance] = useState<{ available: number; reserved: number } | null>(null);
+  const [ledger, setLedger] = useState<any[]>([]);
+  const { push } = useToast();
 
   useEffect(() => {
     const token = localStorage.getItem('childToken');
@@ -24,6 +28,12 @@ export default function ChildDashboard() {
         const r2 = await fetch(`/children/${data.id}/chores/week`);
         setToday(r1.ok ? await r1.json() : []);
         setWeekData(r2.ok ? await r2.json() : null);
+        const rb = await fetch(`/bank/${data.id}`);
+        if (rb.ok) {
+          const b = await rb.json();
+          setBalance(b.balance);
+          setLedger(b.entries || []);
+        }
       } catch {
         nav('/');
       }
@@ -45,7 +55,77 @@ export default function ChildDashboard() {
         </button>
       </div>
       <div className="row g-3">
-        <div className="col-12 col-lg-6">
+        <div className="col-12 col-lg-4">
+          <div className="card h-100">
+            <div className="card-body">
+              <h2 className="h6">Bank</h2>
+              <div className="mb-2"><span className="text-muted me-2">Balance:</span><span className="badge bg-light text-dark">{balance?.available ?? 0}</span></div>
+              <form
+                className="d-flex gap-2"
+                onSubmit={(e) => e.preventDefault()}
+              >
+                <input id="spend-amt" type="number" min={1} className="form-control" placeholder="Spend amount" />
+                <button
+                  className="btn btn-outline-primary"
+                  onClick={async () => {
+                    const cid = child?.id;
+                    if (!cid) return;
+                    const token = localStorage.getItem('childToken');
+                    const amt = parseInt((document.getElementById('spend-amt') as HTMLInputElement).value || '0', 10);
+                    if (!amt) return;
+                    const res = await fetch(`/bank/${cid}/spend`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+                      body: JSON.stringify({ amount: amt, note: 'spend' })
+                    });
+                    if (res.ok) {
+                      push('success', `Spent ${amt}`);
+                      const rb = await fetch(`/bank/${cid}`);
+                      if (rb.ok) {
+                        const b = await rb.json();
+                        setBalance(b.balance);
+                        setLedger(b.entries || []);
+                        (document.getElementById('spend-amt') as HTMLInputElement).value = '';
+                      }
+                    } else {
+                      try {
+                        const err = await res.json();
+                        push('error', err?.error || 'Spend failed');
+                      } catch {
+                        push('error', 'Spend failed');
+                      }
+                    }
+                  }}
+                >
+                  Spend
+                </button>
+              </form>
+              <hr />
+              <div className="small text-muted mb-1">Recent activity</div>
+              {ledger.length === 0 ? (
+                <div className="text-muted small">No activity yet.</div>
+              ) : (
+                <ul className="list-unstyled small mb-0">
+                  {ledger.slice(0, 5).map((e) => {
+                    const when = e.createdAt ? new Date(e.createdAt).toLocaleString() : '';
+                    const whoName = e.actor?.name || e.actor?.email || '';
+                    const role = e.actor?.role ? ` (${e.actor.role})` : '';
+                    const label = e.type === 'payout' ? 'Payout' : e.type === 'spend' ? 'Spend' : 'Adjust';
+                    return (
+                      <li key={e.id}>
+                        <span className={e.amount >= 0 ? 'text-success' : 'text-danger'}>{e.amount >= 0 ? '+' : ''}{e.amount}</span>
+                        {' '}• {label}
+                        {(whoName || role) ? <> • <span className="text-muted">{whoName}{role}</span></> : null}
+                        {when ? <> • <span className="text-muted">{when}</span></> : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="col-12 col-lg-8">
           <div className="card h-100">
             <div className="card-body">
               <h2 className="h6">Today</h2>
@@ -116,7 +196,7 @@ export default function ChildDashboard() {
             </div>
           </div>
         </div>
-        <div className="col-12 col-lg-6">
+        <div className="col-12 col-lg-12">
           <div className="card h-100">
             <div className="card-body">
               <h2 className="h6">This Week</h2>

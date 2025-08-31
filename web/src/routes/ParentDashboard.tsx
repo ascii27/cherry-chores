@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useToast } from '../components/Toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function ParentDashboard() {
@@ -15,6 +16,9 @@ export default function ParentDashboard() {
   const [editingChore, setEditingChore] = useState<any | null>(null);
   const [bulk, setBulk] = useState<{ [id: string]: boolean }>({});
   const [weeklyByChild, setWeeklyByChild] = useState<Record<string, any>>({});
+  const [balances, setBalances] = useState<Record<string, { available: number; reserved: number }>>({});
+  const [payoutBusy, setPayoutBusy] = useState(false);
+  const { push } = useToast();
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
 
   useEffect(() => {
@@ -64,13 +68,20 @@ export default function ParentDashboard() {
     // Weekly overview per child
     (async () => {
       const map: Record<string, any> = {};
+      const bal: Record<string, { available: number; reserved: number }> = {};
       for (const c of children) {
         try {
           const rw = await fetch(`/children/${c.id}/chores/week`);
           map[c.id] = rw.ok ? await rw.json() : null;
+          const rb = await fetch(`/bank/${c.id}`);
+          if (rb.ok) {
+            const data = await rb.json();
+            bal[c.id] = data.balance;
+          }
         } catch {}
       }
       setWeeklyByChild(map);
+      setBalances(bal);
     })();
   }, [token, selectedFamily, children]);
 
@@ -105,13 +116,20 @@ export default function ParentDashboard() {
 
   async function refreshWeekly() {
     const map: Record<string, any> = {};
+    const bal: Record<string, { available: number; reserved: number }> = {};
     for (const c of children) {
       try {
         const rw = await fetch(`/children/${c.id}/chores/week`);
         map[c.id] = rw.ok ? await rw.json() : null;
+        const rb = await fetch(`/bank/${c.id}`);
+        if (rb.ok) {
+          const data = await rb.json();
+          bal[c.id] = data.balance;
+        }
       } catch {}
     }
     setWeeklyByChild(map);
+    setBalances(bal);
   }
 
   const handleAddCoParent = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -203,12 +221,40 @@ export default function ParentDashboard() {
       ) : (
         <div className="row g-4">
           <div className="col-md-6">
-            <div className="card h-100">
-              <div className="card-body">
-                <h2 className="h5">Family</h2>
-                <p className="mb-1"><strong>Name:</strong> {selectedFamily?.name}</p>
-                <p className="mb-3"><strong>Timezone:</strong> {selectedFamily?.timezone}</p>
-                <h3 className="h6">Parents</h3>
+          <div className="card h-100">
+            <div className="card-body">
+              <h2 className="h5">Family</h2>
+              <p className="mb-1"><strong>Name:</strong> {selectedFamily?.name}</p>
+              <p className="mb-3"><strong>Timezone:</strong> {selectedFamily?.timezone}</p>
+              <div className="mb-3">
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  type="button"
+                  disabled={payoutBusy || !selectedFamily}
+                  onClick={async () => {
+                    if (!token || !selectedFamily) return;
+                    setPayoutBusy(true);
+                    try {
+                      const res = await fetch('/bank/payout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ familyId: selectedFamily.id })
+                      });
+                      if (!res.ok) {
+                        try { const err = await res.json(); push('error', err?.error || 'Payout failed'); } catch { push('error', 'Payout failed'); }
+                      } else {
+                        push('success', 'Payout complete for this week');
+                        await refreshWeekly();
+                      }
+                    } finally {
+                      setPayoutBusy(false);
+                    }
+                  }}
+                >
+                  {payoutBusy ? 'Paying…' : 'Run payout for this week'}
+                </button>
+              </div>
+              <h3 className="h6">Parents</h3>
                 {parents.length === 0 ? (
                   <div className="text-muted mb-3">No parents yet.</div>
                 ) : (
@@ -282,6 +328,7 @@ export default function ParentDashboard() {
                         <tr>
                           <th scope="col">Display name</th>
                           <th scope="col">Username</th>
+                          <th scope="col">Balance</th>
                           <th scope="col" className="text-end">Actions</th>
                         </tr>
                       </thead>
@@ -290,6 +337,39 @@ export default function ParentDashboard() {
                           <tr key={c.id}>
                             <td>{c.displayName}</td>
                             <td className="text-muted">{c.username}</td>
+                            <td>
+                              <span className="badge bg-light text-dark">{balances[c.id]?.available ?? 0}</span>
+                              <form
+                                className="d-flex gap-2 align-items-center mt-2"
+                                onSubmit={(e) => e.preventDefault()}
+                              >
+                                <input id={`adj-${c.id}`} type="number" className="form-control form-control-sm" style={{maxWidth: '7rem'}} defaultValue={1} />
+                                <button
+                                  className="btn btn-sm btn-outline-success"
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!token) return;
+                                    const amt = parseInt((document.getElementById(`adj-${c.id}`) as HTMLInputElement).value || '0', 10);
+                                    if (!amt) return;
+                                    const r = await fetch(`/bank/${c.id}/adjust`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount: Math.abs(amt), note: 'credit' }) });
+                                    if (r.ok) push('success', `Credited ${Math.abs(amt)} to ${c.displayName}`); else push('error', 'Credit failed');
+                                    await refreshWeekly();
+                                  }}
+                                >+ Credit</button>
+                                <button
+                                  className="btn btn-sm btn-outline-danger"
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!token) return;
+                                    const amt = parseInt((document.getElementById(`adj-${c.id}`) as HTMLInputElement).value || '0', 10);
+                                    if (!amt) return;
+                                    const r = await fetch(`/bank/${c.id}/adjust`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount: -Math.abs(amt), note: 'debit' }) });
+                                    if (r.ok) push('success', `Debited ${Math.abs(amt)} from ${c.displayName}`); else push('error', 'Debit failed');
+                                    await refreshWeekly();
+                                  }}
+                                >- Debit</button>
+                              </form>
+                            </td>
                             <td className="text-end">
                               <button className="btn btn-sm btn-outline-secondary me-2" type="button" onClick={() => handleRenameChild(c.id)}>Rename</button>
                               <button className="btn btn-sm btn-outline-danger" type="button" onClick={() => handleDeleteChild(c.id)}>Delete</button>

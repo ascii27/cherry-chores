@@ -1,5 +1,6 @@
 import { ChildUser, Family, ParentUser } from './types';
 import { Chore, Completion } from './chores.types';
+import { LedgerEntry } from './bank.types';
 
 export interface UsersRepository {
   getParentByEmail(email: string): Promise<ParentUser | undefined>;
@@ -33,12 +34,20 @@ export interface ChoresRepository {
   listCompletionsForChildInRange(childId: string, start: string, end: string): Promise<Completion[]>;
 }
 
-export class InMemoryRepos implements UsersRepository, FamiliesRepository, ChoresRepository {
+export interface BankRepository {
+  addLedgerEntry(entry: LedgerEntry): Promise<LedgerEntry>;
+  getLedgerByChild(childId: string): Promise<LedgerEntry[]>;
+  getBalance(childId: string): Promise<{ available: number; reserved: number }>;
+  findPayoutForWeek(childId: string, familyId: string, weekStart: string): Promise<LedgerEntry | undefined>;
+}
+
+export class InMemoryRepos implements UsersRepository, FamiliesRepository, ChoresRepository, BankRepository {
   private parents = new Map<string, ParentUser>();
   private children = new Map<string, ChildUser>();
   private families = new Map<string, Family>();
   private chores = new Map<string, Chore>();
   private completions = new Map<string, Completion>();
+  private ledger = new Map<string, LedgerEntry[]>(); // key: childId
 
   async getParentByEmail(email: string) {
     for (const p of this.parents.values()) if (p.email === email) return p;
@@ -161,5 +170,27 @@ export class InMemoryRepos implements UsersRepository, FamiliesRepository, Chore
   }
   async listCompletionsForChildInRange(childId: string, start: string, end: string) {
     return Array.from(this.completions.values()).filter((c) => c.childId === childId && c.date >= start && c.date <= end);
+  }
+
+  // BankRepository
+  async addLedgerEntry(entry: LedgerEntry) {
+    const list = this.ledger.get(entry.childId) || [];
+    list.push(entry);
+    // keep newest first for convenience
+    list.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    this.ledger.set(entry.childId, list);
+    return entry;
+  }
+  async getLedgerByChild(childId: string) {
+    return (this.ledger.get(childId) || []).slice();
+  }
+  async getBalance(childId: string) {
+    const entries = this.ledger.get(childId) || [];
+    const available = entries.reduce((sum, e) => sum + (e.amount || 0), 0);
+    return { available, reserved: 0 };
+  }
+  async findPayoutForWeek(childId: string, familyId: string, weekStart: string) {
+    const entries = this.ledger.get(childId) || [];
+    return entries.find((e) => e.type === 'payout' && e.meta?.familyId === familyId && e.meta?.weekStart === weekStart);
   }
 }

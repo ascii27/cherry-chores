@@ -8,6 +8,7 @@ const config: Config = {
   coveragePathIgnorePatterns: [
     '<rootDir>/src/repos\\.pg\\.ts',
     '<rootDir>/src/repos\\.chores\\.pg\\.ts',
+    '<rootDir>/src/repos\\.bank\\.pg\\.ts',
     '<rootDir>/src/auth\\.google\\.ts'
   ],
   collectCoverageFrom: [
@@ -17,6 +18,7 @@ const config: Config = {
     // Exclude runtime-only Postgres repositories from unit coverage
     '!<rootDir>/src/repos.pg.ts',
     '!<rootDir>/src/repos.chores.pg.ts',
+    '!<rootDir>/src/repos.bank.pg.ts',
     // Exclude Google OAuth runtime wiring (requires external service)
     '!<rootDir>/src/auth.google.ts'
   ],
