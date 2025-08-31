@@ -1,4 +1,4 @@
-export type LedgerType = 'payout' | 'adjustment' | 'spend';
+export type LedgerType = 'payout' | 'adjustment' | 'spend' | 'reserve' | 'release';
 
 export interface LedgerEntry {
   id: string;
