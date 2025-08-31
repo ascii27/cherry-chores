@@ -10,6 +10,11 @@ export interface LedgerEntry {
     familyId?: string;
     weekStart?: string; // YYYY-MM-DD (Sunday start)
   };
+  actor?: {
+    role: 'parent' | 'child' | 'system';
+    id?: string;
+    name?: string;
+    email?: string;
+  };
   createdAt: string; // ISO string
 }
-

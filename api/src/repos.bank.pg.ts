@@ -15,17 +15,41 @@ export class PgBankRepo implements BankRepository {
         note TEXT,
         family_id TEXT,
         week_start TEXT,
-        created_at TIMESTAMPTZ NOT NULL
+        created_at TIMESTAMPTZ NOT NULL,
+        actor_role TEXT,
+        actor_id TEXT,
+        actor_name TEXT,
+        actor_email TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_ledger_child ON ledger(child_id);
       CREATE INDEX IF NOT EXISTS idx_ledger_payout ON ledger(child_id, family_id, week_start) WHERE type='payout';
+    `);
+    // Ensure actor columns exist if table was created before these fields
+    await this.pool.query(`
+      ALTER TABLE ledger ADD COLUMN IF NOT EXISTS actor_role TEXT;
+      ALTER TABLE ledger ADD COLUMN IF NOT EXISTS actor_id TEXT;
+      ALTER TABLE ledger ADD COLUMN IF NOT EXISTS actor_name TEXT;
+      ALTER TABLE ledger ADD COLUMN IF NOT EXISTS actor_email TEXT;
     `);
   }
 
   async addLedgerEntry(entry: LedgerEntry): Promise<LedgerEntry> {
     await this.pool.query(
-      'INSERT INTO ledger(id, child_id, amount, type, note, family_id, week_start, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
-      [entry.id, entry.childId, entry.amount, entry.type, entry.note ?? null, entry.meta?.familyId ?? null, entry.meta?.weekStart ?? null, entry.createdAt]
+      'INSERT INTO ledger(id, child_id, amount, type, note, family_id, week_start, created_at, actor_role, actor_id, actor_name, actor_email) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+      [
+        entry.id,
+        entry.childId,
+        entry.amount,
+        entry.type,
+        entry.note ?? null,
+        entry.meta?.familyId ?? null,
+        entry.meta?.weekStart ?? null,
+        entry.createdAt,
+        entry.actor?.role ?? null,
+        entry.actor?.id ?? null,
+        entry.actor?.name ?? null,
+        entry.actor?.email ?? null
+      ]
     );
     return entry;
   }
@@ -39,6 +63,7 @@ export class PgBankRepo implements BankRepository {
       type: row.type,
       note: row.note ?? undefined,
       meta: { familyId: row.family_id ?? undefined, weekStart: row.week_start ?? undefined },
+      actor: row.actor_role ? { role: row.actor_role, id: row.actor_id ?? undefined, name: row.actor_name ?? undefined, email: row.actor_email ?? undefined } : undefined,
       createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : new Date(row.created_at).toISOString()
     }));
   }
@@ -63,8 +88,8 @@ export class PgBankRepo implements BankRepository {
       type: row.type,
       note: row.note ?? undefined,
       meta: { familyId: row.family_id ?? undefined, weekStart: row.week_start ?? undefined },
+      actor: row.actor_role ? { role: row.actor_role, id: row.actor_id ?? undefined, name: row.actor_name ?? undefined, email: row.actor_email ?? undefined } : undefined,
       createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : new Date(row.created_at).toISOString()
     };
   }
 }
-

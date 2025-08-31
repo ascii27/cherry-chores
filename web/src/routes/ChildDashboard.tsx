@@ -103,11 +103,19 @@ export default function ChildDashboard() {
                 <div className="text-muted small">No activity yet.</div>
               ) : (
                 <ul className="list-unstyled small mb-0">
-                  {ledger.slice(0, 5).map((e) => (
-                    <li key={e.id}>
-                      {e.type === 'payout' ? 'Payout' : e.type === 'spend' ? 'Spend' : 'Adjust'}: {e.amount > 0 ? '+' : ''}{e.amount}
-                    </li>
-                  ))}
+                  {ledger.slice(0, 5).map((e) => {
+                    const when = e.createdAt ? new Date(e.createdAt).toLocaleString() : '';
+                    const who = e.actor?.name || e.actor?.email || (e.actor?.role ? e.actor.role : '');
+                    const label = e.type === 'payout' ? 'Payout' : e.type === 'spend' ? 'Spend' : 'Adjust';
+                    return (
+                      <li key={e.id}>
+                        <span className={e.amount >= 0 ? 'text-success' : 'text-danger'}>{e.amount >= 0 ? '+' : ''}{e.amount}</span>
+                        {' '}• {label}
+                        {who ? <> • <span className="text-muted">{who}</span></> : null}
+                        {when ? <> • <span className="text-muted">{when}</span></> : null}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>

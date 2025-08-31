@@ -27,4 +27,3 @@ export class InMemoryBankRepo implements BankRepository {
     return entries.find((e) => e.type === 'payout' && e.meta?.familyId === familyId && e.meta?.weekStart === weekStart);
   }
 }
-

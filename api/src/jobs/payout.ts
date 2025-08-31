@@ -48,9 +48,9 @@ export async function runWeeklyPayout(deps: PayoutDeps, familyId: string, weekSt
       amount: total,
       type: 'payout',
       meta: { familyId, weekStart },
+      actor: { role: 'system', name: 'Weekly Payout' },
       createdAt: new Date().toISOString()
     };
     await bank.addLedgerEntry(entry);
   }
 }
-
