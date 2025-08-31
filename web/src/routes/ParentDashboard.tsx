@@ -11,6 +11,8 @@ export default function ParentDashboard() {
   const [parents, setParents] = useState<any[]>([]);
   const [me, setMe] = useState<{ id: string; email: string } | null>(null);
   const [chores, setChores] = useState<any[]>([]);
+  const [approvals, setApprovals] = useState<any[]>([]);
+  const [editingChore, setEditingChore] = useState<any | null>(null);
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
 
   useEffect(() => {
@@ -48,10 +50,15 @@ export default function ParentDashboard() {
       .then((r) => (r.ok ? r.json() : []))
       .then((list) => setParents(list || []))
       .catch(() => setParents([]));
-    fetch(`/chores?familyId=${selectedFamily.id}`, { headers: { Authorization: `Bearer ${token}` } })
+    const hdrs = { Authorization: `Bearer ${token}` } as any;
+    fetch(`/chores?familyId=${selectedFamily.id}`, { headers: hdrs })
       .then((r) => (r.ok ? r.json() : []))
       .then(setChores)
       .catch(() => setChores([]));
+    fetch(`/approvals?familyId=${selectedFamily.id}`, { headers: hdrs })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setApprovals)
+      .catch(() => setApprovals([]));
   }, [token, selectedFamily]);
 
   const handleCreateFamily = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -70,6 +77,18 @@ export default function ParentDashboard() {
       setSelectedFamily(fam);
     }
   };
+
+  async function refreshChores() {
+    if (!token || !selectedFamily) return;
+    const r = await fetch(`/chores?familyId=${selectedFamily.id}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (r.ok) setChores(await r.json());
+  }
+
+  async function refreshApprovals() {
+    if (!token || !selectedFamily) return;
+    const r = await fetch(`/approvals?familyId=${selectedFamily.id}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (r.ok) setApprovals(await r.json());
+  }
 
   const handleAddCoParent = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -347,6 +366,92 @@ export default function ParentDashboard() {
                     <button className="btn btn-primary" type="submit">Add chore</button>
                   </div>
                 </form>
+                {editingChore && (
+                  <form
+                    className="row g-2 mb-3 border-top pt-3"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!token || !selectedFamily) return;
+                      const name = (e.currentTarget.querySelector('#edit-name') as HTMLInputElement).value;
+                      const valueStr = (e.currentTarget.querySelector('#edit-value') as HTMLInputElement).value;
+                      const recurrence = (e.currentTarget.querySelector('#edit-recurrence') as HTMLSelectElement).value;
+                      const dueDayStr = (e.currentTarget.querySelector('#edit-dueDay') as HTMLSelectElement).value;
+                      const requiresApproval = (e.currentTarget.querySelector('#edit-req') as HTMLInputElement).checked;
+                      const assignedIds: string[] = Array.from(e.currentTarget.querySelectorAll('input[name="editAssignChild"]:checked')).map((i: any) => i.value);
+                      const payload: any = {
+                        name,
+                        value: parseInt(valueStr || '0', 10),
+                        recurrence,
+                        dueDay: recurrence === 'weekly' ? parseInt(dueDayStr || '0', 10) : undefined,
+                        requiresApproval,
+                        assignedChildIds: assignedIds
+                      };
+                      await fetch(`/chores/${editingChore.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify(payload)
+                      });
+                      setEditingChore(null);
+                      await refreshChores();
+                    }}
+                  >
+                    <div className="col-12">
+                      <h3 className="h6">Edit chore</h3>
+                    </div>
+                    <div className="col-md-4">
+                      <label htmlFor="edit-name" className="form-label">Name</label>
+                      <input id="edit-name" className="form-control" defaultValue={editingChore?.name} required />
+                    </div>
+                    <div className="col-md-2">
+                      <label htmlFor="edit-value" className="form-label">Value</label>
+                      <input id="edit-value" type="number" min="0" className="form-control" defaultValue={editingChore?.value ?? 1} required />
+                    </div>
+                    <div className="col-md-3">
+                      <label htmlFor="edit-recurrence" className="form-label">Recurrence</label>
+                      <select id="edit-recurrence" className="form-select" defaultValue={editingChore?.recurrence || 'daily'} onChange={(ev) => {
+                        const sel = (ev.target as HTMLSelectElement).value;
+                        const dd = document.getElementById('edit-dueDay') as HTMLSelectElement;
+                        if (dd) dd.disabled = sel !== 'weekly';
+                      }}>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                      </select>
+                    </div>
+                    <div className="col-md-3">
+                      <label htmlFor="edit-dueDay" className="form-label">Due Day</label>
+                      <select id="edit-dueDay" className="form-select" defaultValue={String(editingChore?.dueDay ?? 0)} disabled={editingChore?.recurrence !== 'weekly'}>
+                        <option value="0">Sunday</option>
+                        <option value="1">Monday</option>
+                        <option value="2">Tuesday</option>
+                        <option value="3">Wednesday</option>
+                        <option value="4">Thursday</option>
+                        <option value="5">Friday</option>
+                        <option value="6">Saturday</option>
+                      </select>
+                    </div>
+                    <div className="col-12">
+                      <div className="form-check form-switch">
+                        <input id="edit-req" type="checkbox" className="form-check-input" defaultChecked={!!editingChore?.requiresApproval} />
+                        <label className="form-check-label" htmlFor="edit-req">Requires approval</label>
+                      </div>
+                    </div>
+                    <div className="col-12">
+                      <label className="form-label">Assign to</label>
+                      <div className="d-flex flex-wrap gap-3">
+                        {children.map((c) => (
+                          <div className="form-check" key={c.id}>
+                            <input className="form-check-input" type="checkbox" name="editAssignChild" id={`edit-ass-${c.id}`} value={c.id} defaultChecked={editingChore?.assignedChildIds?.includes(c.id)} />
+                            <label className="form-check-label" htmlFor={`edit-ass-${c.id}`}>{c.displayName}</label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="col-12 d-flex gap-2">
+                      <button className="btn btn-success" type="submit">Save</button>
+                      <button className="btn btn-outline-secondary" type="button" onClick={() => setEditingChore(null)}>Cancel</button>
+                    </div>
+                  </form>
+                )}
                 {chores.length === 0 ? (
                   <div className="text-muted">No chores yet.</div>
                 ) : (
@@ -370,6 +475,13 @@ export default function ParentDashboard() {
                             <td className="text-muted">{children.filter((c) => h.assignedChildIds?.includes(c.id)).map((c) => c.displayName).join(', ') || '-'}</td>
                             <td className="text-end">
                               <button
+                                className="btn btn-sm btn-outline-secondary me-2"
+                                type="button"
+                                onClick={() => setEditingChore(h)}
+                              >
+                                Edit
+                              </button>
+                              <button
                                 className="btn btn-sm btn-outline-danger"
                                 type="button"
                                 onClick={async () => {
@@ -383,6 +495,58 @@ export default function ParentDashboard() {
                             </td>
                           </tr>
                         ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <h2 className="h5">Approvals</h2>
+                {approvals.length === 0 ? (
+                  <div className="text-muted">No pending approvals.</div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table align-middle">
+                      <thead>
+                        <tr>
+                          <th scope="col">Child</th>
+                          <th scope="col">Chore</th>
+                          <th scope="col">Date</th>
+                          <th scope="col" className="text-end">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {approvals.map((a) => {
+                          const child = children.find((c) => c.id === a.childId);
+                          const chore = chores.find((h) => h.id === a.choreId);
+                          return (
+                            <tr key={a.id}>
+                              <td>{child?.displayName || a.childId}</td>
+                              <td>{chore?.name || a.choreId}</td>
+                              <td className="text-muted">{a.date}</td>
+                              <td className="text-end">
+                                <button
+                                  className="btn btn-sm btn-success me-2"
+                                  onClick={async () => {
+                                    await fetch(`/approvals/${a.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id }) });
+                                    await refreshApprovals();
+                                  }}
+                                >Approve</button>
+                                <button
+                                  className="btn btn-sm btn-outline-danger"
+                                  onClick={async () => {
+                                    await fetch(`/approvals/${a.id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id }) });
+                                    await refreshApprovals();
+                                  }}
+                                >Reject</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
