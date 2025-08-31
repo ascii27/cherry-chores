@@ -198,18 +198,22 @@ export default function ChildDashboard() {
                     );
                   })()}
                   <div className="table-responsive">
-                    <table className="table table-sm table-bordered align-middle mb-0">
+                    <table className="table table-sm table-bordered align-middle mb-0 calendar-table">
                       <thead>
                         <tr>
                           {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
-                            <th key={d} className={weekData.today === i ? 'table-primary' : ''}>{d}</th>
+                            <th key={d} className="calendar-header">{d}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
                           {weekData.days.map((day, i) => (
-                            <td key={day.date} className={weekData.today === i ? 'table-primary' : ''}>
+                            <td key={day.date} className={`calendar-cell ${weekData.today === i ? 'calendar-today' : ''}`}>
+                              <div className="d-flex justify-content-between align-items-center small text-muted">
+                                <span>{new Date(day.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                                <span className="badge bg-light text-dark">{day.items.length}</span>
+                              </div>
                               {day.items.length === 0 ? (
                                 <span className="text-muted small">-</span>
                               ) : (

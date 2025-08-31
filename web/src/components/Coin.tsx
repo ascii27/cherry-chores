@@ -1,9 +1,16 @@
 import React from 'react';
 
-export default function Coin({ value, size = 22 }: { value: number; size?: number }) {
+export default function Coin({ value, size = 22, animate = true, className }: { value: number; size?: number; animate?: boolean; className?: string }) {
   const radius = size / 2;
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-label={`${value} coins`} role="img">
+    <svg
+      width={size}
+      height={size}
+      viewBox={`0 0 ${size} ${size}`}
+      aria-label={`${value} coins`}
+      role="img"
+      className={`${animate ? 'coin-pop' : ''} ${className || ''}`.trim()}
+    >
       <defs>
         <radialGradient id="g" cx="50%" cy="35%" r="75%">
           <stop offset="0%" stopColor="#ffd54f" />
@@ -18,4 +25,3 @@ export default function Coin({ value, size = 22 }: { value: number; size?: numbe
     </svg>
   );
 }
-
