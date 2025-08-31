@@ -24,8 +24,9 @@ Simple, family-friendly chore tracking with weekly “coins,” savings goals, a
   - Start: `npm run start:prod`
   - App (web+api) at http://localhost:3000
 
-- Docker:
-  - Compose: `docker compose up --build`
+- Docker (with Postgres for dev):
+  - Compose: `docker compose up --build` (brings up app + Postgres)
+  - The API auto-creates required tables on startup using simple SQL (no migration step required in dev).
   - Or manual: `docker build -t cherry-chores . && docker run -p 3000:3000 cherry-chores`
 
 ## Repo Structure
@@ -44,7 +45,8 @@ Simple, family-friendly chore tracking with weekly “coins,” savings goals, a
 
 ## Notes
 
-- Tests use mocks only; no database yet (introduced in later phases).
+- Tests use mocks only; runtime uses Postgres via `pg` with simple SQL init.
+- For Phase 1 runtime, set `USE_DB=true` and `DATABASE_URL` for Postgres connection. Compose sets these for you.
 - Vitest is configured with globals and jest-dom for the web project; Jest + ts-jest for the API.
 - CI runs on PRs and main branch pushes.
 
@@ -57,4 +59,3 @@ Simple, family-friendly chore tracking with weekly “coins,” savings goals, a
 - Phase 4: Saver Items & Goals
 - Phase 5: Bonus Opportunities & Claims
 - Phase 6: UX Customization & Accessibility
-

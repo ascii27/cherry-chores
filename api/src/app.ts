@@ -3,11 +3,30 @@ import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
 import pkg from '../package.json';
+import { InMemoryRepos } from './repositories';
+import { PgRepos } from './repos.pg';
+import { DevAuthProvider, JwtService } from './auth';
+import { withJwt, authMiddleware } from './middleware/auth';
+import { authRoutes } from './routes/auth';
+import { familyRoutes } from './routes/families';
+import { childrenRoutes } from './routes/children';
+import { meRoutes } from './routes/me';
+import { configureGoogleAuth } from './auth.google';
+import { configRoutes } from './routes/config';
 
-export function createApp() {
+export function createApp(deps?: {
+  useDb?: boolean;
+}) {
   const app = express();
   app.use(cors());
   app.use(express.json());
+  const repos = deps?.useDb || process.env.USE_DB === 'true' ? new PgRepos() : new InMemoryRepos();
+  const jwt = new JwtService({ jwtSecret: process.env.JWT_SECRET || 'dev-secret', tokenExpiry: '7d' });
+  withJwt(jwt);
+  const authProvider = new DevAuthProvider();
+
+  // attach auth middleware (optional bearer)
+  app.use(authMiddleware);
 
   app.get('/healthz', (_req, res) => {
     res.status(200).json({ status: 'ok' });
@@ -16,6 +35,15 @@ export function createApp() {
   app.get('/version', (_req, res) => {
     res.status(200).json({ name: pkg.name, version: pkg.version });
   });
+
+  // API routes
+  app.use(authRoutes({ authProvider, jwt, users: repos, families: repos }));
+  // Google OAuth routes (enabled if env has client creds)
+  configureGoogleAuth(app, { users: repos, families: repos, jwt });
+  app.use(meRoutes({ users: repos }));
+  app.use(configRoutes());
+  app.use(familyRoutes({ families: repos, users: repos }));
+  app.use(childrenRoutes({ users: repos, families: repos }));
 
   // Serve built web app statically if present (single-container runtime)
   const webDist = process.env.WEB_DIST || path.resolve(__dirname, '../../web/dist');

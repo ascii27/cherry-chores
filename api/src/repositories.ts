@@ -1,0 +1,114 @@
+import { ChildUser, Family, ParentUser } from './types';
+
+export interface UsersRepository {
+  getParentByEmail(email: string): Promise<ParentUser | undefined>;
+  getParentById(id: string): Promise<ParentUser | undefined>;
+  upsertParent(user: ParentUser): Promise<ParentUser>; // for Google sign-in
+
+  getChildByUsername(username: string): Promise<ChildUser | undefined>;
+  getChildById(id: string): Promise<ChildUser | undefined>;
+  createChild(child: ChildUser): Promise<ChildUser>;
+  updateChild(id: string, update: Partial<Pick<ChildUser, 'username' | 'passwordHash' | 'displayName'>>): Promise<ChildUser | undefined>;
+  deleteChild(id: string): Promise<void>;
+}
+
+export interface FamiliesRepository {
+  createFamily(family: Family): Promise<Family>;
+  getFamilyById(id: string): Promise<Family | undefined>;
+  updateFamily(family: Family): Promise<Family>;
+  removeParentFromFamily(familyId: string, parentId: string): Promise<void>;
+}
+
+export class InMemoryRepos implements UsersRepository, FamiliesRepository {
+  private parents = new Map<string, ParentUser>();
+  private children = new Map<string, ChildUser>();
+  private families = new Map<string, Family>();
+
+  async getParentByEmail(email: string) {
+    for (const p of this.parents.values()) if (p.email === email) return p;
+    return undefined;
+  }
+  async getParentById(id: string) {
+    return this.parents.get(id);
+  }
+  async upsertParent(user: ParentUser) {
+    this.parents.set(user.id, user);
+    return user;
+  }
+
+  async getChildByUsername(username: string) {
+    for (const c of this.children.values()) if (c.username === username) return c;
+    return undefined;
+  }
+  async getChildById(id: string) {
+    return this.children.get(id);
+  }
+  async createChild(child: ChildUser) {
+    // global username uniqueness
+    for (const c of this.children.values()) if (c.username === child.username) {
+      const err: any = new Error('username taken');
+      err.code = 409;
+      throw err;
+    }
+    this.children.set(child.id, child);
+    const fam = this.families.get(child.familyId);
+    if (fam && !fam.childIds.includes(child.id)) {
+      fam.childIds.push(child.id);
+      this.families.set(fam.id, fam);
+    }
+    return child;
+  }
+
+  async updateChild(id: string, update: Partial<Pick<ChildUser, 'username' | 'passwordHash' | 'displayName'>>) {
+    const cur = this.children.get(id);
+    if (!cur) return undefined;
+    if (update.username && update.username !== cur.username) {
+      // uniqueness per family
+      for (const c of this.children.values()) {
+        if (c.familyId === cur.familyId && c.username === update.username) {
+          throw Object.assign(new Error('username taken'), { code: 409 });
+        }
+      }
+    }
+    const next = { ...cur, ...update } as ChildUser;
+    this.children.set(id, next);
+    return next;
+  }
+
+  async deleteChild(id: string) {
+    const cur = this.children.get(id);
+    if (cur) {
+      const fam = this.families.get(cur.familyId);
+      if (fam) {
+        fam.childIds = fam.childIds.filter((cid) => cid !== id);
+        this.families.set(fam.id, fam);
+      }
+    }
+    this.children.delete(id);
+  }
+
+  async createFamily(family: Family) {
+    this.families.set(family.id, family);
+    return family;
+  }
+  async getFamilyById(id: string) {
+    return this.families.get(id);
+  }
+  async updateFamily(family: Family) {
+    this.families.set(family.id, family);
+    return family;
+  }
+
+  async removeParentFromFamily(familyId: string, parentId: string) {
+    const fam = this.families.get(familyId);
+    if (fam) {
+      fam.parentIds = fam.parentIds.filter((id) => id !== parentId);
+      this.families.set(fam.id, fam);
+    }
+    const parent = this.parents.get(parentId);
+    if (parent) {
+      parent.families = parent.families.filter((fid) => fid !== familyId);
+      this.parents.set(parentId, parent);
+    }
+  }
+}
