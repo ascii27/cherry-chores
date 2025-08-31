@@ -37,11 +37,46 @@ Simple, family-friendly chore tracking with weekly “coins,” savings goals, a
 - `Dockerfile` single container build (builds web+api, serves web via API).
 - `.github/workflows/ci.yml` runs unit tests for api and web.
 
-## Current Endpoints (Phase 0)
+## Current Endpoints (Phase 3)
 
-- `GET /healthz` → `{ status: "ok" }`
-- `GET /version` → `{ name, version }`
-- In production builds, the API also serves the static SPA from `web/dist` with SPA fallback.
+- Health and meta:
+  - `GET /healthz` → `{ status: "ok" }`
+  - `GET /version` → `{ name, version }`
+  - In production builds, the API also serves the static SPA from `web/dist` with SPA fallback.
+
+- Auth & family:
+  - `POST /auth/google/callback` (mocked in tests)
+  - `POST /auth/child/login`
+  - `GET /me` (Bearer JWT)
+  - `POST /families` (parent)
+  - `GET /families` (parent)
+  - `GET /families/:id` (parent)
+  - `PATCH /families/:id` (parent)
+  - `POST /families/:id/parents` (parent)
+  - `GET /families/:id/parents` (parent)
+  - `DELETE /families/:id/parents/:parentId` (parent)
+  - `POST /children` (parent)
+  - `GET /families/:id/children` (parent)
+  - `PATCH /children/:id` (parent)
+  - `DELETE /children/:id` (parent)
+
+- Chores & approvals:
+  - `POST /chores` (parent)
+  - `PATCH /chores/:id` (parent)
+  - `DELETE /chores/:id` (parent)
+  - `GET /chores?familyId=...` (parent)
+  - `GET /children/:childId/chores?scope=today|week`
+  - `POST /chores/:id/complete` (child)
+  - `POST /chores/:id/uncomplete` (child)
+  - `GET /approvals?familyId=...` (parent)
+  - `POST /approvals/:id/approve|reject` (parent)
+  - `POST /approvals/bulk-approve|bulk-reject` (parent)
+
+- Bank & ledger (Phase 3):
+  - `GET /bank/:childId` → `{ balance: { available, reserved }, entries: [...] }`
+  - `POST /bank/:childId/adjust` (parent) → credit/debit; ledger stores actor metadata
+  - `POST /bank/:childId/spend` (child or parent) → debit with insufficient-funds check
+  - `POST /bank/payout` (parent) → manual weekly payout for current week; idempotent per family+week
 
 ## Notes
 
@@ -53,9 +88,9 @@ Simple, family-friendly chore tracking with weekly “coins,” savings goals, a
 ## Roadmap (see specs/ImplementationPlan.md)
 
 - Phase 0: Bootstrap, CI, single-container runtime (DONE)
-- Phase 1: Auth & Family Setup
-- Phase 2: Chore Management & Child Dashboard
-- Phase 3: Bank, Ledger, Weekly Payout
+- Phase 1: Auth & Family Setup (DONE)
+- Phase 2: Chore Management & Child Dashboard (DONE)
+- Phase 3: Bank, Ledger, Weekly Payout (in progress on `phase-3-bank-ledger`)
 - Phase 4: Saver Items & Goals
 - Phase 5: Bonus Opportunities & Claims
 - Phase 6: UX Customization & Accessibility
