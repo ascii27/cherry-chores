@@ -1,4 +1,5 @@
 import { ChildUser, Family, ParentUser } from './types';
+import { Chore, Completion } from './chores.types';
 
 export interface UsersRepository {
   getParentByEmail(email: string): Promise<ParentUser | undefined>;
@@ -19,10 +20,25 @@ export interface FamiliesRepository {
   removeParentFromFamily(familyId: string, parentId: string): Promise<void>;
 }
 
-export class InMemoryRepos implements UsersRepository, FamiliesRepository {
+export interface ChoresRepository {
+  createChore(chore: Chore): Promise<Chore>;
+  updateChore(chore: Chore): Promise<Chore>;
+  deleteChore(id: string): Promise<void>;
+  getChoreById(id: string): Promise<Chore | undefined>;
+  listChoresByFamily(familyId: string): Promise<Chore[]>;
+
+  createCompletion(c: Completion): Promise<Completion>;
+  deleteCompletion(id: string): Promise<void>;
+  listPendingCompletionsByFamily(familyId: string): Promise<Completion[]>;
+  listCompletionsForChildInRange(childId: string, start: string, end: string): Promise<Completion[]>;
+}
+
+export class InMemoryRepos implements UsersRepository, FamiliesRepository, ChoresRepository {
   private parents = new Map<string, ParentUser>();
   private children = new Map<string, ChildUser>();
   private families = new Map<string, Family>();
+  private chores = new Map<string, Chore>();
+  private completions = new Map<string, Completion>();
 
   async getParentByEmail(email: string) {
     for (const p of this.parents.values()) if (p.email === email) return p;
@@ -110,5 +126,40 @@ export class InMemoryRepos implements UsersRepository, FamiliesRepository {
       parent.families = parent.families.filter((fid) => fid !== familyId);
       this.parents.set(parentId, parent);
     }
+  }
+
+  // ChoresRepository
+  async createChore(chore: Chore) {
+    this.chores.set(chore.id, chore);
+    return chore;
+  }
+  async updateChore(chore: Chore) {
+    this.chores.set(chore.id, chore);
+    return chore;
+  }
+  async deleteChore(id: string) {
+    this.chores.delete(id);
+  }
+  async getChoreById(id: string) {
+    return this.chores.get(id);
+  }
+  async listChoresByFamily(familyId: string) {
+    return Array.from(this.chores.values()).filter((c) => c.familyId === familyId);
+  }
+
+  async createCompletion(c: Completion) {
+    this.completions.set(c.id, c);
+    return c;
+  }
+  async deleteCompletion(id: string) {
+    this.completions.delete(id);
+  }
+  async listPendingCompletionsByFamily(familyId: string) {
+    const childIds = (this.families.get(familyId)?.childIds || []);
+    const choreIds = Array.from(this.chores.values()).filter((x) => x.familyId === familyId).map((x) => x.id);
+    return Array.from(this.completions.values()).filter((c) => c.status === 'pending' && childIds.includes(c.childId) && choreIds.includes(c.choreId));
+  }
+  async listCompletionsForChildInRange(childId: string, start: string, end: string) {
+    return Array.from(this.completions.values()).filter((c) => c.childId === childId && c.date >= start && c.date <= end);
   }
 }

@@ -10,6 +10,7 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState<any[]>([]);
   const [parents, setParents] = useState<any[]>([]);
   const [me, setMe] = useState<{ id: string; email: string } | null>(null);
+  const [chores, setChores] = useState<any[]>([]);
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
 
   useEffect(() => {
@@ -47,6 +48,10 @@ export default function ParentDashboard() {
       .then((r) => (r.ok ? r.json() : []))
       .then((list) => setParents(list || []))
       .catch(() => setParents([]));
+    fetch(`/chores?familyId=${selectedFamily.id}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setChores)
+      .catch(() => setChores([]));
   }, [token, selectedFamily]);
 
   const handleCreateFamily = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -220,7 +225,7 @@ export default function ParentDashboard() {
                 </form>
               </div>
             </div>
-          </div>
+        </div>
           <div className="col-12">
             <div className="card">
               <div className="card-body">
@@ -245,6 +250,136 @@ export default function ParentDashboard() {
                             <td className="text-end">
                               <button className="btn btn-sm btn-outline-secondary me-2" type="button" onClick={() => handleRenameChild(c.id)}>Rename</button>
                               <button className="btn btn-sm btn-outline-danger" type="button" onClick={() => handleDeleteChild(c.id)}>Delete</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <h2 className="h5">Chores</h2>
+                <form
+                  className="row g-2 mb-3"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!token || !selectedFamily) return;
+                    const name = (e.currentTarget.querySelector('#ch-name') as HTMLInputElement).value;
+                    const valueStr = (e.currentTarget.querySelector('#ch-value') as HTMLInputElement).value;
+                    const recurrence = (e.currentTarget.querySelector('#ch-recurrence') as HTMLSelectElement).value;
+                    const dueDayStr = (e.currentTarget.querySelector('#ch-dueDay') as HTMLSelectElement).value;
+                    const requiresApproval = (e.currentTarget.querySelector('#ch-req') as HTMLInputElement).checked;
+                    const assignedIds: string[] = Array.from(e.currentTarget.querySelectorAll('input[name="assignChild"]:checked')).map((i: any) => i.value);
+                    const payload = {
+                      familyId: selectedFamily.id,
+                      name,
+                      value: parseInt(valueStr || '0', 10),
+                      recurrence,
+                      dueDay: recurrence === 'weekly' ? parseInt(dueDayStr || '0', 10) : undefined,
+                      requiresApproval,
+                      assignedChildIds: assignedIds,
+                      active: true
+                    };
+                    await fetch('/chores', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                      body: JSON.stringify(payload)
+                    });
+                    const r = await fetch(`/chores?familyId=${selectedFamily.id}`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (r.ok) setChores(await r.json());
+                    (e.currentTarget as HTMLFormElement).reset();
+                  }}
+                >
+                  <div className="col-md-4">
+                    <label htmlFor="ch-name" className="form-label">Name</label>
+                    <input id="ch-name" className="form-control" required />
+                  </div>
+                  <div className="col-md-2">
+                    <label htmlFor="ch-value" className="form-label">Value</label>
+                    <input id="ch-value" type="number" min="0" className="form-control" defaultValue={1} required />
+                  </div>
+                  <div className="col-md-3">
+                    <label htmlFor="ch-recurrence" className="form-label">Recurrence</label>
+                    <select id="ch-recurrence" className="form-select" defaultValue="daily" onChange={(ev) => {
+                      const sel = (ev.target as HTMLSelectElement).value;
+                      const dd = document.getElementById('ch-dueDay') as HTMLSelectElement;
+                      if (dd) dd.disabled = sel !== 'weekly';
+                    }}>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                    </select>
+                  </div>
+                  <div className="col-md-3">
+                    <label htmlFor="ch-dueDay" className="form-label">Due Day</label>
+                    <select id="ch-dueDay" className="form-select" defaultValue="0" disabled>
+                      <option value="0">Sunday</option>
+                      <option value="1">Monday</option>
+                      <option value="2">Tuesday</option>
+                      <option value="3">Wednesday</option>
+                      <option value="4">Thursday</option>
+                      <option value="5">Friday</option>
+                      <option value="6">Saturday</option>
+                    </select>
+                  </div>
+                  <div className="col-12">
+                    <div className="form-check form-switch">
+                      <input id="ch-req" type="checkbox" className="form-check-input" />
+                      <label className="form-check-label" htmlFor="ch-req">Requires approval</label>
+                    </div>
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label">Assign to</label>
+                    <div className="d-flex flex-wrap gap-3">
+                      {children.map((c) => (
+                        <div className="form-check" key={c.id}>
+                          <input className="form-check-input" type="checkbox" name="assignChild" id={`ass-${c.id}`} value={c.id} />
+                          <label className="form-check-label" htmlFor={`ass-${c.id}`}>{c.displayName}</label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="col-12">
+                    <button className="btn btn-primary" type="submit">Add chore</button>
+                  </div>
+                </form>
+                {chores.length === 0 ? (
+                  <div className="text-muted">No chores yet.</div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table align-middle">
+                      <thead>
+                        <tr>
+                          <th scope="col">Name</th>
+                          <th scope="col">Recurrence</th>
+                          <th scope="col">Value</th>
+                          <th scope="col">Assigned</th>
+                          <th scope="col" className="text-end">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {chores.map((h) => (
+                          <tr key={h.id}>
+                            <td>{h.name}</td>
+                            <td className="text-muted">{h.recurrence === 'weekly' ? `Weekly (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` : 'Daily'}</td>
+                            <td>{h.value}</td>
+                            <td className="text-muted">{children.filter((c) => h.assignedChildIds?.includes(c.id)).map((c) => c.displayName).join(', ') || '-'}</td>
+                            <td className="text-end">
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                type="button"
+                                onClick={async () => {
+                                  if (!window.confirm('Delete this chore?')) return;
+                                  await fetch(`/chores/${h.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                                  setChores((prev) => prev.filter((x) => x.id !== h.id));
+                                }}
+                              >
+                                Delete
+                              </button>
                             </td>
                           </tr>
                         ))}
