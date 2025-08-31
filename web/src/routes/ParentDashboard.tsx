@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../components/Toast';
 import { useNavigate, useLocation } from 'react-router-dom';
+import TopBar from '../components/TopBar';
 
 export default function ParentDashboard() {
   const nav = useNavigate();
@@ -10,7 +11,7 @@ export default function ParentDashboard() {
   const [selectedFamily, setSelectedFamily] = useState<any | null>(null);
   const [children, setChildren] = useState<any[]>([]);
   const [parents, setParents] = useState<any[]>([]);
-  const [me, setMe] = useState<{ id: string; email: string } | null>(null);
+  const [me, setMe] = useState<{ id: string; email: string; name?: string } | null>(null);
   const [chores, setChores] = useState<any[]>([]);
   const [approvals, setApprovals] = useState<any[]>([]);
   const [editingChore, setEditingChore] = useState<any | null>(null);
@@ -193,21 +194,12 @@ export default function ParentDashboard() {
   };
 
   return (
-    <div className="container py-4">
-      <div className="d-flex align-items-center justify-content-between mb-3">
-        <h1 className="h3 mb-0">Parent Dashboard</h1>
-        <button
-          className="btn btn-outline-secondary btn-sm"
-          type="button"
-          onClick={async () => {
-            try { await fetch('/auth/logout', { method: 'POST' }); } catch {}
-            localStorage.removeItem('parentToken');
-            nav('/');
-          }}
-        >
-          Log out
-        </button>
-      </div>
+    <>
+      <TopBar name={me?.name || me?.email || 'Parent'} avatar={null} onLogout={async () => { try { await fetch('/auth/logout', { method: 'POST' }); } catch {}; localStorage.removeItem('parentToken'); nav('/'); }} />
+      <div className="container py-4">
+        <div className="d-flex align-items-center justify-content-between mb-3">
+          <h1 className="h3 mb-0">Parent Dashboard</h1>
+        </div>
       {families.length === 0 ? (
         <div className="card">
           <div className="card-body">
@@ -869,6 +861,7 @@ export default function ParentDashboard() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

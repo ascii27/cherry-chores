@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../components/Toast';
 import { useNavigate } from 'react-router-dom';
+import TopBar from '../components/TopBar';
+import Celebration from '../components/Celebration';
+import StatCard from '../components/StatCard';
+import ProgressBar from '../components/ProgressBar';
 
 export default function ChildDashboard() {
   const nav = useNavigate();
-  const [child, setChild] = useState<{ id: string; familyId: string } | null>(null);
+  const [child, setChild] = useState<{ id: string; familyId: string; displayName?: string | null; avatarUrl?: string | null; themeColor?: string | null } | null>(null);
+  const [celebrate, setCelebrate] = useState(0);
   const [today, setToday] = useState<any[]>([]);
   const [weekData, setWeekData] = useState<{ days: any[]; totalPlanned: number; totalApproved: number; today: number } | null>(null);
   const [balance, setBalance] = useState<{ available: number; reserved: number } | null>(null);
@@ -12,6 +17,9 @@ export default function ChildDashboard() {
   const { push } = useToast();
   const [savers, setSavers] = useState<any[]>([]);
   const [editing, setEditing] = useState<{ id: string; field: 'name' | 'target' } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [section, setSection] = useState<'home' | 'bank' | 'goals'>('home');
+
 
   useEffect(() => {
     const token = localStorage.getItem('childToken');
@@ -25,7 +33,8 @@ export default function ChildDashboard() {
         if (!me.ok) { nav('/'); return; }
         const data = await me.json();
         if (!data?.id || data?.role === 'parent') { nav('/'); return; }
-        setChild({ id: data.id, familyId: data.familyId });
+        setChild({ id: data.id, familyId: data.familyId, displayName: data.displayName || null, avatarUrl: data.avatarUrl || null, themeColor: data.themeColor || null });
+        // profile editing moved off dashboard
         const r1 = await fetch(`/children/${data.id}/chores?scope=today`);
         const r2 = await fetch(`/children/${data.id}/chores/week`);
         setToday(r1.ok ? await r1.json() : []);
@@ -45,21 +54,49 @@ export default function ChildDashboard() {
   }, [nav]);
 
   return (
-    <div className="container py-4">
-      <div className="d-flex align-items-center justify-content-between mb-3">
-        <h1 className="h4 mb-0">Child Dashboard</h1>
-        <button
-          className="btn btn-outline-secondary btn-sm"
-          onClick={() => {
-            localStorage.removeItem('childToken');
-            nav('/');
-          }}
-        >
-          Log out
-        </button>
-      </div>
-      {/* Top row: Today (left), This Week (right) */}
-      <div className="row g-3">
+    <React.Fragment>
+      <TopBar
+        name={child?.displayName || 'Welcome'}
+        avatar={child?.avatarUrl || null}
+        accent={child?.themeColor || null}
+        onMenuToggle={() => setMenuOpen(true)}
+        onLogout={() => { localStorage.removeItem('childToken'); nav('/'); }}
+      />
+      <Celebration trigger={celebrate} />
+      {/* Sidebar overlay and panel */}
+      {menuOpen ? (
+        <div
+          role="button"
+          aria-label="Close menu"
+          onClick={() => setMenuOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 1030 }}
+        />
+      ) : null}
+      <aside
+        aria-label="Navigation"
+        style={{ position: 'fixed', top: 0, bottom: 0, left: 0, width: 260, background: '#fff', borderRight: '1px solid #dee2e6', transform: menuOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 150ms ease', zIndex: 1040, padding: '16px' }}
+      >
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <div className="fw-semibold">Menu</div>
+          <button className="btn btn-sm btn-outline-secondary" onClick={() => setMenuOpen(false)} aria-label="Close menu">Close</button>
+        </div>
+        <nav className="nav flex-column">
+          <button className={`btn text-start mb-2 ${section === 'home' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('home'); setMenuOpen(false); }}>Home</button>
+          <button className={`btn text-start mb-2 ${section === 'bank' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('bank'); setMenuOpen(false); }}>Bank Account</button>
+          <button className={`btn text-start ${section === 'goals' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('goals'); setMenuOpen(false); }}>Goals</button>
+        </nav>
+      </aside>
+      <div className="container py-4">
+        {section === 'home' && (
+          <React.Fragment>
+            <div className="row g-3 mb-2">
+              <div className="col-6 col-lg-3"><StatCard icon="📋" label="Today" value={today.length} /></div>
+              <div className="col-6 col-lg-3"><StatCard icon="💰" label="Total Coins" value={(balance?.available ?? 0) + (balance?.reserved ?? 0)} /></div>
+              <div className="col-6 col-lg-3"><StatCard icon="✅" label="Approved" value={weekData ? weekData.totalApproved : 0} /></div>
+              <div className="col-6 col-lg-3"><StatCard icon="⭐" label="Planned" value={weekData ? weekData.totalPlanned : 0} /></div>
+            </div>
+            {/* Today (left), This Week (right) */}
+            <div className="row g-3">
         <div className="col-12 col-lg-6">
           <div className="card h-100">
             <div className="card-body">
@@ -95,6 +132,7 @@ export default function ChildDashboard() {
                               ]);
                               setToday(r1.ok ? await r1.json() : []);
                               setWeekData(r2.ok ? await r2.json() : null);
+                              setCelebrate((n) => n + 1);
                             }}
                           >
                             Not done
@@ -138,7 +176,7 @@ export default function ChildDashboard() {
               {!weekData ? (
                 <div className="text-muted">No chores this week.</div>
               ) : (
-                <>
+                <React.Fragment>
                   {(() => {
                     const plannedCount = weekData.days.reduce((s, d) => s + d.items.length, 0);
                     const completedCount = weekData.days.reduce((s, d) => s + d.items.filter((it: any) => it.status === 'approved' || it.status === 'pending').length, 0);
@@ -173,8 +211,9 @@ export default function ChildDashboard() {
                               ) : (
                                 <ul className="list-unstyled mb-0 small">
                                   {day.items.map((it: any) => (
-                                    <li key={it.id}>
-                                      {it.name} <span className="text-muted">(+{it.value})</span> {it.status === 'approved' ? '✅' : it.status === 'pending' ? '⏳' : it.status === 'missed' ? '⚠️' : ''}
+                                    <li key={it.id} className="d-flex justify-content-between">
+                                      <span>{it.name} <span className="text-muted">(+{it.value})</span></span>
+                                      {it.status === 'approved' ? <span className="cc-chip cc-chip--done">Done</span> : it.status === 'pending' ? <span className="cc-chip cc-chip--pending">Pending</span> : it.status === 'missed' ? <span className="cc-chip">Missed</span> : null}
                                     </li>
                                   ))}
                                 </ul>
@@ -185,16 +224,19 @@ export default function ChildDashboard() {
                       </tbody>
                     </table>
                   </div>
-                </>
+                </React.Fragment>
               )}
             </div>
           </div>
         </div>
       </div>
+          </React.Fragment>
+        )}
 
-      {/* Bottom row: Bank (left), Saver Goals (right) */}
+      {/* Section: Bank Account */}
+      {section === 'bank' && (
       <div className="row g-3 mt-1">
-        <div className="col-12 col-lg-6">
+        <div className="col-12">
           <div className="card h-100">
             <div className="card-body">
               <h2 className="h6">Bank</h2>
@@ -298,8 +340,8 @@ export default function ChildDashboard() {
                       <li key={e.id}>
                         <span className={e.amount >= 0 ? 'text-success' : 'text-danger'}>{e.amount >= 0 ? '+' : ''}{e.amount}</span>
                         {' '}• {label}
-                        {(whoName || role) ? <> • <span className="text-muted">{whoName}{role}</span></> : null}
-                        {when ? <> • <span className="text-muted">{when}</span></> : null}
+                        {(whoName || role) ? <React.Fragment> • <span className="text-muted">{whoName}{role}</span></React.Fragment> : null}
+                        {when ? <React.Fragment> • <span className="text-muted">{when}</span></React.Fragment> : null}
                       </li>
                     );
                   })}
@@ -308,195 +350,35 @@ export default function ChildDashboard() {
             </div>
           </div>
         </div>
-        <div className="col-12 col-lg-6">
-          <div className="card h-100">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center mb-2">
-                <h2 className="h6 mb-0">Saver Goals</h2>
-                <button
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={async () => {
-                    const cid = child?.id; if (!cid) return;
-                    const token = localStorage.getItem('childToken');
-                    const r = await fetch(`/children/${cid}/savers`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
-                      body: JSON.stringify({ name: 'New item', target: 1 })
-                    });
-                    if (r.ok) {
-                      const created = await r.json();
-                      setSavers((prev) => [created, ...prev]);
-                      setEditing({ id: created.id, field: 'name' });
-                      push('success', 'Item added');
-                    } else {
-                      push('error', 'Failed to add');
-                    }
-                  }}
-                >Add</button>
+      </div>
+      )}
+
+      {section === 'goals' && (
+        <div className="row g-3 mt-1">
+          <div className="col-12">
+            <div className="card h-100">
+              <div className="card-body">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <h2 className="h6 mb-0">Saver Goals</h2>
+                  <button
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={async () => {
+                      const cid = child?.id; if (!cid) return;
+                      const token = localStorage.getItem('childToken');
+                      const r = await fetch(`/children/${cid}/savers`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }, body: JSON.stringify({ name: 'New item', target: 1 }) });
+                      if (r.ok) { const created = await r.json(); setSavers((prev) => [created, ...prev]); setEditing({ id: created.id, field: 'name' }); push('success', 'Item added'); }
+                    }}
+                  >Add</button>
+                </div>
+                <div className="text-muted">{savers.length === 0 ? 'No saver items yet.' : `${savers.filter((x) => !x.completed).length} active, ${savers.filter((x) => x.completed).length} achieved.`}</div>
               </div>
-              {savers.length === 0 ? (
-                <div className="text-muted">No saver items yet.</div>
-              ) : (
-                <>
-                <ul className="list-group list-group-flush">
-                  {savers.filter((x) => !x.completed).map((s) => (
-                    <li key={s.id} className="list-group-item">
-                      <div className="d-flex justify-content-between align-items-center">
-                        <div>
-                          {editing?.id === s.id && editing.field === 'name' ? (
-                            <input
-                              className="form-control form-control-sm"
-                              defaultValue={s.name}
-                              autoFocus
-                              onBlur={async (e) => {
-                                const name = (e.target as HTMLInputElement).value;
-                                if (name && name !== s.name) {
-                                  const token = localStorage.getItem('childToken');
-                                  const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }, body: JSON.stringify({ name }) });
-                                  if (r.ok) push('success', 'Name saved'); else push('error', 'Save failed');
-                                }
-                                setEditing(null);
-                                const cid = child?.id; if (!cid) return;
-                                const tok = localStorage.getItem('childToken');
-                                const rs = await fetch(`/children/${cid}/savers`, { headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
-                                setSavers(rs.ok ? await rs.json() : []);
-                              }}
-                              onKeyDown={async (e) => {
-                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                              }}
-                            />
-                          ) : (
-                            <div className="fw-semibold" role="button" onClick={() => setEditing({ id: s.id, field: 'name' })}>{s.name}</div>
-                          )}
-                          <div className="small d-flex align-items-center gap-2">
-                            <span className="text-muted">Weekly allocation:</span>
-                            {weekData && weekData.totalPlanned > 0 ? (
-                              <>
-                                <select
-                                  className="form-select form-select-sm"
-                                  style={{ width: '7rem' }}
-                                  defaultValue={String(Math.round((s.allocation * weekData.totalPlanned) / 100))}
-                                  onChange={async (e) => {
-                                    const coins = parseInt((e.target as HTMLSelectElement).value || '0', 10);
-                                    const denom = weekData?.totalPlanned || 0;
-                                    const pct = denom > 0 ? Math.max(0, Math.min(100, Math.round((coins / denom) * 100))) : s.allocation;
-                                    const tok = localStorage.getItem('childToken');
-                                    const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ allocation: pct }) });
-                                    if (r.ok) push('success', 'Allocation updated'); else push('error', 'Update failed');
-                                    const cid = child?.id; if (!cid) return;
-                                    const rs = await fetch(`/children/${cid}/savers`, { headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
-                                    setSavers(rs.ok ? await rs.json() : []);
-                                  }}
-                                >
-                                  {Array.from({ length: (weekData?.totalPlanned || 0) + 1 }).map((_, i) => (
-                                    <option key={`alloc-opt-${s.id}-${i}`} value={i}>{i} {i === 1 ? 'coin' : 'coins'}</option>
-                                  ))}
-                                </select>
-                              </>
-                            ) : (
-                              <span className="text-muted">(no weekly plan yet)</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-end" style={{minWidth: '12rem'}}>
-                          {editing?.id === s.id && editing.field === 'target' ? (
-                            <input
-                              type="number"
-                              min={1}
-                              className="form-control form-control-sm d-inline-block"
-                              defaultValue={s.target}
-                              autoFocus
-                              style={{maxWidth: '6rem'}}
-                              onBlur={async (e) => {
-                                const target = parseInt((e.target as HTMLInputElement).value || '0', 10);
-                                if (target && target !== s.target) {
-                                  const token = localStorage.getItem('childToken');
-                                  const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }, body: JSON.stringify({ target }) });
-                                  if (r.ok) push('success', 'Target saved'); else push('error', 'Save failed');
-                                }
-                                setEditing(null);
-                                const cid = child?.id; if (!cid) return;
-                                const tok = localStorage.getItem('childToken');
-                                const rs = await fetch(`/children/${cid}/savers`, { headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
-                                setSavers(rs.ok ? await rs.json() : []);
-                              }}
-                              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                            />
-                          ) : (
-                            <span
-                              className={`badge ${balance && balance.available >= s.target ? 'bg-success' : 'bg-light text-dark'}`}
-                              role="button"
-                              onClick={() => setEditing({ id: s.id, field: 'target' })}
-                            >
-                              {balance?.available ?? 0} / {s.target}
-                            </span>
-                          )}
-                          <div className="small text-muted mt-1">Reserved: {s.reserved || 0} / {s.target}</div>
-                          {((s.target - (s.reserved || 0)) <= (balance?.available || 0)) ? (
-                            <button
-                              className="btn btn-sm btn-outline-success mt-1"
-                              onClick={async () => {
-                                const tok = localStorage.getItem('childToken');
-                                const r = await fetch(`/savers/${s.id}/purchase`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' } });
-                                if (r.ok) {
-                                  push('success', `Purchased ${s.name}`);
-                                  const cid = child?.id; if (!cid) return;
-                                  const [rb, rs] = await Promise.all([
-                                    fetch(`/bank/${cid}`),
-                                    fetch(`/children/${cid}/savers`, { headers: { Authorization: tok ? `Bearer ${tok}` : '' } })
-                                  ]);
-                                  if (rb.ok) {
-                                    const b = await rb.json();
-                                    setBalance(b.balance);
-                                    setLedger(b.entries || []);
-                                  }
-                                  setSavers(rs.ok ? await rs.json() : []);
-                                } else {
-                                  try { const err = await r.json(); push('error', err?.error || 'Purchase failed'); } catch { push('error', 'Purchase failed'); }
-                                }
-                              }}
-                            >Buy</button>
-                          ) : null}
-                          <button
-                            className="btn btn-sm btn-outline-danger mt-1 ms-2"
-                            onClick={async () => {
-                              const tok = localStorage.getItem('childToken');
-                              const r = await fetch(`/savers/${s.id}`, { method: 'DELETE', headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
-                              if (r.ok) {
-                                push('success', 'Item removed');
-                                setSavers((prev) => prev.filter((x) => x.id !== s.id));
-                              } else {
-                                push('error', 'Remove failed');
-                              }
-                            }}
-                          >Delete</button>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                {savers.filter((x) => x.completed).length > 0 ? (
-                  <div className="mt-3">
-                    <div className="small text-muted mb-1">Achieved</div>
-                    <ul className="list-group list-group-flush">
-                      {savers.filter((x) => x.completed).map((s) => (
-                        <li key={`hist-${s.id}`} className="list-group-item d-flex justify-content-between align-items-center">
-                          <div>
-                            <div className="fw-semibold">{s.name}</div>
-                            <div className="small text-muted">Completed {s.completedAt ? new Date(s.completedAt).toLocaleDateString() : ''}</div>
-                          </div>
-                          <span className="badge bg-light text-dark">{s.target} coins</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                </>
-              )}
             </div>
           </div>
         </div>
+      )}
+
+      
       </div>
-    </div>
+    </React.Fragment>
   );
 }

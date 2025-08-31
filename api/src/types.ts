@@ -13,6 +13,8 @@ export interface ChildUser {
   username: string;
   passwordHash: string; // plain for MVP dev, but hashed later
   displayName: string;
+  avatarUrl?: string;
+  themeColor?: string;
 }
 
 export interface Family {
@@ -32,4 +34,3 @@ export interface AuthTokenPayload {
 export interface AuthProvider {
   verifyGoogleIdToken(idToken: string): Promise<{ sub: string; email: string; name: string }>;
 }
-
