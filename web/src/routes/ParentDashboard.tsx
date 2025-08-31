@@ -691,6 +691,73 @@ export default function ParentDashboard() {
               </div>
             </div>
           </div>
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <h2 className="h5">Week Details</h2>
+                {children.length === 0 ? (
+                  <div className="text-muted">No children.</div>
+                ) : (
+                  <div className="row g-3">
+                    {children.map((c) => {
+                      const w = weeklyByChild[c.id];
+                      return (
+                        <div className="col-12 col-lg-6" key={`detail-${c.id}`}>
+                          <div className="border rounded p-3 h-100">
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <h3 className="h6 mb-0">{c.displayName}</h3>
+                              {w ? (
+                                <span className="small text-muted">Coins: {w.totalApproved} / {w.totalPlanned}</span>
+                              ) : null}
+                            </div>
+                            {!w ? (
+                              <div className="text-muted small">No chores this week.</div>
+                            ) : (
+                              <div className="table-responsive">
+                                <table className="table table-sm align-middle mb-0">
+                                  <thead>
+                                    <tr>
+                                      {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
+                                        <th key={`${c.id}-head-${d}`} className={w.today === i ? 'table-primary' : ''}>{d}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr>
+                                      {w.days.map((day: any, i: number) => (
+                                        <td key={`${c.id}-day-${day.date}`} className={w.today === i ? 'table-primary' : ''}>
+                                          {day.items.length === 0 ? (
+                                            <span className="text-muted small">-</span>
+                                          ) : (
+                                            <ul className="list-unstyled mb-0 small">
+                                              {day.items.map((it: any) => (
+                                                <li key={`${c.id}-${day.date}-${it.id}`}>
+                                                  {it.name} <span className="text-muted">(+{it.value})</span>{' '}
+                                                  {it.status === 'approved' && <span className="badge bg-success">Completed</span>}
+                                                  {it.status === 'pending' && <span className="badge bg-warning text-dark">Pending</span>}
+                                                  {it.status === 'missed' && <span className="badge bg-danger">Missed</span>}
+                                                  {it.status === 'due' && <span className="badge bg-info text-dark">Due</span>}
+                                                  {it.status === 'planned' && <span className="badge bg-light text-dark">Planned</span>}
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          )}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
