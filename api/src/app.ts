@@ -5,6 +5,9 @@ import fs from 'fs';
 import pkg from '../package.json';
 import { InMemoryRepos } from './repositories';
 import { PgRepos } from './repos.pg';
+import { PgChoresRepo } from './repos.chores.pg';
+import { choresRoutes } from './routes/chores';
+import { Pool } from 'pg';
 import { DevAuthProvider, JwtService } from './auth';
 import { withJwt, authMiddleware } from './middleware/auth';
 import { authRoutes } from './routes/auth';
@@ -14,13 +17,12 @@ import { meRoutes } from './routes/me';
 import { configureGoogleAuth } from './auth.google';
 import { configRoutes } from './routes/config';
 
-export function createApp(deps?: {
-  useDb?: boolean;
-}) {
+export function createApp(deps?: { useDb?: boolean }) {
   const app = express();
   app.use(cors());
   app.use(express.json());
-  const repos = deps?.useDb || process.env.USE_DB === 'true' ? new PgRepos() : new InMemoryRepos();
+  const useDb = deps?.useDb || process.env.USE_DB === 'true';
+  const repos = useDb ? new PgRepos() : new InMemoryRepos();
   const jwt = new JwtService({ jwtSecret: process.env.JWT_SECRET || 'dev-secret', tokenExpiry: '7d' });
   withJwt(jwt);
   const authProvider = new DevAuthProvider();
@@ -44,6 +46,15 @@ export function createApp(deps?: {
   app.use(configRoutes());
   app.use(familyRoutes({ families: repos, users: repos }));
   app.use(childrenRoutes({ users: repos, families: repos }));
+  if (useDb) {
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const choresRepo = new PgChoresRepo(pool);
+    // fire and forget init
+    choresRepo.init().catch(() => {});
+    app.use(choresRoutes({ chores: choresRepo, families: repos, users: repos }));
+  } else {
+    app.use(choresRoutes({ chores: repos as any, families: repos, users: repos }));
+  }
 
   // Serve built web app statically if present (single-container runtime)
   const webDist = process.env.WEB_DIST || path.resolve(__dirname, '../../web/dist');

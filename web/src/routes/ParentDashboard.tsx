@@ -10,6 +10,11 @@ export default function ParentDashboard() {
   const [children, setChildren] = useState<any[]>([]);
   const [parents, setParents] = useState<any[]>([]);
   const [me, setMe] = useState<{ id: string; email: string } | null>(null);
+  const [chores, setChores] = useState<any[]>([]);
+  const [approvals, setApprovals] = useState<any[]>([]);
+  const [editingChore, setEditingChore] = useState<any | null>(null);
+  const [bulk, setBulk] = useState<{ [id: string]: boolean }>({});
+  const [weeklyByChild, setWeeklyByChild] = useState<Record<string, any>>({});
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
 
   useEffect(() => {
@@ -47,7 +52,27 @@ export default function ParentDashboard() {
       .then((r) => (r.ok ? r.json() : []))
       .then((list) => setParents(list || []))
       .catch(() => setParents([]));
-  }, [token, selectedFamily]);
+    const hdrs = { Authorization: `Bearer ${token}` } as any;
+    fetch(`/chores?familyId=${selectedFamily.id}`, { headers: hdrs })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setChores)
+      .catch(() => setChores([]));
+    fetch(`/approvals?familyId=${selectedFamily.id}`, { headers: hdrs })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setApprovals)
+      .catch(() => setApprovals([]));
+    // Weekly overview per child
+    (async () => {
+      const map: Record<string, any> = {};
+      for (const c of children) {
+        try {
+          const rw = await fetch(`/children/${c.id}/chores/week`);
+          map[c.id] = rw.ok ? await rw.json() : null;
+        } catch {}
+      }
+      setWeeklyByChild(map);
+    })();
+  }, [token, selectedFamily, children]);
 
   const handleCreateFamily = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -65,6 +90,29 @@ export default function ParentDashboard() {
       setSelectedFamily(fam);
     }
   };
+
+  async function refreshChores() {
+    if (!token || !selectedFamily) return;
+    const r = await fetch(`/chores?familyId=${selectedFamily.id}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (r.ok) setChores(await r.json());
+  }
+
+  async function refreshApprovals() {
+    if (!token || !selectedFamily) return;
+    const r = await fetch(`/approvals?familyId=${selectedFamily.id}`, { headers: { Authorization: `Bearer ${token}` } });
+    if (r.ok) setApprovals(await r.json());
+  }
+
+  async function refreshWeekly() {
+    const map: Record<string, any> = {};
+    for (const c of children) {
+      try {
+        const rw = await fetch(`/children/${c.id}/chores/week`);
+        map[c.id] = rw.ok ? await rw.json() : null;
+      } catch {}
+    }
+    setWeeklyByChild(map);
+  }
 
   const handleAddCoParent = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -220,7 +268,7 @@ export default function ParentDashboard() {
                 </form>
               </div>
             </div>
-          </div>
+        </div>
           <div className="col-12">
             <div className="card">
               <div className="card-body">
@@ -250,6 +298,461 @@ export default function ParentDashboard() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <h2 className="h5">Chores</h2>
+                <form
+                  className="row g-2 mb-3"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!token || !selectedFamily) return;
+                    const name = (e.currentTarget.querySelector('#ch-name') as HTMLInputElement).value;
+                    const valueStr = (e.currentTarget.querySelector('#ch-value') as HTMLInputElement).value;
+                    const recurrence = (e.currentTarget.querySelector('#ch-recurrence') as HTMLSelectElement).value;
+                    const dueDayStr = (e.currentTarget.querySelector('#ch-dueDay') as HTMLSelectElement).value;
+                    const requiresApproval = (e.currentTarget.querySelector('#ch-req') as HTMLInputElement).checked;
+                    const assignedIds: string[] = Array.from(e.currentTarget.querySelectorAll('input[name="assignChild"]:checked')).map((i: any) => i.value);
+                    const payload = {
+                      familyId: selectedFamily.id,
+                      name,
+                      value: parseInt(valueStr || '0', 10),
+                      recurrence,
+                      dueDay: recurrence === 'weekly' ? parseInt(dueDayStr || '0', 10) : undefined,
+                      requiresApproval,
+                      assignedChildIds: assignedIds,
+                      active: true
+                    };
+                    await fetch('/chores', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                      body: JSON.stringify(payload)
+                    });
+                    const r = await fetch(`/chores?familyId=${selectedFamily.id}`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (r.ok) setChores(await r.json());
+                    (e.currentTarget as HTMLFormElement).reset();
+                    await refreshWeekly();
+                  }}
+                >
+                  <div className="col-md-4">
+                    <label htmlFor="ch-name" className="form-label">Name</label>
+                    <input id="ch-name" className="form-control" required />
+                  </div>
+                  <div className="col-md-2">
+                    <label htmlFor="ch-value" className="form-label">Value</label>
+                    <input id="ch-value" type="number" min="0" className="form-control" defaultValue={1} required />
+                  </div>
+                  <div className="col-md-3">
+                    <label htmlFor="ch-recurrence" className="form-label">Recurrence</label>
+                    <select id="ch-recurrence" className="form-select" defaultValue="daily" onChange={(ev) => {
+                      const sel = (ev.target as HTMLSelectElement).value;
+                      const dd = document.getElementById('ch-dueDay') as HTMLSelectElement;
+                      if (dd) dd.disabled = sel !== 'weekly';
+                    }}>
+                      <option value="daily">Daily</option>
+                      <option value="weekly">Weekly</option>
+                    </select>
+                  </div>
+                  <div className="col-md-3">
+                    <label htmlFor="ch-dueDay" className="form-label">Due Day</label>
+                    <select id="ch-dueDay" className="form-select" defaultValue="0" disabled>
+                      <option value="0">Sunday</option>
+                      <option value="1">Monday</option>
+                      <option value="2">Tuesday</option>
+                      <option value="3">Wednesday</option>
+                      <option value="4">Thursday</option>
+                      <option value="5">Friday</option>
+                      <option value="6">Saturday</option>
+                    </select>
+                  </div>
+                  <div className="col-12">
+                    <div className="form-check form-switch">
+                      <input id="ch-req" type="checkbox" className="form-check-input" />
+                      <label className="form-check-label" htmlFor="ch-req">Requires approval</label>
+                    </div>
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label">Assign to</label>
+                    <div className="d-flex flex-wrap gap-3">
+                      {children.map((c) => (
+                        <div className="form-check" key={c.id}>
+                          <input className="form-check-input" type="checkbox" name="assignChild" id={`ass-${c.id}`} value={c.id} />
+                          <label className="form-check-label" htmlFor={`ass-${c.id}`}>{c.displayName}</label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="col-12">
+                    <button className="btn btn-primary" type="submit">Add chore</button>
+                  </div>
+                </form>
+                {editingChore && (
+                  <form
+                    className="row g-2 mb-3 border-top pt-3"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!token || !selectedFamily) return;
+                      const name = (e.currentTarget.querySelector('#edit-name') as HTMLInputElement).value;
+                      const valueStr = (e.currentTarget.querySelector('#edit-value') as HTMLInputElement).value;
+                      const recurrence = (e.currentTarget.querySelector('#edit-recurrence') as HTMLSelectElement).value;
+                      const dueDayStr = (e.currentTarget.querySelector('#edit-dueDay') as HTMLSelectElement).value;
+                      const requiresApproval = (e.currentTarget.querySelector('#edit-req') as HTMLInputElement).checked;
+                      const assignedIds: string[] = Array.from(e.currentTarget.querySelectorAll('input[name="editAssignChild"]:checked')).map((i: any) => i.value);
+                      const payload: any = {
+                        name,
+                        value: parseInt(valueStr || '0', 10),
+                        recurrence,
+                        dueDay: recurrence === 'weekly' ? parseInt(dueDayStr || '0', 10) : undefined,
+                        requiresApproval,
+                        assignedChildIds: assignedIds
+                      };
+                      await fetch(`/chores/${editingChore.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify(payload)
+                      });
+                      setEditingChore(null);
+                      await refreshChores();
+                      await refreshWeekly();
+                    }}
+                  >
+                    <div className="col-12">
+                      <h3 className="h6">Edit chore</h3>
+                    </div>
+                    <div className="col-md-4">
+                      <label htmlFor="edit-name" className="form-label">Name</label>
+                      <input id="edit-name" className="form-control" defaultValue={editingChore?.name} required />
+                    </div>
+                    <div className="col-md-2">
+                      <label htmlFor="edit-value" className="form-label">Value</label>
+                      <input id="edit-value" type="number" min="0" className="form-control" defaultValue={editingChore?.value ?? 1} required />
+                    </div>
+                    <div className="col-md-3">
+                      <label htmlFor="edit-recurrence" className="form-label">Recurrence</label>
+                      <select id="edit-recurrence" className="form-select" defaultValue={editingChore?.recurrence || 'daily'} onChange={(ev) => {
+                        const sel = (ev.target as HTMLSelectElement).value;
+                        const dd = document.getElementById('edit-dueDay') as HTMLSelectElement;
+                        if (dd) dd.disabled = sel !== 'weekly';
+                      }}>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                      </select>
+                    </div>
+                    <div className="col-md-3">
+                      <label htmlFor="edit-dueDay" className="form-label">Due Day</label>
+                      <select id="edit-dueDay" className="form-select" defaultValue={String(editingChore?.dueDay ?? 0)} disabled={editingChore?.recurrence !== 'weekly'}>
+                        <option value="0">Sunday</option>
+                        <option value="1">Monday</option>
+                        <option value="2">Tuesday</option>
+                        <option value="3">Wednesday</option>
+                        <option value="4">Thursday</option>
+                        <option value="5">Friday</option>
+                        <option value="6">Saturday</option>
+                      </select>
+                    </div>
+                    <div className="col-12">
+                      <div className="form-check form-switch">
+                        <input id="edit-req" type="checkbox" className="form-check-input" defaultChecked={!!editingChore?.requiresApproval} />
+                        <label className="form-check-label" htmlFor="edit-req">Requires approval</label>
+                      </div>
+                    </div>
+                    <div className="col-12">
+                      <label className="form-label">Assign to</label>
+                      <div className="d-flex flex-wrap gap-3">
+                        {children.map((c) => (
+                          <div className="form-check" key={c.id}>
+                            <input className="form-check-input" type="checkbox" name="editAssignChild" id={`edit-ass-${c.id}`} value={c.id} defaultChecked={editingChore?.assignedChildIds?.includes(c.id)} />
+                            <label className="form-check-label" htmlFor={`edit-ass-${c.id}`}>{c.displayName}</label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="col-12 d-flex gap-2">
+                      <button className="btn btn-success" type="submit">Save</button>
+                      <button className="btn btn-outline-secondary" type="button" onClick={() => setEditingChore(null)}>Cancel</button>
+                    </div>
+                  </form>
+                )}
+                {chores.length === 0 ? (
+                  <div className="text-muted">No chores yet.</div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table align-middle">
+                      <thead>
+                        <tr>
+                          <th scope="col">Name</th>
+                          <th scope="col">Recurrence</th>
+                          <th scope="col">Value</th>
+                          <th scope="col">Assigned</th>
+                          <th scope="col" className="text-end">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {chores.map((h) => (
+                          <tr key={h.id}>
+                            <td>{h.name}</td>
+                            <td className="text-muted">{h.recurrence === 'weekly' ? `Weekly (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` : 'Daily'}</td>
+                            <td>{h.value}</td>
+                            <td className="text-muted">{children.filter((c) => h.assignedChildIds?.includes(c.id)).map((c) => c.displayName).join(', ') || '-'}</td>
+                            <td className="text-end">
+                              <div className="form-check form-switch d-inline-block me-2">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id={`active-${h.id}`}
+                                  defaultChecked={h.active !== false}
+                                  onChange={async (e) => {
+                                    await fetch(`/chores/${h.id}`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                      body: JSON.stringify({ active: e.target.checked })
+                                    });
+                                    await refreshChores();
+                                  }}
+                                />
+                                <label className="form-check-label small" htmlFor={`active-${h.id}`}>Active</label>
+                              </div>
+                              <button
+                                className="btn btn-sm btn-outline-secondary me-2"
+                                type="button"
+                                onClick={() => setEditingChore(h)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                type="button"
+                                onClick={async () => {
+                                  if (!window.confirm('Delete this chore?')) return;
+                                  await fetch(`/chores/${h.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                                  setChores((prev) => prev.filter((x) => x.id !== h.id));
+                                  await refreshWeekly();
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <h2 className="h5">Approvals</h2>
+                {approvals.length === 0 ? (
+                  <div className="text-muted">No pending approvals.</div>
+                ) : (
+                  <div className="table-responsive">
+                    <div className="d-flex justify-content-end mb-2 gap-2">
+                      <button
+                        className="btn btn-sm btn-outline-secondary"
+                        onClick={() => setBulk(Object.fromEntries(approvals.map((a) => [a.id, true])))}
+                      >
+                        Select all
+                      </button>
+                      <button
+                        className="btn btn-sm btn-success"
+                        onClick={async () => {
+                          const ids = approvals.filter((a) => bulk[a.id]).map((a) => a.id);
+                          if (ids.length === 0) return;
+                          await fetch('/approvals/bulk-approve', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id, ids }) });
+                          await refreshApprovals();
+                          await refreshWeekly();
+                          setBulk({});
+                        }}
+                      >
+                        Approve selected
+                      </button>
+                      <button
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={async () => {
+                          const ids = approvals.filter((a) => bulk[a.id]).map((a) => a.id);
+                          if (ids.length === 0) return;
+                          await fetch('/approvals/bulk-reject', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id, ids }) });
+                          await refreshApprovals();
+                          await refreshWeekly();
+                          setBulk({});
+                        }}
+                      >
+                        Reject selected
+                      </button>
+                    </div>
+                    <table className="table align-middle">
+                      <thead>
+                        <tr>
+                          <th scope="col" style={{width: '2rem'}}></th>
+                          <th scope="col">Child</th>
+                          <th scope="col">Chore</th>
+                          <th scope="col">Date</th>
+                          <th scope="col" className="text-end">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {approvals.map((a) => {
+                          const child = children.find((c) => c.id === a.childId);
+                          const chore = chores.find((h) => h.id === a.choreId);
+                          return (
+                            <tr key={a.id}>
+                              <td>
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  checked={!!bulk[a.id]}
+                                  onChange={(e) => setBulk((prev) => ({ ...prev, [a.id]: e.target.checked }))}
+                                />
+                              </td>
+                              <td>{child?.displayName || a.childId}</td>
+                              <td>{chore?.name || a.choreId}</td>
+                              <td className="text-muted">{a.date}</td>
+                              <td className="text-end">
+                                <button
+                                  className="btn btn-sm btn-success me-2"
+                                  onClick={async () => {
+                                    await fetch(`/approvals/${a.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id }) });
+                                    await refreshApprovals();
+                                    await refreshWeekly();
+                                  }}
+                                >Approve</button>
+                                <button
+                                  className="btn btn-sm btn-outline-danger"
+                                  onClick={async () => {
+                                    await fetch(`/approvals/${a.id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id }) });
+                                    await refreshApprovals();
+                                    await refreshWeekly();
+                                  }}
+                                >Reject</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <h2 className="h5">Week Overview</h2>
+                {children.length === 0 ? (
+                  <div className="text-muted">No children.</div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table align-middle">
+                      <thead>
+                        <tr>
+                          <th scope="col">Child</th>
+                          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => (
+                            <th key={d} scope="col">{d}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {children.map((c) => {
+                          const w = weeklyByChild[c.id];
+                          if (!w) return (
+                            <tr key={c.id}>
+                              <td className="fw-semibold">{c.displayName}</td>
+                              {Array.from({ length: 7 }).map((_, i) => <td key={`${c.id}-empty-${i}`}>-</td>)}
+                            </tr>
+                          );
+                          return (
+                            <tr key={c.id}>
+                              <td className="fw-semibold">{c.displayName}</td>
+                              {w.days.map((day: any, i: number) => {
+                                const planned = day.items.length;
+                                const completed = day.items.filter((it: any) => it.status === 'approved' || it.status === 'pending').length;
+                                return (
+                                  <td key={`${c.id}-${day.date}`} className={w.today === i ? 'table-primary' : ''}>
+                                    <span className="small">{completed}/{planned}</span>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="col-12">
+            <div className="card">
+              <div className="card-body">
+                <h2 className="h5">Week Details</h2>
+                {children.length === 0 ? (
+                  <div className="text-muted">No children.</div>
+                ) : (
+                  <div className="row g-3">
+                    {children.map((c) => {
+                      const w = weeklyByChild[c.id];
+                      return (
+                        <div className="col-12 col-lg-6" key={`detail-${c.id}`}>
+                          <div className="border rounded p-3 h-100">
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <h3 className="h6 mb-0">{c.displayName}</h3>
+                              {w ? (
+                                <span className="small text-muted">Coins: {w.totalApproved} / {w.totalPlanned}</span>
+                              ) : null}
+                            </div>
+                            {!w ? (
+                              <div className="text-muted small">No chores this week.</div>
+                            ) : (
+                              <div className="table-responsive">
+                                <table className="table table-sm align-middle mb-0">
+                                  <thead>
+                                    <tr>
+                                      {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
+                                        <th key={`${c.id}-head-${d}`} className={w.today === i ? 'table-primary' : ''}>{d}</th>
+                                      ))}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr>
+                                      {w.days.map((day: any, i: number) => (
+                                        <td key={`${c.id}-day-${day.date}`} className={w.today === i ? 'table-primary' : ''}>
+                                          {day.items.length === 0 ? (
+                                            <span className="text-muted small">-</span>
+                                          ) : (
+                                            <ul className="list-unstyled mb-0 small">
+                                              {day.items.map((it: any) => (
+                                                <li key={`${c.id}-${day.date}-${it.id}`}>
+                                                  {it.name} <span className="text-muted">(+{it.value})</span>{' '}
+                                                  {it.status === 'approved' && <span className="badge bg-success">Completed</span>}
+                                                  {it.status === 'pending' && <span className="badge bg-warning text-dark">Pending</span>}
+                                                  {it.status === 'missed' && <span className="badge bg-danger">Missed</span>}
+                                                  {it.status === 'due' && <span className="badge bg-info text-dark">Due</span>}
+                                                  {it.status === 'planned' && <span className="badge bg-light text-dark">Planned</span>}
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          )}
+                                        </td>
+                                      ))}
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
