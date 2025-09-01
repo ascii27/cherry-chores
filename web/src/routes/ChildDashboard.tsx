@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../components/Toast';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
@@ -19,13 +19,20 @@ export default function ChildDashboard() {
   const [savers, setSavers] = useState<any[]>([]);
   const [editing, setEditing] = useState<{ id: string; field: 'name' | 'target' } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [section, setSection] = useState<'home' | 'bank' | 'goals'>('home');
+  const [section, setSection] = useState<'home' | 'bank' | 'goals' | 'profile'>('home');
+  const [cuteBg, setCuteBg] = useState(false);
 
   function hexToRgb(hex?: string | null): [number, number, number] | null {
     if (!hex) return null;
     const m = hex.trim().match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
     if (!m) return null;
     return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+  }
+
+  const presetColors = useMemo(() => ['#7C5CFC', '#0EA5E9', '#22C55E', '#F59E0B', '#EF4444', '#FF6584'], []);
+  function emojiSvgDataUrl(e: string) {
+    const svg = encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?><svg xmlns='http://www.w3.org/2000/svg' width='128' height='128'><rect width='100%' height='100%' rx='24' ry='24' fill='white'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-size='72'>${e}</text></svg>`);
+    return `data:image/svg+xml;utf8,${svg}`;
   }
 
 
@@ -48,6 +55,13 @@ export default function ChildDashboard() {
           if (data.themeColor) root.style.setProperty('--accent', data.themeColor);
           const rgb = hexToRgb(data.themeColor);
           if (rgb) root.style.setProperty('--accent-rgb', `${rgb[0]},${rgb[1]},${rgb[2]}`);
+        } catch {}
+        // Restore cute background preference
+        try {
+          const pref = localStorage.getItem(`child_cute_${data.id}`);
+          const on = pref === '1';
+          setCuteBg(on);
+          if (on) document.body.classList.add('cute-bg-on'); else document.body.classList.remove('cute-bg-on');
         } catch {}
         // profile editing moved off dashboard
         const r1 = await fetch(`/children/${data.id}/chores?scope=today`);
@@ -73,6 +87,7 @@ export default function ChildDashboard() {
         root.style.removeProperty('--accent');
         root.style.removeProperty('--accent-rgb');
       } catch {}
+      try { document.body.classList.remove('cute-bg-on'); } catch {}
     };
   }, [nav]);
 
@@ -106,7 +121,8 @@ export default function ChildDashboard() {
         <nav className="nav flex-column">
           <button className={`btn text-start mb-2 ${section === 'home' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('home'); setMenuOpen(false); }}>Home</button>
           <button className={`btn text-start mb-2 ${section === 'bank' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('bank'); setMenuOpen(false); }}>Bank Account</button>
-          <button className={`btn text-start ${section === 'goals' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('goals'); setMenuOpen(false); }}>Goals</button>
+          <button className={`btn text-start mb-2 ${section === 'goals' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('goals'); setMenuOpen(false); }}>Goals</button>
+          <button className={`btn text-start ${section === 'profile' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('profile'); setMenuOpen(false); }}>Profile</button>
         </nav>
       </aside>
       <div className="container py-4">
@@ -404,6 +420,88 @@ export default function ChildDashboard() {
                   >Add</button>
                 </div>
                 <div className="text-muted">{savers.length === 0 ? 'No saver items yet.' : `${savers.filter((x) => !x.completed).length} active, ${savers.filter((x) => x.completed).length} achieved.`}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {section === 'profile' && (
+        <div className="row g-3 mt-1">
+          <div className="col-12">
+            <div className="card card--interactive h-100">
+              <div className="card-body">
+                <h2 className="h6">Your Profile</h2>
+                <div className="row g-3 mt-1">
+                  <div className="col-12 col-md-6">
+                    <label className="form-label">Display name</label>
+                    <input id="prof-name" className="form-control" defaultValue={child?.displayName || ''} />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label">Theme color</label>
+                    <div className="d-flex align-items-center gap-2 flex-wrap">
+                      <input id="prof-color" type="color" className="form-control form-control-color" defaultValue={(child?.themeColor as string) || '#7C5CFC'} />
+                      {presetColors.map((c) => (
+                        <button key={c} type="button" className="btn btn-outline-primary btn-sm" style={{ background: c, borderColor: c, color: '#fff' }} onClick={() => { const el = document.getElementById('prof-color') as HTMLInputElement; el.value = c; }} aria-label={`Use color ${c}`}> </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label">Avatar</label>
+                    <div className="d-flex align-items-center gap-3 flex-wrap">
+                      {['🙂','😎','🦄','🐼','🐱','🐶','🍒','🚀','⭐️'].map((e) => (
+                        <button key={e} type="button" className="btn btn-outline-secondary" onClick={() => {
+                          (document.getElementById('prof-avatar-url') as HTMLInputElement).value = emojiSvgDataUrl(e);
+                        }}>{e}</button>
+                      ))}
+                      <input type="file" accept="image/*" className="form-control" style={{ maxWidth: 260 }} onChange={(ev) => {
+                        const f = (ev.target as HTMLInputElement).files?.[0];
+                        if (!f) return;
+                        const r = new FileReader();
+                        r.onload = () => { (document.getElementById('prof-avatar-url') as HTMLInputElement).value = String(r.result || ''); };
+                        r.readAsDataURL(f);
+                      }} />
+                      <input id="prof-avatar-url" className="form-control" placeholder="Avatar URL or auto-filled" style={{ maxWidth: 420 }} defaultValue={child?.avatarUrl || ''} />
+                    </div>
+                  </div>
+                  <div className="col-12">
+                    <div className="form-check form-switch">
+                      <input id="prof-cute" className="form-check-input" type="checkbox" defaultChecked={cuteBg} onChange={(e) => {
+                        const on = e.currentTarget.checked;
+                        setCuteBg(on);
+                        try { if (on) document.body.classList.add('cute-bg-on'); else document.body.classList.remove('cute-bg-on'); } catch {}
+                        if (child?.id) localStorage.setItem(`child_cute_${child.id}`, on ? '1' : '0');
+                      }} />
+                      <label className="form-check-label" htmlFor="prof-cute">Add cute background images</label>
+                    </div>
+                  </div>
+                  <div className="col-12">
+                    <button className="btn btn-primary" onClick={async () => {
+                      const cid = child?.id; if (!cid) return;
+                      const tok = localStorage.getItem('childToken');
+                      const name = (document.getElementById('prof-name') as HTMLInputElement).value;
+                      const color = (document.getElementById('prof-color') as HTMLInputElement).value;
+                      const avatarUrl = (document.getElementById('prof-avatar-url') as HTMLInputElement).value || null;
+                      try {
+                        const r = await fetch(`/children/${cid}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ displayName: name, themeColor: color, avatarUrl }) });
+                        if (r.ok) {
+                          const updated = await r.json();
+                          setChild((c) => c ? { ...c, displayName: updated.displayName, themeColor: updated.themeColor, avatarUrl: updated.avatarUrl } : c);
+                          try {
+                            const root = document.documentElement;
+                            root.style.setProperty('--accent', color);
+                            const rgb = hexToRgb(color);
+                            if (rgb) root.style.setProperty('--accent-rgb', `${rgb[0]},${rgb[1]},${rgb[2]}`);
+                          } catch {}
+                          push('success', 'Profile updated');
+                        } else {
+                          const e = await r.json().catch(() => ({}));
+                          push('error', e?.error || 'Update failed');
+                        }
+                      } catch { push('error', 'Update failed'); }
+                    }}>Save changes</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

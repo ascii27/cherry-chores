@@ -30,6 +30,16 @@ body {
   font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
 }
 
+/* Cute background variant with tiled cherries (toggle via body.cute-bg-on) */
+body.cute-bg-on {
+  background:
+    url("data:image/svg+xml;utf8,<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><text x='20' y='40' font-size='28'>🍒</text><text x='80' y='80' font-size='24'>⭐️</text><text x='50' y='105' font-size='22'>🎈</text></svg>") repeat,
+    radial-gradient(1200px 600px at -10% -10%, rgba(var(--accent-rgb, 124,92,252), 0.10), rgba(var(--accent-rgb, 124,92,252), 0) 60%),
+    radial-gradient(900px 500px at 110% -20%, rgba(var(--accent-rgb, 124,92,252), 0.06), rgba(var(--accent-rgb, 124,92,252), 0) 60%),
+    linear-gradient(var(--bg), var(--bg));
+  background-size: 120px 120px, auto, auto, auto;
+}
+
 /* Bootstrap surface overrides for softer cards */
 .card {
   background: var(--surface);
