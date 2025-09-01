@@ -598,13 +598,7 @@ export default function ChildDashboard() {
                               if (child?.id) localStorage.setItem(`child_pattern_opacity_${child.id}`, String(frac));
                             }} />
                           </div>
-                          <div className="col-12">
-                            <label className="form-label">Pattern color</label>
-                            <input id="prof-pattern-color" type="color" className="form-control form-control-color" defaultValue={(child?.themeColor as string) || '#7C5CFC'} onChange={async () => {
-                              const src = localStorage.getItem(`child_pattern_${child?.id}`);
-                              if (src) { try { await applyPatternFromSrc(src); } catch {} }
-                            }} />
-                          </div>
+                          
                         </div>
                         <button type="button" className="btn btn-outline-secondary" onClick={() => {
                           document.body.classList.remove('cute-bg-on');
