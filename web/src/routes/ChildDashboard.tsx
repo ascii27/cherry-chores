@@ -138,6 +138,12 @@ export default function ChildDashboard() {
             document.body.classList.add('cute-bg-on');
             setCuteBg(true);
           }
+          const pSize = localStorage.getItem(`child_pattern_size_${data.id}`);
+          const pGap = localStorage.getItem(`child_pattern_gap_${data.id}`);
+          const pOp = localStorage.getItem(`child_pattern_opacity_${data.id}`);
+          if (pSize) document.documentElement.style.setProperty('--pattern-size', pSize);
+          if (pGap) document.documentElement.style.setProperty('--pattern-gap', pGap);
+          if (pOp) document.documentElement.style.setProperty('--pattern-opacity', pOp);
         } catch {}
       } catch {
         nav('/');
@@ -543,6 +549,32 @@ export default function ChildDashboard() {
                         r.onload = () => { (document.getElementById('prof-avatar-url') as HTMLInputElement).value = String(r.result || ''); };
                         r.readAsDataURL(f);
                       }} />
+                      <div className="row g-2 w-100 mt-1">
+                        <div className="col-12 col-md-4">
+                          <label className="form-label">Pattern size</label>
+                          <input id="prof-pattern-size" type="range" min={40} max={320} defaultValue={120} className="form-range" onChange={(e) => {
+                            const val = `${(e.target as HTMLInputElement).value}px`;
+                            document.documentElement.style.setProperty('--pattern-size', val);
+                            if (child?.id) localStorage.setItem(`child_pattern_size_${child.id}`, val);
+                          }} />
+                        </div>
+                        <div className="col-12 col-md-4">
+                          <label className="form-label">Pattern gap</label>
+                          <input id="prof-pattern-gap" type="range" min={0} max={200} defaultValue={0} className="form-range" onChange={(e) => {
+                            const val = `${(e.target as HTMLInputElement).value}px`;
+                            document.documentElement.style.setProperty('--pattern-gap', val);
+                            if (child?.id) localStorage.setItem(`child_pattern_gap_${child.id}`, val);
+                          }} />
+                        </div>
+                        <div className="col-12 col-md-4">
+                          <label className="form-label">Pattern transparency</label>
+                          <input id="prof-pattern-opacity" type="range" min={0} max={100} defaultValue={15} className="form-range" onChange={(e) => {
+                            const frac = Math.max(0, Math.min(1, parseInt((e.target as HTMLInputElement).value, 10) / 100));
+                            document.documentElement.style.setProperty('--pattern-opacity', String(frac));
+                            if (child?.id) localStorage.setItem(`child_pattern_opacity_${child.id}`, String(frac));
+                          }} />
+                        </div>
+                      </div>
                       <input id="prof-avatar-url" className="form-control" placeholder="Avatar URL or auto-filled" style={{ maxWidth: 420 }} defaultValue={child?.avatarUrl || ''} />
                     </div>
                   </div>
@@ -609,6 +641,7 @@ export default function ChildDashboard() {
                             if (rgb) root.style.setProperty('--accent-rgb', `${rgb[0]},${rgb[1]},${rgb[2]}`);
                           } catch {}
                           push('success', 'Profile updated');
+                          setSection('home');
                         } else {
                           const e = await r.json().catch(() => ({}));
                           push('error', e?.error || 'Update failed');
