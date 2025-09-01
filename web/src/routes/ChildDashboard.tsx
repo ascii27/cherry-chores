@@ -65,33 +65,6 @@ export default function ChildDashboard() {
     heartFill
   ], []);
 
-  async function setPatternTile(src: string | null | undefined, sizePx?: number, gapPx?: number) {
-    if (!src) return;
-    const size = sizePx ?? parseInt((document.getElementById('prof-pattern-size') as HTMLInputElement)?.value || '120', 10);
-    const gap = gapPx ?? parseInt((document.getElementById('prof-pattern-gap') as HTMLInputElement)?.value || '0', 10);
-    const tileW = size + gap;
-    const x = Math.max(0, Math.floor(gap / 2));
-    const y = Math.max(0, Math.floor(gap / 2));
-    let href = src;
-    try {
-      if (!src.startsWith('data:') && src.endsWith('.svg')) {
-        const r = await fetch(src);
-        if (r.ok) {
-          const raw = await r.text();
-          href = `data:image/svg+xml;utf8,${encodeURIComponent(raw)}`;
-        }
-      }
-    } catch {}
-    const svg = `<?xml version="1.0" encoding="UTF-8"?>\n` +
-      `<svg xmlns='http://www.w3.org/2000/svg' width='${tileW}' height='${tileW}' viewBox='0 0 ${tileW} ${tileW}'>` +
-      `<g opacity='${op}'>` +
-      `<image href='${href}' x='${x}' y='${y}' width='${size}' height='${size}' preserveAspectRatio='xMidYMid meet'/>` +
-      `</g>` +
-      `</svg>`;
-    const dataUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
-    document.documentElement.style.setProperty('--pattern-tile', dataUrl);
-    document.body.classList.add('cute-bg-on');
-  }
   function emojiSvgDataUrl(e: string) {
     const svg = encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?><svg xmlns='http://www.w3.org/2000/svg' width='128' height='128'><rect width='100%' height='100%' rx='24' ry='24' fill='white'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-size='72'>${e}</text></svg>`);
     return `data:image/svg+xml;utf8,${svg}`;
@@ -162,19 +135,13 @@ export default function ChildDashboard() {
         try {
           const patt = localStorage.getItem(`child_pattern_${data.id}`);
           if (patt) {
-            // Restore size/gap before composing tile
-            const pSize = localStorage.getItem(`child_pattern_size_${data.id}`);
-            const pGap = localStorage.getItem(`child_pattern_gap_${data.id}`);
-            const sNum = pSize ? parseInt(pSize, 10) : 120;
-            const gNum = pGap ? parseInt(pGap, 10) : 0;
-            setPatternTile(patt, sNum, gNum);
+            document.documentElement.style.setProperty('--pattern-image', `url("${patt}")`);
+            document.body.classList.add('cute-bg-on');
             setCuteBg(true);
           }
           const pSizeVar = localStorage.getItem(`child_pattern_size_${data.id}`);
-          const pGapVar = localStorage.getItem(`child_pattern_gap_${data.id}`);
           const pOp = localStorage.getItem(`child_pattern_opacity_${data.id}`);
           if (pSizeVar) document.documentElement.style.setProperty('--pattern-size', pSizeVar);
-          if (pGapVar) document.documentElement.style.setProperty('--pattern-gap', pGapVar);
           if (pOp) document.documentElement.style.setProperty('--pattern-opacity', pOp);
         } catch {}
       } catch {
@@ -582,34 +549,20 @@ export default function ChildDashboard() {
                         r.readAsDataURL(f);
                       }} />
                       <div className="row g-2 w-100 mt-1">
-                        <div className="col-12 col-md-4">
+                        <div className="col-12 col-md-6">
                           <label className="form-label">Pattern size</label>
                           <input id="prof-pattern-size" type="range" min={40} max={320} defaultValue={120} className="form-range" onChange={(e) => {
                             const val = `${(e.target as HTMLInputElement).value}px`;
                             document.documentElement.style.setProperty('--pattern-size', val);
                             if (child?.id) localStorage.setItem(`child_pattern_size_${child.id}`, val);
-                            const src = localStorage.getItem(`child_pattern_${child?.id}`);
-                            if (src) setPatternTile(src);
                           }} />
                         </div>
-                        <div className="col-12 col-md-4">
-                          <label className="form-label">Pattern gap</label>
-                          <input id="prof-pattern-gap" type="range" min={0} max={200} defaultValue={0} className="form-range" onChange={(e) => {
-                            const val = `${(e.target as HTMLInputElement).value}px`;
-                            document.documentElement.style.setProperty('--pattern-gap', val);
-                            if (child?.id) localStorage.setItem(`child_pattern_gap_${child.id}`, val);
-                            const src = localStorage.getItem(`child_pattern_${child?.id}`);
-                            if (src) setPatternTile(src);
-                          }} />
-                        </div>
-                        <div className="col-12 col-md-4">
+                        <div className="col-12 col-md-6">
                           <label className="form-label">Pattern transparency</label>
                           <input id="prof-pattern-opacity" type="range" min={0} max={100} defaultValue={15} className="form-range" onChange={(e) => {
                             const frac = Math.max(0, Math.min(1, parseInt((e.target as HTMLInputElement).value, 10) / 100));
                             document.documentElement.style.setProperty('--pattern-opacity', String(frac));
                             if (child?.id) localStorage.setItem(`child_pattern_opacity_${child.id}`, String(frac));
-                            const src = localStorage.getItem(`child_pattern_${child?.id}`);
-                            if (src) setPatternTile(src);
                           }} />
                         </div>
                       </div>
@@ -621,7 +574,8 @@ export default function ChildDashboard() {
                     <div className="d-flex align-items-center gap-2 flex-wrap">
                       {patternSvgs.map((u) => (
                         <button key={u} type="button" className="btn btn-outline-secondary" onClick={() => {
-                          setPatternTile(u);
+                          document.documentElement.style.setProperty('--pattern-image', `url("${u}")`);
+                          document.body.classList.add('cute-bg-on');
                           setCuteBg(true);
                           if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, u);
                         }}>
@@ -634,7 +588,8 @@ export default function ChildDashboard() {
                         const r = new FileReader();
                         r.onload = () => {
                           const dataUrl = String(r.result || '');
-                          setPatternTile(dataUrl);
+                          document.documentElement.style.setProperty('--pattern-image', `url("${dataUrl}")`);
+                          document.body.classList.add('cute-bg-on');
                           setCuteBg(true);
                           if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, dataUrl);
                         };
