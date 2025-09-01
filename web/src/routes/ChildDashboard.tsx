@@ -21,6 +21,13 @@ export default function ChildDashboard() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [section, setSection] = useState<'home' | 'bank' | 'goals'>('home');
 
+  function hexToRgb(hex?: string | null): [number, number, number] | null {
+    if (!hex) return null;
+    const m = hex.trim().match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+    if (!m) return null;
+    return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
+  }
+
 
   useEffect(() => {
     const token = localStorage.getItem('childToken');
@@ -35,6 +42,13 @@ export default function ChildDashboard() {
         const data = await me.json();
         if (!data?.id || data?.role === 'parent') { nav('/'); return; }
         setChild({ id: data.id, familyId: data.familyId, displayName: data.displayName || null, avatarUrl: data.avatarUrl || null, themeColor: data.themeColor || null });
+        // Set theme variables on root for child-adjustable pastel background
+        try {
+          const root = document.documentElement;
+          if (data.themeColor) root.style.setProperty('--accent', data.themeColor);
+          const rgb = hexToRgb(data.themeColor);
+          if (rgb) root.style.setProperty('--accent-rgb', `${rgb[0]},${rgb[1]},${rgb[2]}`);
+        } catch {}
         // profile editing moved off dashboard
         const r1 = await fetch(`/children/${data.id}/chores?scope=today`);
         const r2 = await fetch(`/children/${data.id}/chores/week`);
@@ -52,6 +66,14 @@ export default function ChildDashboard() {
         nav('/');
       }
     })();
+    return () => {
+      // Cleanup theme override when leaving child dashboard
+      try {
+        const root = document.documentElement;
+        root.style.removeProperty('--accent');
+        root.style.removeProperty('--accent-rgb');
+      } catch {}
+    };
   }, [nav]);
 
   return (
@@ -75,7 +97,7 @@ export default function ChildDashboard() {
       ) : null}
       <aside
         aria-label="Navigation"
-        style={{ position: 'fixed', top: 0, bottom: 0, left: 0, width: 260, background: '#fff', borderRight: '1px solid #dee2e6', transform: menuOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 150ms ease', zIndex: 1040, padding: '16px' }}
+        style={{ position: 'fixed', top: 0, bottom: 0, left: 0, width: 260, background: 'var(--surface)', borderRight: '1px solid var(--border)', transform: menuOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 150ms ease', zIndex: 1040, padding: '16px' }}
       >
         <div className="d-flex justify-content-between align-items-center mb-3">
           <div className="fw-semibold">Menu</div>
@@ -99,7 +121,7 @@ export default function ChildDashboard() {
             {/* Today (left), This Week (right) */}
             <div className="row g-3">
         <div className="col-12">
-          <div className="card h-100">
+          <div className="card card--interactive h-100">
             <div className="card-body">
               <h2 className="h6">Today</h2>
               {today.length === 0 ? (
@@ -116,8 +138,8 @@ export default function ChildDashboard() {
                         <div className="small text-muted">{t.description || ''}</div>
                       </div>
                       <div className="d-flex align-items-center gap-2">
-                        {t.status === 'pending' && <span className="badge bg-warning text-dark">Pending</span>}
-                        {t.status === 'approved' && <span className="badge bg-success">Done</span>}
+                        {t.status === 'pending' && <span className="cc-chip cc-chip--pending">Pending</span>}
+                        {t.status === 'approved' && <span className="cc-chip cc-chip--done">Done</span>}
                         {t.status && (
                           <button
                             className="btn btn-sm btn-outline-secondary"
@@ -174,7 +196,7 @@ export default function ChildDashboard() {
           </div>
         </div>
         <div className="col-12">
-          <div className="card h-100">
+          <div className="card card--interactive h-100">
             <div className="card-body">
               <h2 className="h6">This Week</h2>
               {!weekData ? (
@@ -248,7 +270,7 @@ export default function ChildDashboard() {
       {section === 'bank' && (
       <div className="row g-3 mt-1">
         <div className="col-12">
-          <div className="card h-100">
+          <div className="card card--interactive h-100">
             <div className="card-body">
               <h2 className="h6">Bank</h2>
               <div className="mb-2 d-flex flex-wrap gap-3 align-items-center">
@@ -367,7 +389,7 @@ export default function ChildDashboard() {
       {section === 'goals' && (
         <div className="row g-3 mt-1">
           <div className="col-12">
-            <div className="card h-100">
+            <div className="card card--interactive h-100">
               <div className="card-body">
                 <div className="d-flex justify-content-between align-items-center mb-2">
                   <h2 className="h6 mb-0">Saver Goals</h2>

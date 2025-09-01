@@ -16,11 +16,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastCtx.Provider value={value}>
       {children}
-      <div style={{ position: 'fixed', right: 16, bottom: 16, zIndex: 1080, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="cc-toast-wrap" aria-live="polite" aria-atomic="false">
         {items.map((t) => (
-          <div key={t.id} className={`alert alert-${t.kind === 'error' ? 'danger' : t.kind === 'success' ? 'success' : 'secondary'} shadow-sm py-2 px-3`}>
-            {t.text}
-          </div>
+          <div key={t.id} className={`cc-toast cc-toast--${t.kind}`} role="status">{t.text}</div>
         ))}
       </div>
     </ToastCtx.Provider>
@@ -32,4 +30,3 @@ export function useToast() {
   if (!ctx) throw new Error('useToast must be used within ToastProvider');
   return ctx;
 }
-

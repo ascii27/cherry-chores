@@ -18,7 +18,7 @@ export default function TopBar({
   profileHref?: string;
 }) {
   return (
-    <div className="border-bottom bg-light" style={accent ? { borderTop: `4px solid ${accent}` } : undefined}>
+    <div className="border-bottom" style={{ background: 'var(--surface)', borderBottomColor: 'var(--border)', ...(accent ? { borderTop: `4px solid ${accent}` } : {}) }}>
       <div className="container d-flex justify-content-between align-items-center py-2">
         <div className="d-flex align-items-center gap-2">
           {onMenuToggle ? (
