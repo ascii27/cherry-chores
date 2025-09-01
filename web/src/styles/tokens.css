@@ -45,7 +45,8 @@ body.cute-bg-on {
 body.cute-bg-on::before {
   content: "";
   position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image: var(--pattern-image, url('/icons/cherry.svg'));
+  /* Prefer a composed tile if provided; fall back to raw image */
+  background-image: var(--pattern-tile, var(--pattern-image, url('/icons/cherry.svg')));
   background-repeat: repeat;
   background-size: calc(var(--pattern-size) + var(--pattern-gap)) calc(var(--pattern-size) + var(--pattern-gap));
   opacity: var(--pattern-opacity);

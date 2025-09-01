@@ -64,6 +64,22 @@ export default function ChildDashboard() {
     flower1,
     heartFill
   ], []);
+
+  function setPatternTile(src: string | null | undefined, sizePx?: number, gapPx?: number) {
+    if (!src) return;
+    const size = sizePx ?? parseInt((document.getElementById('prof-pattern-size') as HTMLInputElement)?.value || '120', 10);
+    const gap = gapPx ?? parseInt((document.getElementById('prof-pattern-gap') as HTMLInputElement)?.value || '0', 10);
+    const tileW = size + gap;
+    const x = Math.max(0, Math.floor(gap / 2));
+    const y = Math.max(0, Math.floor(gap / 2));
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<svg xmlns='http://www.w3.org/2000/svg' width='${tileW}' height='${tileW}' viewBox='0 0 ${tileW} ${tileW}'>` +
+      `<image href='${src}' x='${x}' y='${y}' width='${size}' height='${size}' preserveAspectRatio='xMidYMid meet'/>` +
+      `</svg>`;
+    const dataUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
+    document.documentElement.style.setProperty('--pattern-tile', dataUrl);
+    document.body.classList.add('cute-bg-on');
+  }
   function emojiSvgDataUrl(e: string) {
     const svg = encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?><svg xmlns='http://www.w3.org/2000/svg' width='128' height='128'><rect width='100%' height='100%' rx='24' ry='24' fill='white'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-size='72'>${e}</text></svg>`);
     return `data:image/svg+xml;utf8,${svg}`;
@@ -134,15 +150,19 @@ export default function ChildDashboard() {
         try {
           const patt = localStorage.getItem(`child_pattern_${data.id}`);
           if (patt) {
-            document.documentElement.style.setProperty('--pattern-image', `url("${patt}")`);
-            document.body.classList.add('cute-bg-on');
+            // Restore size/gap before composing tile
+            const pSize = localStorage.getItem(`child_pattern_size_${data.id}`);
+            const pGap = localStorage.getItem(`child_pattern_gap_${data.id}`);
+            const sNum = pSize ? parseInt(pSize, 10) : 120;
+            const gNum = pGap ? parseInt(pGap, 10) : 0;
+            setPatternTile(patt, sNum, gNum);
             setCuteBg(true);
           }
-          const pSize = localStorage.getItem(`child_pattern_size_${data.id}`);
-          const pGap = localStorage.getItem(`child_pattern_gap_${data.id}`);
+          const pSizeVar = localStorage.getItem(`child_pattern_size_${data.id}`);
+          const pGapVar = localStorage.getItem(`child_pattern_gap_${data.id}`);
           const pOp = localStorage.getItem(`child_pattern_opacity_${data.id}`);
-          if (pSize) document.documentElement.style.setProperty('--pattern-size', pSize);
-          if (pGap) document.documentElement.style.setProperty('--pattern-gap', pGap);
+          if (pSizeVar) document.documentElement.style.setProperty('--pattern-size', pSizeVar);
+          if (pGapVar) document.documentElement.style.setProperty('--pattern-gap', pGapVar);
           if (pOp) document.documentElement.style.setProperty('--pattern-opacity', pOp);
         } catch {}
       } catch {
@@ -556,6 +576,8 @@ export default function ChildDashboard() {
                             const val = `${(e.target as HTMLInputElement).value}px`;
                             document.documentElement.style.setProperty('--pattern-size', val);
                             if (child?.id) localStorage.setItem(`child_pattern_size_${child.id}`, val);
+                            const src = localStorage.getItem(`child_pattern_${child?.id}`);
+                            if (src) setPatternTile(src);
                           }} />
                         </div>
                         <div className="col-12 col-md-4">
@@ -564,6 +586,8 @@ export default function ChildDashboard() {
                             const val = `${(e.target as HTMLInputElement).value}px`;
                             document.documentElement.style.setProperty('--pattern-gap', val);
                             if (child?.id) localStorage.setItem(`child_pattern_gap_${child.id}`, val);
+                            const src = localStorage.getItem(`child_pattern_${child?.id}`);
+                            if (src) setPatternTile(src);
                           }} />
                         </div>
                         <div className="col-12 col-md-4">
