@@ -1,4 +1,22 @@
 import React, { useEffect, useMemo, useState } from 'react';
+// Bootstrap Icons (SVGs as URLs for avatars/patterns)
+// Vite resolves '?url' imports to asset URLs at build time
+// Emojis/Playful icons
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import emojiSmile from 'bootstrap-icons/icons/emoji-smile.svg?url';
+// @ts-ignore
+import emojiSunglasses from 'bootstrap-icons/icons/emoji-sunglasses.svg?url';
+// @ts-ignore
+import heartFill from 'bootstrap-icons/icons/heart-fill.svg?url';
+// @ts-ignore
+import starFill from 'bootstrap-icons/icons/star-fill.svg?url';
+// @ts-ignore
+import balloonFill from 'bootstrap-icons/icons/balloon-fill.svg?url';
+// @ts-ignore
+import rocketTakeoff from 'bootstrap-icons/icons/rocket-takeoff.svg?url';
+// @ts-ignore
+import flower1 from 'bootstrap-icons/icons/flower1.svg?url';
 import { useToast } from '../components/Toast';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
@@ -30,9 +48,45 @@ export default function ChildDashboard() {
   }
 
   const presetColors = useMemo(() => ['#7C5CFC', '#0EA5E9', '#22C55E', '#F59E0B', '#EF4444', '#FF6584'], []);
+  const avatarSvgs = useMemo(() => [
+    emojiSmile,
+    emojiSunglasses,
+    heartFill,
+    starFill,
+    balloonFill,
+    rocketTakeoff,
+    flower1
+  ], []);
+  const patternSvgs = useMemo(() => [
+    starFill,
+    balloonFill,
+    rocketTakeoff,
+    flower1,
+    heartFill
+  ], []);
   function emojiSvgDataUrl(e: string) {
     const svg = encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?><svg xmlns='http://www.w3.org/2000/svg' width='128' height='128'><rect width='100%' height='100%' rx='24' ry='24' fill='white'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-size='72'>${e}</text></svg>`);
     return `data:image/svg+xml;utf8,${svg}`;
+  }
+  function hslToHex(h: number, s: number, l: number) {
+    s /= 100; l /= 100;
+    const k = (n: number) => (n + h / 30) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+    const toHex = (x: number) => Math.round(255 * x).toString(16).padStart(2, '0');
+    return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+  }
+  function updateMixerColor() {
+    const h = parseInt((document.getElementById('mixer-h') as HTMLInputElement)?.value || '0', 10);
+    const s = parseInt((document.getElementById('mixer-s') as HTMLInputElement)?.value || '80', 10);
+    const l = parseInt((document.getElementById('mixer-l') as HTMLInputElement)?.value || '60', 10);
+    const hex = hslToHex(h, s, l);
+    const input = document.getElementById('prof-color') as HTMLInputElement;
+    if (input) input.value = hex;
+    const root = document.documentElement;
+    root.style.setProperty('--accent', hex);
+    const rgb = hexToRgb(hex);
+    if (rgb) root.style.setProperty('--accent-rgb', `${rgb[0]},${rgb[1]},${rgb[2]}`);
   }
 
 
@@ -76,6 +130,15 @@ export default function ChildDashboard() {
           setBalance(b.balance);
           setLedger(b.entries || []);
         }
+        // Restore background pattern if present
+        try {
+          const patt = localStorage.getItem(`child_pattern_${data.id}`);
+          if (patt) {
+            document.documentElement.style.setProperty('--pattern-image', `url("${patt}")`);
+            document.body.classList.add('cute-bg-on');
+            setCuteBg(true);
+          }
+        } catch {}
       } catch {
         nav('/');
       }
@@ -440,19 +503,38 @@ export default function ChildDashboard() {
                   <div className="col-12 col-md-6">
                     <label className="form-label">Theme color</label>
                     <div className="d-flex align-items-center gap-2 flex-wrap">
-                      <input id="prof-color" type="color" className="form-control form-control-color" defaultValue={(child?.themeColor as string) || '#7C5CFC'} />
+                      <input id="prof-color" type="color" className="form-control form-control-color" defaultValue={(child?.themeColor as string) || '#7C5CFC'} onChange={(e) => { const color = (e.target as HTMLInputElement).value; const root = document.documentElement; root.style.setProperty('--accent', color); const rgb = hexToRgb(color); if (rgb) root.style.setProperty('--accent-rgb', `${rgb[0]},${rgb[1]},${rgb[2]}`); }} />
                       {presetColors.map((c) => (
-                        <button key={c} type="button" className="btn btn-outline-primary btn-sm" style={{ background: c, borderColor: c, color: '#fff' }} onClick={() => { const el = document.getElementById('prof-color') as HTMLInputElement; el.value = c; }} aria-label={`Use color ${c}`}> </button>
+                        <button key={c} type="button" className="btn btn-outline-primary btn-sm" style={{ background: c, borderColor: c, color: '#fff' }} onClick={() => { const el = document.getElementById('prof-color') as HTMLInputElement; el.value = c; const root = document.documentElement; root.style.setProperty('--accent', c); const rgb = hexToRgb(c); if (rgb) root.style.setProperty('--accent-rgb', `${rgb[0]},${rgb[1]},${rgb[2]}`); }} aria-label={`Use color ${c}`}> </button>
                       ))}
+                      <button type="button" className="btn btn-outline-secondary btn-sm" onClick={() => { const el = document.getElementById('color-mixer'); if (el) el.classList.toggle('d-none'); }}>Open color mixer</button>
+                    </div>
+                  </div>
+                  <div id="color-mixer" className="col-12 d-none">
+                    <div className="row g-2 align-items-center">
+                      <div className="col-12 col-md-4">
+                        <label className="form-label">Hue</label>
+                        <input id="mixer-h" type="range" min={0} max={360} defaultValue={260} className="form-range" onChange={() => updateMixerColor()} />
+                      </div>
+                      <div className="col-6 col-md-4">
+                        <label className="form-label">Saturation</label>
+                        <input id="mixer-s" type="range" min={0} max={100} defaultValue={85} className="form-range" onChange={() => updateMixerColor()} />
+                      </div>
+                      <div className="col-6 col-md-4">
+                        <label className="form-label">Lightness</label>
+                        <input id="mixer-l" type="range" min={0} max={100} defaultValue={60} className="form-range" onChange={() => updateMixerColor()} />
+                      </div>
                     </div>
                   </div>
                   <div className="col-12">
                     <label className="form-label">Avatar</label>
                     <div className="d-flex align-items-center gap-3 flex-wrap">
-                      {['🙂','😎','🦄','🐼','🐱','🐶','🍒','🚀','⭐️'].map((e) => (
-                        <button key={e} type="button" className="btn btn-outline-secondary" onClick={() => {
-                          (document.getElementById('prof-avatar-url') as HTMLInputElement).value = emojiSvgDataUrl(e);
-                        }}>{e}</button>
+                      {avatarSvgs.map((u) => (
+                        <button key={u} type="button" className="btn btn-outline-secondary" onClick={() => {
+                          (document.getElementById('prof-avatar-url') as HTMLInputElement).value = u;
+                        }}>
+                          <img src={u} alt="avatar option" style={{ width: 28, height: 28 }} />
+                        </button>
                       ))}
                       <input type="file" accept="image/*" className="form-control" style={{ maxWidth: 260 }} onChange={(ev) => {
                         const f = (ev.target as HTMLInputElement).files?.[0];
@@ -462,6 +544,39 @@ export default function ChildDashboard() {
                         r.readAsDataURL(f);
                       }} />
                       <input id="prof-avatar-url" className="form-control" placeholder="Avatar URL or auto-filled" style={{ maxWidth: 420 }} defaultValue={child?.avatarUrl || ''} />
+                    </div>
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label">Background pattern</label>
+                    <div className="d-flex align-items-center gap-2 flex-wrap">
+                      {patternSvgs.map((u) => (
+                        <button key={u} type="button" className="btn btn-outline-secondary" onClick={() => {
+                          document.documentElement.style.setProperty('--pattern-image', `url("${u}")`);
+                          document.body.classList.add('cute-bg-on');
+                          setCuteBg(true);
+                          if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, u);
+                        }}>
+                          <img src={u} alt="pattern option" style={{ width: 28, height: 28 }} />
+                        </button>
+                      ))}
+                      <input id="prof-pattern-upload" type="file" accept="image/svg+xml,image/png,image/jpeg" className="form-control" style={{ maxWidth: 420 }} onChange={(ev) => {
+                        const f = (ev.target as HTMLInputElement).files?.[0];
+                        if (!f) return;
+                        const r = new FileReader();
+                        r.onload = () => {
+                          const dataUrl = String(r.result || '');
+                          document.documentElement.style.setProperty('--pattern-image', `url("${dataUrl}")`);
+                          document.body.classList.add('cute-bg-on');
+                          setCuteBg(true);
+                          if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, dataUrl);
+                        };
+                        r.readAsDataURL(f);
+                      }} />
+                      <button type="button" className="btn btn-outline-secondary" onClick={() => {
+                        document.body.classList.remove('cute-bg-on');
+                        setCuteBg(false);
+                        if (child?.id) localStorage.removeItem(`child_pattern_${child.id}`);
+                      }}>Clear pattern</button>
                     </div>
                   </div>
                   <div className="col-12">

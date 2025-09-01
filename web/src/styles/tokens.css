@@ -32,8 +32,9 @@ body {
 
 /* Cute background variant with tiled cherries (toggle via body.cute-bg-on) */
 body.cute-bg-on {
+  /* First layer uses --pattern-image if set, otherwise defaults to local cherry.svg */
   background:
-    url("data:image/svg+xml;utf8,<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><text x='20' y='40' font-size='28'>🍒</text><text x='80' y='80' font-size='24'>⭐️</text><text x='50' y='105' font-size='22'>🎈</text></svg>") repeat,
+    var(--pattern-image, url('/icons/cherry.svg')) repeat,
     radial-gradient(1200px 600px at -10% -10%, rgba(var(--accent-rgb, 124,92,252), 0.10), rgba(var(--accent-rgb, 124,92,252), 0) 60%),
     radial-gradient(900px 500px at 110% -20%, rgba(var(--accent-rgb, 124,92,252), 0.06), rgba(var(--accent-rgb, 124,92,252), 0) 60%),
     linear-gradient(var(--bg), var(--bg));
