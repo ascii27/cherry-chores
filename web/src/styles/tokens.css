@@ -21,9 +21,11 @@
   /* Pattern controls */
   --pattern-size: 120px;
   --pattern-opacity: 0.15; /* 0..1 */
+  --pattern-color: var(--accent);
 }
 
 body {
+  position: relative; /* establish stacking context for ::before pattern layer */
   /* Soft pastel background that follows --accent; fallback to primary */
   background:
     radial-gradient(1200px 600px at -10% -10%, rgba(var(--accent-rgb, 124,92,252), 0.10), rgba(var(--accent-rgb, 124,92,252), 0) 60%),
@@ -34,17 +36,22 @@ body {
 }
 
 /* Cute background variant with tiled cherries (toggle via body.cute-bg-on) */
-body.cute-bg-on {
-  /* Pattern behind all content; gradients above pattern */
-  background-image:
-    var(--pattern-image, url('/icons/cherry.svg')),
-    radial-gradient(1200px 600px at -10% -10%, rgba(var(--accent-rgb, 124,92,252), 0.10), rgba(var(--accent-rgb, 124,92,252), 0) 60%),
-    radial-gradient(900px 500px at 110% -20%, rgba(var(--accent-rgb, 124,92,252), 0.06), rgba(var(--accent-rgb, 124,92,252), 0) 60%),
-    linear-gradient(var(--bg), var(--bg));
-  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
-  background-size:
-    var(--pattern-size, 120px) var(--pattern-size, 120px),
-    auto, auto, auto;
+/* Pattern layer behind everything via mask */
+body.cute-bg-on::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--pattern-color);
+  /* Apply mask from image (repeat/tile and scale) */
+  -webkit-mask-image: var(--pattern-image, url('/icons/cherry.svg'));
+  mask-image: var(--pattern-image, url('/icons/cherry.svg'));
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: var(--pattern-size, 120px) var(--pattern-size, 120px);
+  mask-size: var(--pattern-size, 120px) var(--pattern-size, 120px);
+  opacity: var(--pattern-opacity, 0.15);
 }
 
 /* Bootstrap surface overrides for softer cards */
@@ -157,7 +164,8 @@ body.cute-bg-on {
 
 /* Landing page styles */
 .brand { font-weight: 700; color: var(--text); text-decoration: none; }
-.topnav { background: var(--surface); border-bottom: 1px solid var(--border); }
+.topnav { background: var(--surface); border-bottom: 1px solid var(--border); position: relative; z-index: 1; }
+.container { position: relative; z-index: 1; }
 .topnav .container { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1rem; }
 .hero { padding: 64px 0; }
 .hero .title { font-size: 48px; line-height: 1.15; font-weight: 700; color: var(--text); }

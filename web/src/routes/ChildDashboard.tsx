@@ -141,8 +141,10 @@ export default function ChildDashboard() {
           }
           const pSizeVar = localStorage.getItem(`child_pattern_size_${data.id}`);
           const pOp = localStorage.getItem(`child_pattern_opacity_${data.id}`);
+          const pCol = localStorage.getItem(`child_pattern_color_${data.id}`);
           if (pSizeVar) document.documentElement.style.setProperty('--pattern-size', pSizeVar);
           if (pOp) document.documentElement.style.setProperty('--pattern-opacity', pOp);
+          if (pCol) document.documentElement.style.setProperty('--pattern-color', pCol);
         } catch {}
       } catch {
         nav('/');
@@ -548,34 +550,7 @@ export default function ChildDashboard() {
                         r.onload = () => { (document.getElementById('prof-avatar-url') as HTMLInputElement).value = String(r.result || ''); };
                         r.readAsDataURL(f);
                       }} />
-                      <div className="row g-2 w-100 mt-1">
-                        <div className="col-12 col-md-6">
-                          <label className="form-label">Pattern size</label>
-                          <input id="prof-pattern-size" type="range" min={40} max={320} defaultValue={120} className="form-range" onChange={(e) => {
-                            const val = `${(e.target as HTMLInputElement).value}px`;
-                            document.documentElement.style.setProperty('--pattern-size', val);
-                            if (child?.id) localStorage.setItem(`child_pattern_size_${child.id}`, val);
-                          }} />
-                        </div>
-                        <div className="col-12 col-md-6">
-                          <label className="form-label">Pattern transparency</label>
-                          <input id="prof-pattern-opacity" type="range" min={0} max={100} defaultValue={15} className="form-range" onChange={async (e) => {
-                            const frac = Math.max(0, Math.min(1, parseInt((e.target as HTMLInputElement).value, 10) / 100));
-                            if (child?.id) localStorage.setItem(`child_pattern_opacity_${child.id}`, String(frac));
-                            const src = localStorage.getItem(`child_pattern_${child?.id}`);
-                            if (src && (src.endsWith('.svg') || src.startsWith('data:image/svg'))) {
-                              try { await applyPatternFromSrc(src); } catch {}
-                            }
-                          }} />
-                        </div>
-                        <div className="col-12">
-                          <label className="form-label">Pattern color</label>
-                          <input id="prof-pattern-color" type="color" className="form-control form-control-color" defaultValue={(child?.themeColor as string) || '#7C5CFC'} onChange={async () => {
-                            const src = localStorage.getItem(`child_pattern_${child?.id}`);
-                            if (src) { try { await applyPatternFromSrc(src); } catch {} }
-                          }} />
-                        </div>
-                      </div>
+                      {/* Pattern controls moved to Background pattern editor below */}
                       <input id="prof-avatar-url" className="form-control" placeholder="Avatar URL or auto-filled" style={{ maxWidth: 420 }} defaultValue={child?.avatarUrl || ''} />
                     </div>
                   </div>
@@ -586,7 +561,8 @@ export default function ChildDashboard() {
                         {patternSvgs.map((u) => (
                           <button key={u} type="button" className="btn btn-outline-secondary" onClick={() => {
                             if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, u);
-                            (async () => { try { await applyPatternFromSrc(u); } catch {} })();
+                            document.documentElement.style.setProperty('--pattern-image', `url("${u}")`);
+                            document.body.classList.add('cute-bg-on');
                             setCuteBg(true);
                           }}>
                             <img src={u} alt="pattern option" style={{ width: 28, height: 28 }} />
@@ -595,31 +571,15 @@ export default function ChildDashboard() {
                         <input id="prof-pattern-upload" type="file" accept="image/svg+xml,image/png,image/jpeg" className="form-control" style={{ maxWidth: 420 }} onChange={(ev) => {
                           const f = (ev.target as HTMLInputElement).files?.[0];
                           if (!f) return;
-                          if (f.type === 'image/svg+xml') {
-                            const rt = new FileReader();
-                            rt.onload = async () => {
-                              const raw = String(rt.result || '');
-                              const color = getPatternColor();
-                              const op = getPatternOpacity();
-                              let cooked = raw.replace(/currentColor/g, color).replace(/<svg(\s+)/, `<svg$1opacity="${op}" `);
-                              const dataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(cooked)}`;
-                              document.documentElement.style.setProperty('--pattern-image', `url("${dataUrl}")`);
-                              if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, dataUrl);
-                              document.body.classList.add('cute-bg-on');
-                              setCuteBg(true);
-                            };
-                            rt.readAsText(f);
-                          } else {
-                            const r = new FileReader();
-                            r.onload = () => {
-                              const dataUrl = String(r.result || '');
-                              document.documentElement.style.setProperty('--pattern-image', `url("${dataUrl}")`);
-                              if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, dataUrl);
-                              document.body.classList.add('cute-bg-on');
-                              setCuteBg(true);
-                            };
-                            r.readAsDataURL(f);
-                          }
+                          const r = new FileReader();
+                          r.onload = () => {
+                            const dataUrl = String(r.result || '');
+                            document.documentElement.style.setProperty('--pattern-image', `url("${dataUrl}")`);
+                            if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, dataUrl);
+                            document.body.classList.add('cute-bg-on');
+                            setCuteBg(true);
+                          };
+                          r.readAsDataURL(f);
                         }} />
                         <div className="row g-2 w-100 mt-1">
                           <div className="col-12 col-md-6">
@@ -632,13 +592,10 @@ export default function ChildDashboard() {
                           </div>
                           <div className="col-12 col-md-6">
                             <label className="form-label">Pattern transparency</label>
-                            <input id="prof-pattern-opacity" type="range" min={0} max={100} defaultValue={15} className="form-range" onChange={async (e) => {
+                            <input id="prof-pattern-opacity" type="range" min={0} max={100} defaultValue={15} className="form-range" onChange={(e) => {
                               const frac = Math.max(0, Math.min(1, parseInt((e.target as HTMLInputElement).value, 10) / 100));
+                              document.documentElement.style.setProperty('--pattern-opacity', String(frac));
                               if (child?.id) localStorage.setItem(`child_pattern_opacity_${child.id}`, String(frac));
-                              const src = localStorage.getItem(`child_pattern_${child?.id}`);
-                              if (src && (src.endsWith('.svg') || src.startsWith('data:image/svg'))) {
-                                try { await applyPatternFromSrc(src); } catch {}
-                              }
                             }} />
                           </div>
                           <div className="col-12">
