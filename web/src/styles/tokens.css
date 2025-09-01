@@ -36,20 +36,16 @@ body {
 
 /* Cute background variant with tiled cherries (toggle via body.cute-bg-on) */
 body.cute-bg-on {
-  /* Keep the pastel gradients on body; draw pattern on ::before for easy opacity control */
-  background:
+  /* First layer: composed tile with true gap; then pastel gradients */
+  background-image:
+    var(--pattern-tile, var(--pattern-image, url('/icons/cherry.svg'))),
     radial-gradient(1200px 600px at -10% -10%, rgba(var(--accent-rgb, 124,92,252), 0.10), rgba(var(--accent-rgb, 124,92,252), 0) 60%),
     radial-gradient(900px 500px at 110% -20%, rgba(var(--accent-rgb, 124,92,252), 0.06), rgba(var(--accent-rgb, 124,92,252), 0) 60%),
     linear-gradient(var(--bg), var(--bg));
-}
-body.cute-bg-on::before {
-  content: "";
-  position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  /* Prefer a composed tile if provided; fall back to raw image */
-  background-image: var(--pattern-tile, var(--pattern-image, url('/icons/cherry.svg')));
-  background-repeat: repeat;
-  background-size: calc(var(--pattern-size) + var(--pattern-gap)) calc(var(--pattern-size) + var(--pattern-gap));
-  opacity: var(--pattern-opacity);
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+  background-size:
+    calc(var(--pattern-size) + var(--pattern-gap)) calc(var(--pattern-size) + var(--pattern-gap)),
+    auto, auto, auto;
 }
 
 /* Bootstrap surface overrides for softer cards */

@@ -65,16 +65,28 @@ export default function ChildDashboard() {
     heartFill
   ], []);
 
-  function setPatternTile(src: string | null | undefined, sizePx?: number, gapPx?: number) {
+  async function setPatternTile(src: string | null | undefined, sizePx?: number, gapPx?: number) {
     if (!src) return;
     const size = sizePx ?? parseInt((document.getElementById('prof-pattern-size') as HTMLInputElement)?.value || '120', 10);
     const gap = gapPx ?? parseInt((document.getElementById('prof-pattern-gap') as HTMLInputElement)?.value || '0', 10);
     const tileW = size + gap;
     const x = Math.max(0, Math.floor(gap / 2));
     const y = Math.max(0, Math.floor(gap / 2));
+    let href = src;
+    try {
+      if (!src.startsWith('data:') && src.endsWith('.svg')) {
+        const r = await fetch(src);
+        if (r.ok) {
+          const raw = await r.text();
+          href = `data:image/svg+xml;utf8,${encodeURIComponent(raw)}`;
+        }
+      }
+    } catch {}
     const svg = `<?xml version="1.0" encoding="UTF-8"?>\n` +
       `<svg xmlns='http://www.w3.org/2000/svg' width='${tileW}' height='${tileW}' viewBox='0 0 ${tileW} ${tileW}'>` +
-      `<image href='${src}' x='${x}' y='${y}' width='${size}' height='${size}' preserveAspectRatio='xMidYMid meet'/>` +
+      `<g opacity='${op}'>` +
+      `<image href='${href}' x='${x}' y='${y}' width='${size}' height='${size}' preserveAspectRatio='xMidYMid meet'/>` +
+      `</g>` +
       `</svg>`;
     const dataUrl = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
     document.documentElement.style.setProperty('--pattern-tile', dataUrl);
@@ -596,6 +608,8 @@ export default function ChildDashboard() {
                             const frac = Math.max(0, Math.min(1, parseInt((e.target as HTMLInputElement).value, 10) / 100));
                             document.documentElement.style.setProperty('--pattern-opacity', String(frac));
                             if (child?.id) localStorage.setItem(`child_pattern_opacity_${child.id}`, String(frac));
+                            const src = localStorage.getItem(`child_pattern_${child?.id}`);
+                            if (src) setPatternTile(src);
                           }} />
                         </div>
                       </div>
@@ -607,8 +621,7 @@ export default function ChildDashboard() {
                     <div className="d-flex align-items-center gap-2 flex-wrap">
                       {patternSvgs.map((u) => (
                         <button key={u} type="button" className="btn btn-outline-secondary" onClick={() => {
-                          document.documentElement.style.setProperty('--pattern-image', `url("${u}")`);
-                          document.body.classList.add('cute-bg-on');
+                          setPatternTile(u);
                           setCuteBg(true);
                           if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, u);
                         }}>
@@ -621,8 +634,7 @@ export default function ChildDashboard() {
                         const r = new FileReader();
                         r.onload = () => {
                           const dataUrl = String(r.result || '');
-                          document.documentElement.style.setProperty('--pattern-image', `url("${dataUrl}")`);
-                          document.body.classList.add('cute-bg-on');
+                          setPatternTile(dataUrl);
                           setCuteBg(true);
                           if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, dataUrl);
                         };
@@ -630,6 +642,7 @@ export default function ChildDashboard() {
                       }} />
                       <button type="button" className="btn btn-outline-secondary" onClick={() => {
                         document.body.classList.remove('cute-bg-on');
+                        document.documentElement.style.removeProperty('--pattern-tile');
                         setCuteBg(false);
                         if (child?.id) localStorage.removeItem(`child_pattern_${child.id}`);
                       }}>Clear pattern</button>
