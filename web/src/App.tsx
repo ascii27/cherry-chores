@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import coinUrl from 'bootstrap-icons/icons/coin.svg?url';
 
 export default function App() {
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
@@ -146,7 +147,7 @@ export default function App() {
                   </g>
                   <g transform="translate(80,95)">
                     <rect x="0" y="0" width="60" height="40" rx="12" fill="#fff" stroke="var(--border)" />
-                    <text x="30" y="25" textAnchor="middle" fontSize="16">💰</text>
+                    <image href={coinUrl} x="20" y="12" width="20" height="20" aria-label="coin" />
                   </g>
                   <g transform="translate(140,95)">
                     <rect x="0" y="0" width="60" height="40" rx="12" fill="#fff" stroke="var(--border)" />
@@ -175,7 +176,9 @@ export default function App() {
             <div className="col-12 col-md-4">
               <div className="card card--interactive h-100">
                 <div className="card-body">
-                  <div className="feature-icon" aria-hidden>💰</div>
+                  <div className="feature-icon" aria-hidden>
+                    <img src={coinUrl} alt="" width={28} height={28} />
+                  </div>
                   <h3 className="h5 mt-2">Earn & save coins</h3>
                   <p className="text-muted mb-0">Kids earn coins for completing chores and can allocate to goals.</p>
                 </div>
