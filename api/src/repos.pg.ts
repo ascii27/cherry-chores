@@ -34,9 +34,14 @@ export class PgRepos implements UsersRepository, FamiliesRepository {
         username TEXT NOT NULL,
         password_hash TEXT NOT NULL,
         display_name TEXT NOT NULL,
+        avatar_url TEXT,
+        theme_color TEXT,
         UNIQUE (family_id, username)
       );
       CREATE UNIQUE INDEX IF NOT EXISTS idx_children_username ON children(username);
+      -- Phase 5: ensure optional profile columns exist on existing tables
+      ALTER TABLE children ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+      ALTER TABLE children ADD COLUMN IF NOT EXISTS theme_color TEXT;
     `);
   }
 
@@ -81,20 +86,20 @@ export class PgRepos implements UsersRepository, FamiliesRepository {
   async getChildByUsername(username: string): Promise<ChildUser | undefined> {
     await this.ensureReady();
     const c = await this.pool.query(
-      'SELECT id, family_id, username, password_hash, display_name FROM children WHERE username=$1',
+      'SELECT id, family_id, username, password_hash, display_name, avatar_url, theme_color FROM children WHERE username=$1',
       [username]
     );
     if (!c.rowCount) return undefined;
     const r = c.rows[0];
-    return { id: r.id, familyId: r.family_id, username: r.username, passwordHash: r.password_hash, displayName: r.display_name };
+    return { id: r.id, familyId: r.family_id, username: r.username, passwordHash: r.password_hash, displayName: r.display_name, avatarUrl: r.avatar_url ?? undefined, themeColor: r.theme_color ?? undefined };
   }
 
   async getChildById(id: string): Promise<ChildUser | undefined> {
     await this.ensureReady();
-    const c = await this.pool.query('SELECT id, family_id, username, password_hash, display_name FROM children WHERE id=$1', [id]);
+    const c = await this.pool.query('SELECT id, family_id, username, password_hash, display_name, avatar_url, theme_color FROM children WHERE id=$1', [id]);
     if (!c.rowCount) return undefined;
     const r = c.rows[0];
-    return { id: r.id, familyId: r.family_id, username: r.username, passwordHash: r.password_hash, displayName: r.display_name };
+    return { id: r.id, familyId: r.family_id, username: r.username, passwordHash: r.password_hash, displayName: r.display_name, avatarUrl: r.avatar_url ?? undefined, themeColor: r.theme_color ?? undefined };
   }
 
   async createChild(child: ChildUser): Promise<ChildUser> {
@@ -107,13 +112,13 @@ export class PgRepos implements UsersRepository, FamiliesRepository {
       throw err;
     }
     await this.pool.query(
-      'INSERT INTO children(id, family_id, username, password_hash, display_name) VALUES ($1,$2,$3,$4,$5)',
-      [child.id, child.familyId, child.username, child.passwordHash, child.displayName]
+      'INSERT INTO children(id, family_id, username, password_hash, display_name, avatar_url, theme_color) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [child.id, child.familyId, child.username, child.passwordHash, child.displayName, child.avatarUrl ?? null, child.themeColor ?? null]
     );
     return child;
   }
 
-  async updateChild(id: string, update: Partial<Pick<ChildUser, 'username' | 'passwordHash' | 'displayName'>>) {
+  async updateChild(id: string, update: Partial<Pick<ChildUser, 'username' | 'passwordHash' | 'displayName' | 'avatarUrl' | 'themeColor'>>) {
     await this.ensureReady();
     const cur = await this.pool.query('SELECT id, family_id, username, password_hash, display_name FROM children WHERE id=$1', [id]);
     if (!cur.rowCount) return undefined;
@@ -129,8 +134,10 @@ export class PgRepos implements UsersRepository, FamiliesRepository {
     const nextUsername = update.username ?? r.username;
     const nextPw = update.passwordHash ?? r.password_hash;
     const nextName = update.displayName ?? r.display_name;
-    await this.pool.query('UPDATE children SET username=$1, password_hash=$2, display_name=$3 WHERE id=$4', [nextUsername, nextPw, nextName, id]);
-    return { id, familyId: r.family_id, username: nextUsername, passwordHash: nextPw, displayName: nextName };
+    const nextAvatar = update.avatarUrl ?? r.avatar_url ?? null;
+    const nextTheme = update.themeColor ?? r.theme_color ?? null;
+    await this.pool.query('UPDATE children SET username=$1, password_hash=$2, display_name=$3, avatar_url=$4, theme_color=$5 WHERE id=$6', [nextUsername, nextPw, nextName, nextAvatar, nextTheme, id]);
+    return { id, familyId: r.family_id, username: nextUsername, passwordHash: nextPw, displayName: nextName, avatarUrl: nextAvatar ?? undefined, themeColor: nextTheme ?? undefined };
   }
 
   async deleteChild(id: string): Promise<void> {

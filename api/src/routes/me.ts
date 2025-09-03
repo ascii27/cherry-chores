@@ -15,7 +15,9 @@ export function meRoutes(opts: { users: UsersRepository }) {
       return res.json({ id: parent.id, email: parent.email, name: parent.name, families: parent.families });
     }
     // child
-    return res.json({ id: u.id, role: 'child', familyId: u.familyId });
+    const child = await users.getChildById(u.id);
+    if (!child) return res.status(404).json({ error: 'not found' });
+    return res.json({ id: u.id, role: 'child', familyId: u.familyId, displayName: child.displayName, avatarUrl: child.avatarUrl ?? null, themeColor: child.themeColor ?? null });
   });
 
   return router;

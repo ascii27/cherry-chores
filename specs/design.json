@@ -1,0 +1,171 @@
+{
+  "designSystem": {
+    "brand": {
+      "name": "EduWave",
+      "logo": {
+        "type": "text",
+        "font": "Inter",
+        "color": "#1F1F1F"
+      }
+    },
+    "colors": {
+      "primary": "#7C5CFC",
+      "primaryLight": "#E9E5FF",
+      "secondary": "#FFB946",
+      "textPrimary": "#1F1F1F",
+      "textSecondary": "#5A5A5A",
+      "background": "#FFFFFF",
+      "backgroundAlt": "#FAF9FF",
+      "border": "#E6E6E6",
+      "accent": "#FF6584",
+      "success": "#22C55E",
+      "info": "#3B82F6",
+      "warning": "#FACC15",
+      "error": "#EF4444"
+    },
+    "typography": {
+      "fontFamily": "Inter, sans-serif",
+      "headings": {
+        "h1": {
+          "fontSize": "48px",
+          "fontWeight": "700",
+          "lineHeight": "56px",
+          "color": "{colors.textPrimary}"
+        },
+        "h2": {
+          "fontSize": "36px",
+          "fontWeight": "700",
+          "lineHeight": "44px",
+          "color": "{colors.textPrimary}"
+        },
+        "h3": {
+          "fontSize": "28px",
+          "fontWeight": "600",
+          "lineHeight": "36px",
+          "color": "{colors.textPrimary}"
+        },
+        "h4": {
+          "fontSize": "22px",
+          "fontWeight": "600",
+          "lineHeight": "30px",
+          "color": "{colors.textPrimary}"
+        }
+      },
+      "body": {
+        "large": {
+          "fontSize": "18px",
+          "fontWeight": "400",
+          "lineHeight": "28px",
+          "color": "{colors.textSecondary}"
+        },
+        "medium": {
+          "fontSize": "16px",
+          "fontWeight": "400",
+          "lineHeight": "24px",
+          "color": "{colors.textSecondary}"
+        },
+        "small": {
+          "fontSize": "14px",
+          "fontWeight": "400",
+          "lineHeight": "20px",
+          "color": "{colors.textSecondary}"
+        }
+      },
+      "buttons": {
+        "fontSize": "16px",
+        "fontWeight": "600",
+        "lineHeight": "24px",
+        "textTransform": "none"
+      }
+    },
+    "spacing": {
+      "xxs": "4px",
+      "xs": "8px",
+      "sm": "12px",
+      "md": "16px",
+      "lg": "24px",
+      "xl": "32px",
+      "xxl": "48px",
+      "sectionPadding": "80px"
+    },
+    "borders": {
+      "radiusSm": "8px",
+      "radiusMd": "16px",
+      "radiusLg": "24px",
+      "radiusFull": "9999px"
+    },
+    "shadows": {
+      "sm": "0 1px 2px rgba(0, 0, 0, 0.05)",
+      "md": "0 4px 6px rgba(0, 0, 0, 0.1)",
+      "lg": "0 10px 15px rgba(0, 0, 0, 0.15)"
+    },
+    "layout": {
+      "maxWidth": "1280px",
+      "grid": {
+        "columns": 12,
+        "gutter": "24px"
+      },
+      "containerPadding": "16px"
+    },
+    "components": {
+      "button": {
+        "primary": {
+          "background": "{colors.primary}",
+          "color": "#FFFFFF",
+          "padding": "12px 24px",
+          "borderRadius": "{borders.radiusMd}",
+          "hoverBackground": "#6841E6"
+        },
+        "secondary": {
+          "background": "{colors.primaryLight}",
+          "color": "{colors.primary}",
+          "padding": "12px 24px",
+          "borderRadius": "{borders.radiusMd}",
+          "hoverBackground": "#D7CFFF"
+        }
+      },
+      "card": {
+        "background": "#FFFFFF",
+        "borderRadius": "{borders.radiusLg}",
+        "padding": "{spacing.lg}",
+        "shadow": "{shadows.md}"
+      },
+      "navbar": {
+        "height": "80px",
+        "background": "#FFFFFF",
+        "linksColor": "{colors.textPrimary}",
+        "buttonStyle": "secondary"
+      },
+      "hero": {
+        "background": "{colors.backgroundAlt}",
+        "titleColor": "{colors.textPrimary}",
+        "subtitleColor": "{colors.textSecondary}",
+        "illustration": "custom graphics with purple accents"
+      },
+      "section": {
+        "padding": "{spacing.sectionPadding}",
+        "titleAlign": "center",
+        "titleWeight": "700"
+      },
+      "testimonial": {
+        "background": "{colors.backgroundAlt}",
+        "cardStyle": "{components.card}"
+      },
+      "footer": {
+        "background": "{colors.backgroundAlt}",
+        "textColor": "{colors.textSecondary}",
+        "linkColor": "{colors.primary}"
+      }
+    },
+    "icons": {
+      "style": "outlined",
+      "strokeWidth": "2px",
+      "color": "{colors.primary}"
+    },
+    "imagery": {
+      "style": "flat illustrations with playful gestures",
+      "shapes": "rounded blobs and curved accents",
+      "accentColor": "{colors.primary}"
+    }
+  }
+}

@@ -11,7 +11,7 @@ export interface UsersRepository {
   getChildByUsername(username: string): Promise<ChildUser | undefined>;
   getChildById(id: string): Promise<ChildUser | undefined>;
   createChild(child: ChildUser): Promise<ChildUser>;
-  updateChild(id: string, update: Partial<Pick<ChildUser, 'username' | 'passwordHash' | 'displayName'>>): Promise<ChildUser | undefined>;
+  updateChild(id: string, update: Partial<Pick<ChildUser, 'username' | 'passwordHash' | 'displayName' | 'avatarUrl' | 'themeColor'>>): Promise<ChildUser | undefined>;
   deleteChild(id: string): Promise<void>;
 }
 
@@ -94,7 +94,7 @@ export class InMemoryRepos implements UsersRepository, FamiliesRepository, Chore
     return child;
   }
 
-  async updateChild(id: string, update: Partial<Pick<ChildUser, 'username' | 'passwordHash' | 'displayName'>>) {
+  async updateChild(id: string, update: Partial<Pick<ChildUser, 'username' | 'passwordHash' | 'displayName' | 'avatarUrl' | 'themeColor'>>) {
     const cur = this.children.get(id);
     if (!cur) return undefined;
     if (update.username && update.username !== cur.username) {

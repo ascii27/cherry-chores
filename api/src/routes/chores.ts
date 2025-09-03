@@ -169,22 +169,23 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
 
   // Child marks chore complete
   router.post('/chores/:id/complete', async (req: Request, res) => {
-    const { childId } = req.body || {};
+    const { childId, date } = req.body || {};
     if (!childId) return res.status(400).json({ error: 'missing childId' });
     const child = await users.getChildById(childId);
     if (!child) return res.status(404).json({ error: 'child not found' });
     const chore = await chores.getChoreById(req.params.id);
     if (!chore || !chore.assignedChildIds.includes(childId)) return res.status(404).json({ error: 'not found' });
-    const c: Completion = { id: `comp_${Date.now()}`, choreId: chore.id, childId, date: todayStr(), status: chore.requiresApproval ? 'pending' : 'approved' };
+    const compDate = typeof date === 'string' && /\d{4}-\d{2}-\d{2}/.test(date) ? date : todayStr();
+    const c: Completion = { id: `comp_${Date.now()}`, choreId: chore.id, childId, date: compDate, status: chore.requiresApproval ? 'pending' : 'approved' };
     await chores.createCompletion(c);
     res.json(c);
   });
 
   // Child unmark (only if completion exists and is pending)
   router.post('/chores/:id/uncomplete', async (req: Request, res) => {
-    const { childId } = req.body || {};
+    const { childId, date } = req.body || {};
     if (!childId) return res.status(400).json({ error: 'missing childId' });
-    const compDate = todayStr();
+    const compDate = typeof date === 'string' && /\d{4}-\d{2}-\d{2}/.test(date) ? date : todayStr();
     // naive: need completions in range and matching today
     // We could add a lookup by chore+child+date but for MVP we'll scan today's range
     const comps = await chores.listCompletionsForChildInRange(childId, compDate, compDate);

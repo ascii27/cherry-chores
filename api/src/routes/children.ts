@@ -30,20 +30,25 @@ export function childrenRoutes(opts: { users: UsersRepository; families: Familie
   });
 
   // Update a child (username/displayName/password)
-  router.patch('/children/:id', requireRole('parent'), async (req: Request, res) => {
+  router.patch('/children/:id', async (req: Request, res) => {
     const child = await users.getChildById(req.params.id);
     if (!child) return res.status(404).json({ error: 'not found' });
     const fam = await families.getFamilyById(child.familyId);
     if (!fam) return res.status(404).json({ error: 'family not found' });
-    if (!fam.parentIds.includes((req as AuthedRequest).user!.id)) return res.status(403).json({ error: 'forbidden' });
-    const { username, displayName, password } = req.body || {};
+    const actor = (req as AuthedRequest).user!;
+    const isParent = fam.parentIds.includes(actor.id) && actor.role === 'parent';
+    const isChildSelf = actor.role === 'child' && actor.id === child.id;
+    if (!isParent && !isChildSelf) return res.status(403).json({ error: 'forbidden' });
+    const { username, displayName, password, avatarUrl, themeColor } = req.body || {};
     try {
       const updated = await users.updateChild(child.id, {
         username,
         displayName,
-        passwordHash: password
+        passwordHash: password,
+        avatarUrl,
+        themeColor
       });
-      return res.json({ id: updated!.id, username: updated!.username, displayName: updated!.displayName });
+      return res.json({ id: updated!.id, username: updated!.username, displayName: updated!.displayName, avatarUrl: updated!.avatarUrl, themeColor: updated!.themeColor });
     } catch (e: any) {
       if (e?.code === 409) return res.status(409).json({ error: 'username taken' });
       throw e;
