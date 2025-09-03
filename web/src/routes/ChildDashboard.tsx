@@ -230,7 +230,12 @@ export default function ChildDashboard() {
                       <div>
                         <div className="fw-semibold d-flex align-items-center gap-2">
                           <span>{t.name}</span>
-                          <span title={`+${t.value} coins`} className="align-middle"><GoldCoin title={`+${t.value} coin`} /></span>
+                          <span className="d-inline-flex align-items-center" title={`+${t.value} coins`}>
+                            {Array.from({ length: Math.min(t.value || 0, 5) }).map((_, idx) => (
+                              <span key={idx} className="ms-1" style={{ display: 'inline-flex' }}><GoldCoin /></span>
+                            ))}
+                            {(t.value || 0) > 5 && <span className="ms-1" aria-hidden>…</span>}
+                          </span>
                         </div>
                         <div className="small text-muted">{t.description || ''}</div>
                       </div>
@@ -323,11 +328,16 @@ export default function ChildDashboard() {
                 </header>
                 {weekData && (
                   <div className="wk-grid" role="grid" aria-label="Week grid">
-                    {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => (
-                      <div key={`h-${d}`} className="wk-col">
-                        <div className="wk-col-head"><div className="wk-day">{d}</div></div>
-                      </div>
-                    ))}
+                    {weekData.days.map((day, i) => {
+                      const dd = new Date(day.date);
+                      const weekday = dd.toLocaleDateString(undefined, { weekday: 'short' });
+                      const mday = dd.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                      return (
+                        <div key={`h-${day.date}`} className="wk-col">
+                          <div className="wk-col-head"><div className="wk-day">{weekday} <span className="wk-daydate">{mday}</span></div></div>
+                        </div>
+                      );
+                    })}
                     {weekData.days.map((day, i) => {
                       const items = day.items as any[];
                       const maxVisible = 4;
@@ -342,24 +352,23 @@ export default function ChildDashboard() {
                             aria-label={new Date(day.date).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
                             onClick={() => setSelectedDay(i)}
                           >
-                            <div className="wk-date">{new Date(day.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
-                            <span className="wk-count" aria-label={`${items.length} tasks`}>{items.length}</span>
                             {items.length === 0 ? (
                               <div className="wk-meta">No tasks</div>
                             ) : (
                               <div>
-                                {visible.map((it: any) => (
-                                  <div key={it.id} className="wk-task">
-                                    <span className="name">{it.name}</span>
-                                    {it.status === 'approved' ? (
-                                      <span aria-label="Done" title="Done" style={{ fontSize: 16 }}>✅</span>
-                                    ) : it.status === 'pending' ? (
-                                      <span className="wk-badge upcoming">Pending</span>
-                                    ) : it.status === 'missed' ? (
-                                      <span aria-label="Missed" title="Missed" style={{ fontSize: 16, color: 'var(--danger)' }}>❌</span>
-                                    ) : null}
-                                  </div>
-                                ))}
+                                {visible.map((it: any) => {
+                                  const status = it.status;
+                                  const isDone = status === 'approved';
+                                  const isMiss = status === 'missed';
+                                  return (
+                                    <div key={it.id} className="wk-task">
+                                      <span className={`wk-box ${isDone ? 'ok' : isMiss ? 'miss' : ''}`} aria-label={isDone ? 'Done' : isMiss ? 'Missed' : 'Not completed'}>
+                                        {isDone ? '✓' : isMiss ? '✕' : ''}
+                                      </span>
+                                      <span className="name">{it.name}</span>
+                                    </div>
+                                  );
+                                })}
                                 {more > 0 && (
                                   <div className="wk-task">
                                     <a className="name" href="#" onClick={(e) => e.preventDefault()} style={{ color: 'var(--wk-brand)' }}>+{more} more</a>
