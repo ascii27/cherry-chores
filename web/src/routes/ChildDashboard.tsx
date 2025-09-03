@@ -228,7 +228,7 @@ export default function ChildDashboard() {
                   {(selectedDay != null && weekData ? (weekData.days[selectedDay]?.items || []) : today).map((t: any) => {
                     const status = t.status as string | null | undefined;
                     const canUncomplete = (status === 'pending' || status === 'approved');
-                    const canComplete = (!status || status === 'due' || status === 'planned');
+                    const canComplete = (!status || status === 'due' || status === 'planned' || status === 'missed');
                     return (
                     <li key={t.id} className="list-group-item d-flex justify-content-between align-items-center">
                       <div>
@@ -332,7 +332,7 @@ export default function ChildDashboard() {
                 </header>
                 {weekData && (
                   <>
-                  <div className="wk-grid" role="grid" aria-label="Week grid">
+                  <div className="wk-grid Calendar--desktop" role="grid" aria-label="Week grid">
                     {weekData.days.map((day, i) => {
                       const dd = new Date(day.date);
                       const weekday = dd.toLocaleDateString(undefined, { weekday: 'short' });
@@ -387,7 +387,7 @@ export default function ChildDashboard() {
                     })}
                   </div>
                   {/* Mobile accordion */}
-                  <div className="wk-accordion" aria-label="Week list">
+                  <div className="wk-accordion Calendar--mobile" aria-label="Week list">
                     {weekData.days.map((day, i) => {
                       const d = new Date(day.date);
                       const dow = d.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase();

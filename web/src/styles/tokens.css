@@ -228,16 +228,16 @@ body.cute-bg-on::before {
 :root{
   --wk-bgPage:#F8FAFC; --wk-bgCard:#FFFFFF; --wk-bgMuted:#F2F5F9;
   --wk-ink:#0F172A; --wk-inkMuted:#475569; --wk-brand: var(--accent);
-  --wk-success:#22C55E; --wk-successSoft:#EAF8F0; --wk-border:#E5E7EB;
+  --wk-success:#22C55E; --wk-successSoft:#EAF8F0; --wk-border:#E5E7EB; --wk-divider:#EEF2F7;
 }
-.wk-card{background:var(--wk-bgCard);border:0;border-radius:18px;padding:10px;box-shadow:none}
+.wk-card{background:var(--wk-bgCard);border:1px solid var(--wk-border);border-radius:16px;padding:16px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 6px 16px rgba(15,23,42,.06)}
 .wk-head h2{font:600 18px/1.3 Inter, system-ui;color:var(--wk-ink);margin:0 0 6px}
 .wk-meta{display:flex;gap:8px;color:var(--wk-inkMuted);font:500 13px/1.35 Inter, system-ui;margin-bottom:10px}
 .wk-meta .chip{background:#EEF6FF;color:var(--wk-brand);border-radius:9999px;padding:2px 8px;font-weight:600}
 .wk-progress{height:10px;background:#E6EDF7;border-radius:9999px;overflow:hidden;margin-bottom:16px;box-shadow: inset 0 1px 0 rgba(255,255,255,.6)}
 .wk-progress>span{display:block;height:100%;background:var(--wk-brand)}
 .wk-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--wk-border);border-radius:14px;overflow:hidden}
-.wk-col{display:flex;flex-direction:column;border-right:1px solid var(--wk-border)}
+.wk-col{display:flex;flex-direction:column;border-right:1px solid var(--wk-divider)}
 .wk-col:last-child{border-right:0}
 .wk-col-head{background:var(--wk-bgMuted);padding:16px 16px}
 .wk-day{text-transform:uppercase;letter-spacing:.02em;font:600 12px/1.2 Inter, system-ui;color:var(--wk-inkMuted);display:flex;align-items:center;gap:8px}
@@ -283,3 +283,15 @@ body.cute-bg-on::before {
   .wk-task-row{ display: flex; align-items: center; gap: 8px; padding: 8px 0; }
   .wk-task-row .name{ font: 500 15px/1.4 Inter, system-ui; color: var(--wk-ink); }
 }
+
+/* Visibility helpers per spec */
+.Calendar--desktop { display: grid; }
+.Calendar--mobile { display: none; }
+@media (max-width: 639px){
+  .Calendar--desktop { display: none; }
+  .Calendar--mobile { display: block; }
+  .wk-card{ border: 0; box-shadow: none; padding: 10px; }
+}
+
+/* Hide accordion by default to ensure desktop-only rendering */
+.wk-accordion { display: none; }
