@@ -3,6 +3,8 @@ import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 export default function App() {
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<null | 'parent' | 'child'>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [sticky, setSticky] = useState(false);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const dialogTitleId = useId();
 
@@ -55,16 +57,56 @@ export default function App() {
       closeBtnRef.current.focus();
     }
   }, [dialog]);
+
+  // Sticky top bar: add shadow when scrolled
+  useEffect(() => {
+    const onScroll = () => setSticky(window.scrollY > 0);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   return (
     <div>
       {/* Top nav */}
-      <div className="topnav">
+      <div className={`topnav${sticky ? ' is-sticky' : ''}`}>
         <div className="container">
-          <a href="#" className="brand">Cherry Chores</a>
-          <div className="d-none d-md-flex align-items-center gap-2">
-            <button className="btn btn-outline-primary" onClick={() => setDialog('child')}>I'm a Kid</button>
-            <button className="btn btn-primary" onClick={() => setDialog('parent')}>I'm a Parent</button>
+          {/* Left: brand logo + name */}
+          <a href="#home" className="brand" aria-label="Cherry Chores home">
+            <img src="/icons/cherry.svg" alt="" width={24} height={24} />
+            Cherry Chores
+          </a>
+
+          {/* Center: nav links (desktop) */}
+          <nav className="center-nav" aria-label="Primary">
+            <a className="nav-link" href="#home">Home</a>
+            <a className="nav-link" href="#about">About Us</a>
+            <a className="nav-link" href="#courses">Courses</a>
+            <a className="nav-link" href="#contact">Contact</a>
+          </nav>
+
+          {/* Right: CTA + hamburger (mobile) */}
+          <div className="right-actions">
+            <button className="btn btn-secondary" onClick={() => setDialog('parent')}>Set Appointment</button>
+            <button
+              className="menu-btn"
+              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-primary-nav"
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <span aria-hidden />
+            </button>
           </div>
+
+          {/* Mobile menu (collapses nav links) */}
+          {menuOpen && (
+            <div id="mobile-primary-nav" className="mobile-menu" role="menu" aria-label="Primary">
+              <a href="#home" role="menuitem" onClick={() => setMenuOpen(false)}>Home</a>
+              <a href="#about" role="menuitem" onClick={() => setMenuOpen(false)}>About Us</a>
+              <a href="#courses" role="menuitem" onClick={() => setMenuOpen(false)}>Courses</a>
+              <a href="#contact" role="menuitem" onClick={() => setMenuOpen(false)}>Contact</a>
+            </div>
+          )}
         </div>
       </div>
 

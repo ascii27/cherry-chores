@@ -18,7 +18,7 @@ export default function TopBar({
   profileHref?: string;
 }) {
   return (
-    <div className="border-bottom" style={{ background: 'var(--surface)', borderBottomColor: 'var(--border)', ...(accent ? { borderTop: `4px solid ${accent}` } : {}) }}>
+    <div className="cc-topbar border-bottom" style={{ background: 'var(--surface)', borderBottomColor: 'var(--border)', ...(accent ? { borderTop: `4px solid ${accent}` } : {}) }}>
       <div className="container d-flex justify-content-between align-items-center py-2">
         <div className="d-flex align-items-center gap-2">
           {onMenuToggle ? (
@@ -30,16 +30,16 @@ export default function TopBar({
               style={{ lineHeight: 0 }}
             >
               <span style={{ display: 'inline-block', width: 22, height: 16 }} aria-hidden>
-                <span style={{ display: 'block', height: 2, background: '#343a40', marginBottom: 4, borderRadius: 1 }} />
-                <span style={{ display: 'block', height: 2, background: '#343a40', marginBottom: 4, borderRadius: 1 }} />
-                <span style={{ display: 'block', height: 2, background: '#343a40', borderRadius: 1 }} />
+                <span style={{ display: 'block', height: 2, background: 'var(--text)', marginBottom: 4, borderRadius: 1 }} />
+                <span style={{ display: 'block', height: 2, background: 'var(--text)', marginBottom: 4, borderRadius: 1 }} />
+                <span style={{ display: 'block', height: 2, background: 'var(--text)', borderRadius: 1 }} />
               </span>
             </button>
           ) : null}
           {avatar ? (
             <img src={avatar} alt="avatar" style={{ width: 28, height: 28, borderRadius: '50%' }} />
           ) : (
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#e9ecef' }} />
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary-light)' }} />
           )}
           {onNameClick || profileHref ? (
             profileHref ? (
