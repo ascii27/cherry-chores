@@ -98,14 +98,14 @@ body.cute-bg-on::before {
   --bs-btn-border-color: transparent;
   --bs-btn-color: #fff;
   color: #fff;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent) 100%);
   border: none;
   border-radius: 999px;
   box-shadow: var(--shadow-s1);
 }
 .btn-primary:hover { filter: brightness(1.02); color: #fff; }
-.btn-outline-primary { border-radius: 999px; color: var(--primary); border-color: var(--primary); }
-.btn-outline-primary:hover { background: rgba(var(--accent-rgb,124,92,252),0.08); color: var(--primary); }
+.btn-outline-primary { border-radius: 999px; color: var(--accent); border-color: var(--accent); }
+.btn-outline-primary:hover { background: rgba(var(--accent-rgb,124,92,252),0.08); color: var(--accent); }
 .btn-outline-secondary { border-radius: var(--radius-md); }
 /* Secondary button (components.button.secondary): light purple bg with purple text */
 .btn-secondary {
@@ -227,7 +227,7 @@ body.cute-bg-on::before {
 /* Weekly calendar styles */
 :root{
   --wk-bgPage:#F8FAFC; --wk-bgCard:#FFFFFF; --wk-bgMuted:#F2F5F9;
-  --wk-ink:#0F172A; --wk-inkMuted:#475569; --wk-brand: var(--primary);
+  --wk-ink:#0F172A; --wk-inkMuted:#475569; --wk-brand: var(--accent);
   --wk-success:#22C55E; --wk-successSoft:#EAF8F0; --wk-border:#E5E7EB;
 }
 .wk-card{background:var(--wk-bgCard);border:1px solid var(--wk-border);border-radius:18px;padding:20px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 6px 16px rgba(15,23,42,.06)}
@@ -243,7 +243,7 @@ body.cute-bg-on::before {
 .wk-day{text-transform:uppercase;letter-spacing:.02em;font:600 12px/1.2 Inter, system-ui;color:var(--wk-inkMuted)}
 .wk-cell{position:relative;padding:14px 16px;min-height:160px}
 .wk-cell:hover{background:#F7F9FC}
-.wk-cell.is-selected{background:rgba(37,99,235,0.06);outline:2px solid var(--wk-brand);outline-offset:-2px}
+.wk-cell.is-selected{background:rgba(var(--accent-rgb,124,92,252),0.06);outline:2px solid var(--wk-brand);outline-offset:-2px}
 .wk-cell:focus{outline:2px solid var(--wk-brand);outline-offset:-2px}
 .wk-date{color:var(--wk-inkMuted);font:500 13px/1.35 Inter, system-ui;margin-bottom:10px}
 .wk-count{position:absolute;top:10px;right:10px;background:#EEF2F7;color:#475569;border-radius:9999px;padding:2px 8px;font:600 12px/1.2 Inter, system-ui}

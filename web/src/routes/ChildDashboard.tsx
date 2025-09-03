@@ -201,27 +201,36 @@ export default function ChildDashboard() {
         {section === 'home' && (
           <React.Fragment>
             <div className="row g-3 mb-2">
-              <div className="col-6 col-lg-3"><StatCard icon="📋" label="Today" value={today.length} /></div>
-              <div className="col-6 col-lg-3"><StatCard icon="💰" label="Total Coins" value={(balance?.available ?? 0) + (balance?.reserved ?? 0)} /></div>
-              <div className="col-6 col-lg-3"><StatCard icon="✅" label="Approved" value={weekData ? weekData.totalApproved : 0} /></div>
-              <div className="col-6 col-lg-3"><StatCard icon="⭐" label="Planned" value={weekData ? weekData.totalPlanned : 0} /></div>
+              {(() => {
+                const plannedCount = weekData ? weekData.days.reduce((s, d) => s + d.items.length, 0) : 0;
+                const completedCount = weekData ? weekData.days.reduce((s, d) => s + d.items.filter((it: any) => it.status === 'approved' || it.status === 'pending').length, 0) : 0;
+                const todayCount = (selectedDay != null && weekData) ? (weekData.days[selectedDay]?.items?.length || 0) : today.length;
+                return (
+                  <>
+                    <div className="col-6 col-lg-3"><StatCard icon="📋" label={selectedDay != null && weekData ? new Date(weekData.days[selectedDay].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Today'} value={todayCount} /></div>
+                    <div className="col-6 col-lg-3"><StatCard icon="💰" label="Total Coins" value={(balance?.available ?? 0) + (balance?.reserved ?? 0)} /></div>
+                    <div className="col-6 col-lg-3"><StatCard icon="✅" label="Completed" value={completedCount} /></div>
+                    <div className="col-6 col-lg-3"><StatCard icon="⭐" label="This week" value={plannedCount} /></div>
+                  </>
+                );
+              })()}
             </div>
             {/* Today (left), This Week (right) */}
             <div className="row g-3">
         <div className="col-12">
           <div className="card card--interactive h-100">
             <div className="card-body">
-              <h2 className="h6">Today</h2>
-              {today.length === 0 ? (
+              <h2 className="h6">{selectedDay != null && weekData ? new Date(weekData.days[selectedDay].date).toLocaleDateString(undefined, { weekday:'long', month: 'short', day: 'numeric' }) : 'Today'}</h2>
+              {(selectedDay != null && weekData ? (weekData.days[selectedDay]?.items || []) : today).length === 0 ? (
                 <div className="text-muted">No chores for today.</div>
               ) : (
                 <ul className="list-group list-group-flush">
-                  {today.map((t) => (
+                  {(selectedDay != null && weekData ? (weekData.days[selectedDay]?.items || []) : today).map((t: any) => (
                     <li key={t.id} className="list-group-item d-flex justify-content-between align-items-center">
                       <div>
                         <div className="fw-semibold d-flex align-items-center gap-2">
                           <span>{t.name}</span>
-                          <span title={`+${t.value} coins`} className="align-middle"><Coin value={t.value || 0} /></span>
+                          <span title={`+${t.value} coins`} className="align-middle"><GoldCoin title={`+${t.value} coin`} /></span>
                         </div>
                         <div className="small text-muted">{t.description || ''}</div>
                       </div>
@@ -253,7 +262,7 @@ export default function ChildDashboard() {
                         )}
                         {(!t.status || t.status === null) && (
                           <button
-                            className="btn btn-sm btn-primary"
+                            className="btn btn-primary btn-lg"
                             onClick={async () => {
                               const cid = child?.id;
                               if (!cid) return;
@@ -340,17 +349,14 @@ export default function ChildDashboard() {
                             ) : (
                               <div>
                                 {visible.map((it: any) => (
-                                  <div key={it.id} className="wk-task" title="Earn 1 coin">
-                                    <span className="coin" aria-hidden>
-                                      <GoldCoin />
-                                    </span>
+                                  <div key={it.id} className="wk-task">
                                     <span className="name">{it.name}</span>
                                     {it.status === 'approved' ? (
-                                      <span className="wk-badge done">Done</span>
+                                      <span aria-label="Done" title="Done" style={{ fontSize: 16 }}>✅</span>
                                     ) : it.status === 'pending' ? (
                                       <span className="wk-badge upcoming">Pending</span>
                                     ) : it.status === 'missed' ? (
-                                      <span className="wk-badge missed">Missed</span>
+                                      <span aria-label="Missed" title="Missed" style={{ fontSize: 16, color: 'var(--danger)' }}>❌</span>
                                     ) : null}
                                   </div>
                                 ))}
