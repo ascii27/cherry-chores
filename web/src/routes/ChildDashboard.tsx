@@ -225,7 +225,12 @@ export default function ChildDashboard() {
                 <div className="text-muted">No chores for today.</div>
               ) : (
                 <ul className="list-group list-group-flush">
-                  {(selectedDay != null && weekData ? (weekData.days[selectedDay]?.items || []) : today).map((t: any) => (
+                  {(selectedDay != null && weekData ? (weekData.days[selectedDay]?.items || []) : today).map((t: any) => {
+                    const isActionable = !weekData || selectedDay == null || selectedDay === weekData.today;
+                    const status = t.status as string | null | undefined;
+                    const canUncomplete = isActionable && (status === 'pending' || status === 'approved');
+                    const canComplete = isActionable && (!status || status === 'due' || status === 'planned');
+                    return (
                     <li key={t.id} className="list-group-item d-flex justify-content-between align-items-center">
                       <div>
                         <div className="fw-semibold d-flex align-items-center gap-2">
@@ -240,9 +245,9 @@ export default function ChildDashboard() {
                         <div className="small text-muted">{t.description || ''}</div>
                       </div>
                       <div className="d-flex align-items-center gap-2">
-                        {t.status === 'pending' && <span className="cc-chip cc-chip--pending">Pending</span>}
-                        {t.status === 'approved' && <span className="cc-chip cc-chip--done">Done</span>}
-                        {t.status && (
+                        {status === 'pending' && <span className="cc-chip cc-chip--pending">Pending</span>}
+                        {status === 'approved' && <span className="cc-chip cc-chip--done">Done</span>}
+                        {canUncomplete && (
                           <button
                             className="btn btn-sm btn-outline-secondary"
                             onClick={async () => {
@@ -265,7 +270,7 @@ export default function ChildDashboard() {
                             Not done
                           </button>
                         )}
-                        {(!t.status || t.status === null) && (
+                        {canComplete && (
                           <button
                             className="btn btn-primary btn-lg"
                             onClick={async () => {
@@ -291,7 +296,7 @@ export default function ChildDashboard() {
                         )}
                       </div>
                     </li>
-                  ))}
+                  );})}
                 </ul>
               )}
             </div>
