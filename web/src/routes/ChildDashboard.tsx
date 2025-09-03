@@ -24,6 +24,7 @@ import Celebration from '../components/Celebration';
 import StatCard from '../components/StatCard';
 import ProgressBar from '../components/ProgressBar';
 import Coin from '../components/Coin';
+import GoldCoin from '../components/GoldCoin';
 
 export default function ChildDashboard() {
   const nav = useNavigate();
@@ -33,6 +34,7 @@ export default function ChildDashboard() {
   const [weekData, setWeekData] = useState<{ days: any[]; totalPlanned: number; totalApproved: number; today: number } | null>(null);
   const [balance, setBalance] = useState<{ available: number; reserved: number } | null>(null);
   const [ledger, setLedger] = useState<any[]>([]);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const { push } = useToast();
   const [savers, setSavers] = useState<any[]>([]);
   const [editing, setEditing] = useState<{ id: string; field: 'name' | 'target' } | null>(null);
@@ -284,67 +286,88 @@ export default function ChildDashboard() {
         <div className="col-12">
           <div className="card card--interactive h-100">
             <div className="card-body">
-              <h2 className="h6">This Week</h2>
-              {!weekData ? (
-                <div className="text-muted">No chores this week.</div>
-              ) : (
-                <React.Fragment>
-                  {(() => {
-                    const plannedCount = weekData.days.reduce((s, d) => s + d.items.length, 0);
-                    const completedCount = weekData.days.reduce((s, d) => s + d.items.filter((it: any) => it.status === 'approved' || it.status === 'pending').length, 0);
-                    const completedCoins = weekData.days.reduce((s, d) => s + d.items.filter((it: any) => it.status === 'approved' || it.status === 'pending').reduce((ss: number, it: any) => ss + (it.value || 0), 0), 0);
-                    const pct = plannedCount ? Math.round((completedCount / plannedCount) * 100) : 0;
-                    return (
-                      <div className="d-flex justify-content-between align-items-center mb-2">
-                        <div className="small text-muted">Completed: {completedCount} / {plannedCount} • Coins: {completedCoins} / {weekData.totalPlanned}</div>
-                        <div className="flex-grow-1 ms-3">
-                          <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={plannedCount} aria-valuenow={completedCount} style={{height: '10px'}}>
-                            <div className="progress-bar" style={{ width: `${pct}%` }}></div>
+              <section className="wk-card" aria-label="This Week">
+                <header className="wk-head">
+                  <h2>This Week</h2>
+                  {!weekData ? (
+                    <div className="wk-meta">No chores this week.</div>
+                  ) : (
+                    (() => {
+                      const plannedCount = weekData.days.reduce((s, d) => s + d.items.length, 0);
+                      const completedCount = weekData.days.reduce((s, d) => s + d.items.filter((it: any) => it.status === 'approved' || it.status === 'pending').length, 0);
+                      const completedCoins = weekData.days.reduce((s, d) => s + d.items.filter((it: any) => it.status === 'approved' || it.status === 'pending').reduce((ss: number, it: any) => ss + (it.value || 0), 0), 0);
+                      const pct = plannedCount ? Math.round((completedCount / plannedCount) * 100) : 0;
+                      return (
+                        <>
+                          <div className="wk-meta">
+                            <span>Completed: <strong className="chip">{completedCount} / {plannedCount}</strong></span>
+                            <span>•</span>
+                            <span>Coins: <strong className="chip">{completedCoins} / {weekData.totalPlanned}</strong></span>
+                          </div>
+                          <div className="wk-progress" role="progressbar" aria-valuemin={0} aria-valuemax={plannedCount} aria-valuenow={completedCount}>
+                            <span style={{ width: `${pct}%` }} />
+                          </div>
+                        </>
+                      );
+                    })()
+                  )}
+                </header>
+                {weekData && (
+                  <div className="wk-grid" role="grid" aria-label="Week grid">
+                    {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d) => (
+                      <div key={`h-${d}`} className="wk-col">
+                        <div className="wk-col-head"><div className="wk-day">{d}</div></div>
+                      </div>
+                    ))}
+                    {weekData.days.map((day, i) => {
+                      const items = day.items as any[];
+                      const maxVisible = 4;
+                      const visible = items.slice(0, maxVisible);
+                      const more = Math.max(0, items.length - visible.length);
+                      return (
+                        <div key={day.date} className="wk-col">
+                          <div
+                            className={`wk-cell ${selectedDay === i || weekData.today === i ? 'is-selected' : ''}`}
+                            tabIndex={0}
+                            role="gridcell"
+                            aria-label={new Date(day.date).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                            onClick={() => setSelectedDay(i)}
+                          >
+                            <div className="wk-date">{new Date(day.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</div>
+                            <span className="wk-count" aria-label={`${items.length} tasks`}>{items.length}</span>
+                            {items.length === 0 ? (
+                              <div className="wk-meta">No tasks</div>
+                            ) : (
+                              <div>
+                                {visible.map((it: any) => (
+                                  <div key={it.id} className="wk-task" title="Earn 1 coin">
+                                    <span className="coin" aria-hidden>
+                                      <GoldCoin />
+                                    </span>
+                                    <span className="name">{it.name}</span>
+                                    {it.status === 'approved' ? (
+                                      <span className="wk-badge done">Done</span>
+                                    ) : it.status === 'pending' ? (
+                                      <span className="wk-badge upcoming">Pending</span>
+                                    ) : it.status === 'missed' ? (
+                                      <span className="wk-badge missed">Missed</span>
+                                    ) : null}
+                                  </div>
+                                ))}
+                                {more > 0 && (
+                                  <div className="wk-task">
+                                    <a className="name" href="#" onClick={(e) => e.preventDefault()} style={{ color: 'var(--wk-brand)' }}>+{more} more</a>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </div>
-                    );
-                  })()}
-                  <div className="table-responsive">
-                    <table className="table table-sm table-bordered align-middle mb-0 calendar-table">
-                      <thead>
-                        <tr>
-                          {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d, i) => (
-                            <th key={d} className="calendar-header">{d}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          {weekData.days.map((day, i) => (
-                            <td key={day.date} className={`calendar-cell ${weekData.today === i ? 'calendar-today' : ''}`}>
-                              <div className="d-flex justify-content-between align-items-center small text-muted">
-                                <span>{new Date(day.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-                                <span className="badge bg-light text-dark">{day.items.length}</span>
-                              </div>
-                              {day.items.length === 0 ? (
-                                <span className="text-muted small">-</span>
-                              ) : (
-                                <ul className="list-unstyled mb-0 small">
-                                  {day.items.map((it: any) => (
-                                    <li key={it.id} className="d-flex justify-content-between align-items-center">
-                                      <span className="d-flex align-items-center gap-2">
-                                        <span>{it.name}</span>
-                                        <span title={`+${it.value} coins`} className="align-middle"><Coin value={it.value || 0} size={18} /></span>
-                                      </span>
-                                      {it.status === 'approved' ? <span className="cc-chip cc-chip--done">Done</span> : it.status === 'pending' ? <span className="cc-chip cc-chip--pending">Pending</span> : it.status === 'missed' ? <span className="cc-chip">Missed</span> : null}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </td>
-                          ))}
-                        </tr>
-                      </tbody>
-                    </table>
+                      );
+                    })}
                   </div>
-                </React.Fragment>
-              )}
+                )}
+              </section>
             </div>
           </div>
         </div>
