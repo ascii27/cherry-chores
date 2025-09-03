@@ -1,27 +1,29 @@
 import React from 'react';
+import coinUrl from 'bootstrap-icons/icons/coin.svg?url';
 
 export default function Coin({ value, size = 22, animate = true, className }: { value: number; size?: number; animate?: boolean; className?: string }) {
-  const radius = size / 2;
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      aria-label={`${value} coins`}
+    <span
       role="img"
+      aria-label={`${value} coins`}
       className={`${animate ? 'coin-pop' : ''} ${className || ''}`.trim()}
+      style={{ position: 'relative', display: 'inline-block', width: size, height: size, lineHeight: 0 }}
     >
-      <defs>
-        <radialGradient id="g" cx="50%" cy="35%" r="75%">
-          <stop offset="0%" stopColor="#ffd54f" />
-          <stop offset="60%" stopColor="#ffb300" />
-          <stop offset="100%" stopColor="#ff8f00" />
-        </radialGradient>
-      </defs>
-      <circle cx={radius} cy={radius} r={radius - 1} fill="url(#g)" stroke="#d88700" strokeWidth="2" />
-      <text x="50%" y="56%" textAnchor="middle" fontSize={size * 0.55} fontWeight={700} fill="#6b3f00" fontFamily="system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif">
+      <img src={coinUrl} alt="" width={size} height={size} style={{ display: 'block' }} />
+      <span
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'grid',
+          placeItems: 'center',
+          fontWeight: 700,
+          fontSize: Math.round(size * 0.55),
+          color: 'var(--text)'
+        }}
+      >
         {value}
-      </text>
-    </svg>
+      </span>
+    </span>
   );
 }
