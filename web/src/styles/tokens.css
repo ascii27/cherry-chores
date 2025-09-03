@@ -259,3 +259,27 @@ body.cute-bg-on::before {
 .wk-badge.missed{background:#FDECEC;color:#EF4444}
 .wk-badge.upcoming{background:#E8F0FE;color:var(--wk-brand)}
 @media (max-width: 960px){.wk-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* Mobile accordion calendar (<640px) */
+@media (max-width: 639px){
+  .wk-grid{ display: none; }
+  .wk-accordion{ display: block; padding: 6px 0; }
+  .wk-daycard{ background: var(--surface); border: 1px solid var(--wk-border); border-radius: 14px; margin: 10px 0; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+  .wk-dayhdr{ display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 12px 14px; background: none; border: 0; }
+  .wk-dow{ font: 600 12px/1.2 Inter, system-ui; color: var(--wk-inkMuted); letter-spacing: .03em; text-transform: uppercase; }
+  .wk-date-sm{ font: 500 13px/1.2 Inter, system-ui; color: var(--wk-inkMuted); }
+  .wk-metrics{ display: flex; gap: 8px; align-items: center; }
+  .wk-badge{ font: 700 12px/1.1 Inter, system-ui; border-radius: 9999px; padding: 3px 8px; }
+  .wk-badge.progress{ background: var(--wk-successSoft); color: var(--wk-success); }
+  .wk-badge.coins{ background: #FFF7DB; color: #B45309; display: inline-flex; align-items: center; gap: 6px; }
+  .wk-coin-14 svg{ width: 14px; height: 14px; display: block; }
+  .wk-chev{ width: 18px; height: 18px; stroke: var(--wk-inkMuted); fill: none; stroke-width: 2; transform: rotate(90deg); transition: transform .2s ease; }
+  .wk-dayhdr[aria-expanded="true"] .wk-chev{ transform: rotate(0deg); }
+  .wk-preview{ padding: 0 14px 10px; color: var(--wk-inkMuted); display: flex; gap: 6px; flex-wrap: wrap; }
+  .wk-pv{ font: 500 12px/1.2 Inter, system-ui; padding: 3px 8px; border-radius: 9999px; background: #F1F5F9; }
+  .wk-pv.done{ background: #ECFDF5; color: var(--wk-success); }
+  .wk-panel{ max-height: 500px; opacity: 1; transition: max-height .25s ease, opacity .2s ease; overflow: hidden; padding: 8px 14px 12px; border-top: 1px solid #F1F5F9; }
+  .wk-daycard[aria-expanded="false"] .wk-panel{ max-height: 0; opacity: 0; padding: 0 14px; }
+  .wk-task-row{ display: flex; align-items: center; gap: 8px; padding: 8px 0; }
+  .wk-task-row .name{ font: 500 15px/1.4 Inter, system-ui; color: var(--wk-ink); }
+}

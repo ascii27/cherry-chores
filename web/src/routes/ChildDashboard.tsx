@@ -226,10 +226,9 @@ export default function ChildDashboard() {
               ) : (
                 <ul className="list-group list-group-flush">
                   {(selectedDay != null && weekData ? (weekData.days[selectedDay]?.items || []) : today).map((t: any) => {
-                    const isActionable = !weekData || selectedDay == null || selectedDay === weekData.today;
                     const status = t.status as string | null | undefined;
-                    const canUncomplete = isActionable && (status === 'pending' || status === 'approved');
-                    const canComplete = isActionable && (!status || status === 'due' || status === 'planned');
+                    const canUncomplete = (status === 'pending' || status === 'approved');
+                    const canComplete = (!status || status === 'due' || status === 'planned');
                     return (
                     <li key={t.id} className="list-group-item d-flex justify-content-between align-items-center">
                       <div>
@@ -253,11 +252,11 @@ export default function ChildDashboard() {
                             onClick={async () => {
                               const cid = child?.id;
                               if (!cid) return;
-                              const res = await fetch(`/chores/${t.id}/uncomplete`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ childId: cid })
-                              });
+                               const res = await fetch(`/chores/${t.id}/uncomplete`, {
+                                 method: 'POST',
+                                 headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({ childId: cid, ...(selectedDay != null && weekData ? { date: weekData.days[selectedDay].date } : {}) })
+                                 });
                               if (!res.ok) return;
                               const [r1, r2] = await Promise.all([
                                 fetch(`/children/${cid}/chores?scope=today`),
@@ -276,11 +275,11 @@ export default function ChildDashboard() {
                             onClick={async () => {
                               const cid = child?.id;
                               if (!cid) return;
-                              const res = await fetch(`/chores/${t.id}/complete`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ childId: cid })
-                              });
+                               const res = await fetch(`/chores/${t.id}/complete`, {
+                                 method: 'POST',
+                                 headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({ childId: cid, ...(selectedDay != null && weekData ? { date: weekData.days[selectedDay].date } : {}) })
+                                 });
                               if (!res.ok) return;
                               const [r1, r2] = await Promise.all([
                                 fetch(`/children/${cid}/chores?scope=today`),
@@ -332,6 +331,7 @@ export default function ChildDashboard() {
                   )}
                 </header>
                 {weekData && (
+                  <>
                   <div className="wk-grid" role="grid" aria-label="Week grid">
                     {weekData.days.map((day, i) => {
                       const dd = new Date(day.date);
@@ -386,6 +386,69 @@ export default function ChildDashboard() {
                       );
                     })}
                   </div>
+                  {/* Mobile accordion */}
+                  <div className="wk-accordion" aria-label="Week list">
+                    {weekData.days.map((day, i) => {
+                      const d = new Date(day.date);
+                      const dow = d.toLocaleDateString(undefined, { weekday: 'short' }).toUpperCase();
+                      const dmd = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                      const items = day.items as any[];
+                      const completedTasks = items.filter((it: any) => it.status === 'approved' || it.status === 'pending').length;
+                      const totalTasks = items.length;
+                      const coinsDone = day.approvedValue || 0;
+                      const coinsTotal = day.plannedValue || 0;
+                      const open = selectedDay === i || weekData.today === i;
+                      const pv = items.slice(0, 2);
+                      return (
+                        <article key={`m-${day.date}`} className="wk-daycard" aria-expanded={open}>
+                          <button
+                            type="button"
+                            className="wk-dayhdr"
+                            aria-expanded={open}
+                            aria-controls={`day-${i}`}
+                            id={`btn-${i}`}
+                            onClick={() => setSelectedDay(i)}
+                          >
+                            <div className="d-flex align-items-center gap-2">
+                              <div className="wk-dow">{dow}</div>
+                              <div className="wk-date-sm">{dmd}</div>
+                            </div>
+                            <div className="wk-metrics">
+                              <span className="wk-badge progress">✓ {completedTasks}/{totalTasks}</span>
+                              <span className="wk-badge coins"><span className="wk-coin-14"><GoldCoin /></span> {coinsDone}/{coinsTotal}</span>
+                              <svg className="wk-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 9l4 4 4-4"/></svg>
+                            </div>
+                          </button>
+                          {pv.length > 0 && (
+                            <div className="wk-preview">
+                              {pv.map((it: any) => (
+                                <span key={it.id} className={`wk-pv ${it.status === 'approved' ? 'done' : ''}`}>{it.name}</span>
+                              ))}
+                              {items.length > pv.length && (
+                                <a className="wk-pv" href="#" onClick={(e) => { e.preventDefault(); setSelectedDay(i); }}>+{items.length - pv.length} more…</a>
+                              )}
+                            </div>
+                          )}
+                          <div className="wk-panel" id={`day-${i}`} role="region" aria-labelledby={`btn-${i}`}>
+                            {items.length === 0 ? (
+                              <div className="text-muted">No tasks</div>
+                            ) : (
+                              items.map((it: any) => (
+                                <div key={it.id} className="wk-task-row">
+                                  <span className={`wk-box ${it.status === 'approved' ? 'ok' : it.status === 'missed' ? 'miss' : ''}`}>{it.status === 'approved' ? '✓' : it.status === 'missed' ? '✕' : ''}</span>
+                                  <span className="wk-coin-14"><GoldCoin /></span>
+                                  <span className="name">{it.name}</span>
+                                  {it.status === 'approved' && <span className="wk-badge done">Done</span>}
+                                  {it.status === 'missed' && <span className="wk-badge missed">Missed</span>}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                  </>
                 )}
               </section>
             </div>
