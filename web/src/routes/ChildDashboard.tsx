@@ -220,7 +220,7 @@ export default function ChildDashboard() {
         <div className="col-12">
           <div className="card card--interactive h-100">
             <div className="card-body">
-              <h2 className="h6">{selectedDay != null && weekData ? new Date(weekData.days[selectedDay].date).toLocaleDateString(undefined, { weekday:'long', month: 'short', day: 'numeric' }) : 'Today'}</h2>
+              <h2 className="h6 today">{selectedDay != null && weekData ? new Date(weekData.days[selectedDay].date).toLocaleDateString(undefined, { weekday:'long', month: 'short', day: 'numeric' }) : 'Today'}</h2>
               {(selectedDay != null && weekData ? (weekData.days[selectedDay]?.items || []) : today).length === 0 ? (
                 <div className="text-muted">No chores for today.</div>
               ) : (
@@ -596,6 +596,167 @@ export default function ChildDashboard() {
                   >Add</button>
                 </div>
                 <div className="text-muted">{savers.length === 0 ? 'No saver items yet.' : `${savers.filter((x) => !x.completed).length} active, ${savers.filter((x) => x.completed).length} achieved.`}</div>
+                {savers.length > 0 && (
+                  <div className="mt-3">
+                    <div className="mb-2 fw-semibold">Active goals</div>
+                    {savers.filter((s) => !s.completed).length === 0 ? (
+                      <div className="text-muted small">No active goals.</div>
+                    ) : (
+                      <ul className="list-group list-group-flush">
+                        {savers.filter((s) => !s.completed).map((s) => {
+                          const saved = s.reserved || 0;
+                          const target = s.target || 0;
+                          const pct = target > 0 ? Math.min(100, Math.round((saved / target) * 100)) : 0;
+                          return (
+                            <li key={s.id} className="list-group-item">
+                              <div className="d-flex justify-content-between align-items-start gap-3">
+                                <div className="flex-grow-1">
+                                  <div className="d-flex align-items-center gap-2">
+                                    {editing?.id === s.id && editing.field === 'name' ? (
+                                      <input
+                                        className="form-control form-control-sm"
+                                        style={{ maxWidth: 260 }}
+                                        defaultValue={s.name || ''}
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+                                          if (e.key === 'Escape') setEditing(null);
+                                        }}
+                                        onBlur={async (e) => {
+                                          const name = e.currentTarget.value.trim() || 'Untitled';
+                                          if (name === s.name) { setEditing(null); return; }
+                                          try {
+                                            const tok = localStorage.getItem('childToken');
+                                            const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ name }) });
+                                            if (r.ok) {
+                                              const updated = await r.json();
+                                              setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
+                                              push('success', 'Renamed');
+                                            } else {
+                                              push('error', 'Rename failed');
+                                            }
+                                          } catch {
+                                            push('error', 'Rename failed');
+                                          } finally {
+                                            setEditing(null);
+                                          }
+                                        }}
+                                      />
+                                    ) : (
+                                      <>
+                                        <div className="fw-semibold">{s.name || 'Untitled'}</div>
+                                        <button className="btn btn-sm btn-outline-secondary" onClick={() => setEditing({ id: s.id, field: 'name' })}>Rename</button>
+                                      </>
+                                    )}
+                                  </div>
+                                  <div className="d-flex align-items-center gap-2 mt-1">
+                                    {editing?.id === s.id && editing.field === 'target' ? (
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        className="form-control form-control-sm"
+                                        style={{ maxWidth: 120 }}
+                                        defaultValue={String(target || 1)}
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+                                          if (e.key === 'Escape') setEditing(null);
+                                        }}
+                                        onBlur={async (e) => {
+                                          const val = parseInt((e.currentTarget.value || '0'), 10);
+                                          const nextTarget = Number.isFinite(val) && val > 0 ? val : target;
+                                          if (nextTarget === target) { setEditing(null); return; }
+                                          try {
+                                            const tok = localStorage.getItem('childToken');
+                                            const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ target: nextTarget }) });
+                                            if (r.ok) {
+                                              const updated = await r.json();
+                                              setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
+                                              push('success', 'Target updated');
+                                            } else {
+                                              push('error', 'Update failed');
+                                            }
+                                          } catch {
+                                            push('error', 'Update failed');
+                                          } finally {
+                                            setEditing(null);
+                                          }
+                                        }}
+                                      />
+                                    ) : (
+                                      <>
+                                        <div className="small text-muted">Saved {saved} / {target}</div>
+                                        <button className="btn btn-sm btn-outline-secondary" onClick={() => setEditing({ id: s.id, field: 'target' })}>Edit target</button>
+                                      </>
+                                    )}
+                                  </div>
+                                  <div className="mt-1"><ProgressBar value={pct} /></div>
+                                  {!s.isGoal && <div className="small text-muted mt-1">Not currently a goal</div>}
+                                </div>
+                                <div className="d-flex flex-column gap-2 align-items-end">
+                                  <button
+                                    className={`btn btn-sm ${s.isGoal ? 'btn-outline-secondary' : 'btn-outline-success'}`}
+                                    onClick={async () => {
+                                      try {
+                                        const tok = localStorage.getItem('childToken');
+                                        const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ isGoal: !s.isGoal }) });
+                                        if (r.ok) {
+                                          const updated = await r.json();
+                                          setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
+                                          push('success', s.isGoal ? 'Removed from goals' : 'Added to goals');
+                                        } else {
+                                          push('error', 'Toggle failed');
+                                        }
+                                      } catch {
+                                        push('error', 'Toggle failed');
+                                      }
+                                    }}
+                                  >{s.isGoal ? 'Remove from goals' : 'Make goal'}</button>
+                                  <button
+                                    className="btn btn-sm btn-outline-danger"
+                                    onClick={async () => {
+                                      if (!confirm('Delete this item? Reserved coins (if any) will be released.')) return;
+                                      try {
+                                        const tok = localStorage.getItem('childToken');
+                                        const r = await fetch(`/savers/${s.id}`, { method: 'DELETE', headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
+                                        if (r.ok) {
+                                          setSavers((prev) => prev.filter((x) => x.id !== s.id));
+                                          push('success', 'Deleted');
+                                        } else {
+                                          push('error', 'Delete failed');
+                                        }
+                                      } catch {
+                                        push('error', 'Delete failed');
+                                      }
+                                    }}
+                                  >Delete</button>
+                                </div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+
+                    {savers.some((s) => s.completed) && (
+                      <div className="mt-4">
+                        <div className="mb-2 fw-semibold">Achieved</div>
+                        <ul className="list-group list-group-flush">
+                          {savers.filter((s) => s.completed).map((s) => (
+                            <li key={s.id} className="list-group-item">
+                              <div className="d-flex justify-content-between align-items-start gap-3">
+                                <div className="flex-grow-1">
+                                  <div className="fw-semibold">{s.name || 'Untitled'}</div>
+                                  <div className="small text-muted">Target {s.target}</div>
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
