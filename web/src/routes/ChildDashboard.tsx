@@ -37,7 +37,7 @@ export default function ChildDashboard() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const { push } = useToast();
   const [savers, setSavers] = useState<any[]>([]);
-  const [editing, setEditing] = useState<{ id: string; field: 'name' | 'target' } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; field: 'name' | 'target' | 'coins' } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [section, setSection] = useState<'home' | 'bank' | 'goals' | 'profile'>('home');
   const [cuteBg, setCuteBg] = useState(false);
@@ -599,63 +599,72 @@ export default function ChildDashboard() {
                 {savers.length > 0 && (
                   <div className="mt-3">
                     <div className="mb-2 fw-semibold">Active goals</div>
-                    {savers.filter((s) => !s.completed).length === 0 ? (
+                    {savers.filter((s) => s.isGoal && !s.completed).length === 0 ? (
                       <div className="text-muted small">No active goals.</div>
                     ) : (
                       <ul className="list-group list-group-flush">
-                        {savers.filter((s) => !s.completed).map((s) => {
+                        {savers.filter((s) => s.isGoal && !s.completed).map((s) => {
                           const saved = s.reserved || 0;
                           const target = s.target || 0;
+                          const weeklyTotal = weekData?.totalPlanned || 0;
+                          const coinsPerWeek = weeklyTotal > 0 ? Math.round((s.allocation || 0) * weeklyTotal / 100) : 0;
                           const pct = target > 0 ? Math.min(100, Math.round((saved / target) * 100)) : 0;
                           return (
                             <li key={s.id} className="list-group-item">
-                              <div className="d-flex justify-content-between align-items-start gap-3">
+                              <div className="d-flex justify-content-between align-items-center gap-3">
                                 <div className="flex-grow-1">
-                                  <div className="d-flex align-items-center gap-2">
-                                    {editing?.id === s.id && editing.field === 'name' ? (
-                                      <input
-                                        className="form-control form-control-sm"
-                                        style={{ maxWidth: 260 }}
-                                        defaultValue={s.name || ''}
-                                        autoFocus
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
-                                          if (e.key === 'Escape') setEditing(null);
-                                        }}
-                                        onBlur={async (e) => {
-                                          const name = e.currentTarget.value.trim() || 'Untitled';
-                                          if (name === s.name) { setEditing(null); return; }
-                                          try {
-                                            const tok = localStorage.getItem('childToken');
-                                            const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ name }) });
-                                            if (r.ok) {
-                                              const updated = await r.json();
-                                              setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
-                                              push('success', 'Renamed');
-                                            } else {
-                                              push('error', 'Rename failed');
-                                            }
-                                          } catch {
+                                  {editing?.id === s.id && editing.field === 'name' ? (
+                                    <input
+                                      className="form-control form-control-sm"
+                                      style={{ maxWidth: 420 }}
+                                      defaultValue={s.name || ''}
+                                      autoFocus
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
+                                        if (e.key === 'Escape') setEditing(null);
+                                      }}
+                                      onBlur={async (e) => {
+                                        const name = e.currentTarget.value.trim() || 'Untitled';
+                                        if (name === s.name) { setEditing(null); return; }
+                                        try {
+                                          const tok = localStorage.getItem('childToken');
+                                          const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ name }) });
+                                          if (r.ok) {
+                                            const updated = await r.json();
+                                            setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
+                                            push('success', 'Renamed');
+                                          } else {
                                             push('error', 'Rename failed');
-                                          } finally {
-                                            setEditing(null);
                                           }
-                                        }}
-                                      />
-                                    ) : (
-                                      <>
-                                        <div className="fw-semibold">{s.name || 'Untitled'}</div>
-                                        <button className="btn btn-sm btn-outline-secondary" onClick={() => setEditing({ id: s.id, field: 'name' })}>Rename</button>
-                                      </>
-                                    )}
-                                  </div>
-                                  <div className="d-flex align-items-center gap-2 mt-1">
+                                        } catch {
+                                          push('error', 'Rename failed');
+                                        } finally {
+                                          setEditing(null);
+                                        }
+                                      }}
+                                    />
+                                  ) : (
+                                    <div
+                                      role="button"
+                                      className="fw-semibold"
+                                      onClick={() => setEditing({ id: s.id, field: 'name' })}
+                                      title="Click to rename"
+                                    >
+                                      {s.name || 'Untitled'}
+                                    </div>
+                                  )}
+                                  <div className="small text-muted">Saved {saved} / {target}</div>
+                                  <div className="mt-1"><ProgressBar value={pct} /></div>
+                                </div>
+                                <div className="d-flex align-items-center gap-3 ms-auto">
+                                  {/* Target inline edit, right-justified */}
+                                  <div>
                                     {editing?.id === s.id && editing.field === 'target' ? (
                                       <input
                                         type="number"
                                         min={1}
-                                        className="form-control form-control-sm"
-                                        style={{ maxWidth: 120 }}
+                                        className="form-control form-control-sm text-end"
+                                        style={{ width: 120 }}
                                         defaultValue={String(target || 1)}
                                         autoFocus
                                         onKeyDown={(e) => {
@@ -684,34 +693,64 @@ export default function ChildDashboard() {
                                         }}
                                       />
                                     ) : (
-                                      <>
-                                        <div className="small text-muted">Saved {saved} / {target}</div>
-                                        <button className="btn btn-sm btn-outline-secondary" onClick={() => setEditing({ id: s.id, field: 'target' })}>Edit target</button>
-                                      </>
+                                      <div
+                                        role="button"
+                                        className="text-muted"
+                                        title="Click to edit target"
+                                        onClick={() => setEditing({ id: s.id, field: 'target' })}
+                                      >
+                                        Target: <span className="fw-semibold">{target}</span>
+                                      </div>
                                     )}
                                   </div>
-                                  <div className="mt-1"><ProgressBar value={pct} /></div>
-                                  {!s.isGoal && <div className="small text-muted mt-1">Not currently a goal</div>}
-                                </div>
-                                <div className="d-flex flex-column gap-2 align-items-end">
-                                  <button
-                                    className={`btn btn-sm ${s.isGoal ? 'btn-outline-secondary' : 'btn-outline-success'}`}
-                                    onClick={async () => {
-                                      try {
-                                        const tok = localStorage.getItem('childToken');
-                                        const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ isGoal: !s.isGoal }) });
-                                        if (r.ok) {
-                                          const updated = await r.json();
-                                          setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
-                                          push('success', s.isGoal ? 'Removed from goals' : 'Added to goals');
-                                        } else {
-                                          push('error', 'Toggle failed');
-                                        }
-                                      } catch {
-                                        push('error', 'Toggle failed');
-                                      }
-                                    }}
-                                  >{s.isGoal ? 'Remove from goals' : 'Make goal'}</button>
+                                  {/* Weekly allocation in coins per week (behaves like target) */}
+                                  <div>
+                                    {editing?.id === s.id && editing.field === 'coins' ? (
+                                      <input
+                                        id={`wk-${s.id}`}
+                                        type="number"
+                                        min={0}
+                                        className="form-control form-control-sm text-end"
+                                        style={{ width: 120 }}
+                                        defaultValue={String(coinsPerWeek)}
+                                        autoFocus
+                                        onKeyDown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); if (e.key === 'Escape') setEditing(null); }}
+                                        onBlur={async (e) => {
+                                          const val = parseInt((e.currentTarget.value || '0'), 10);
+                                          const wk = Number.isFinite(val) && val >= 0 ? val : coinsPerWeek;
+                                          if (wk === coinsPerWeek || weeklyTotal <= 0) { setEditing(null); return; }
+                                          let pct = Math.round((wk / weeklyTotal) * 100);
+                                          pct = Math.max(0, Math.min(100, pct));
+                                          try {
+                                            const tok = localStorage.getItem('childToken');
+                                            const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ allocation: pct }) });
+                                            if (r.ok) {
+                                              const updated = await r.json();
+                                              setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
+                                              push('success', 'Weekly allocation updated');
+                                            } else {
+                                              push('error', 'Allocation failed');
+                                            }
+                                          } catch {
+                                            push('error', 'Allocation failed');
+                                          } finally {
+                                            setEditing(null);
+                                          }
+                                        }}
+                                      />
+                                    ) : (
+                                      <div
+                                        role="button"
+                                        className="text-muted text-end"
+                                        title="Click to edit coins per week"
+                                        onClick={() => setEditing({ id: s.id, field: 'coins' })}
+                                        style={{ width: 120 }}
+                                      >
+                                        coins/wk: <span className="fw-semibold">{coinsPerWeek}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {/* Delete */}
                                   <button
                                     className="btn btn-sm btn-outline-danger"
                                     onClick={async () => {
