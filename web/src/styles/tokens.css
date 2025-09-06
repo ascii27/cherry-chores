@@ -293,7 +293,8 @@ body.cute-bg-on::before {
   .wk-card{ border: 0; box-shadow: none; padding: 10px; }
 }
 
-/* Hide accordion by default to ensure desktop-only rendering */
-.wk-accordion { display: none; }
+/* Hide accordion by default to ensure desktop-only rendering
+   Note: Visibility is now controlled via `.Calendar--mobile` and media queries above. */
+/* .wk-accordion { display: none; } */
 
 .today { font-size: 2rem; }
