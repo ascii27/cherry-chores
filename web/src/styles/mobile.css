@@ -1,0 +1,47 @@
+/* Mobile-specific look and feel, scoped via `.is-mobile` on <html> */
+html.is-mobile {
+  /* Use system fonts for a native feel */
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol;
+  font-size: 17px; /* iOS default */
+  -webkit-text-size-adjust: 100%;
+}
+
+html.is-mobile body {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+/* Touch-friendly controls */
+html.is-mobile button,
+html.is-mobile .btn {
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+}
+
+html.is-mobile .form-control,
+html.is-mobile input,
+html.is-mobile select,
+html.is-mobile textarea {
+  font: inherit;
+  border-radius: 12px;
+}
+
+/* Layout spacing tweaks */
+html.is-mobile .container,
+html.is-mobile .container-fluid {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+/* Cards and surfaces */
+html.is-mobile .card {
+  border-radius: 16px;
+}
+
+/* Safe-area padding for full-screen installed apps */
+@supports(padding: max(0px)) {
+  html.is-mobile body {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+    padding-left: max(env(safe-area-inset-left), 0px);
+    padding-right: max(env(safe-area-inset-right), 0px);
+  }
+}
