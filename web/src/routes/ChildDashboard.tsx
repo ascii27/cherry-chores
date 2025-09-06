@@ -42,6 +42,63 @@ export default function ChildDashboard() {
   const [section, setSection] = useState<'home' | 'bank' | 'goals' | 'profile'>('home');
   const [cuteBg, setCuteBg] = useState(false);
 
+  const avatarSrc = useMemo(() => {
+    const u = child?.avatarUrl || null;
+    if (!u) return null;
+    if (u.startsWith('/uploads/serve')) {
+      
+    }
+    return u;
+  }, [child]);
+  const [avatarUploads, setAvatarUploads] = useState<{ id: string; url: string }[]>([]);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [patternUploads, setPatternUploads] = useState<{ id: string; url: string }[]>([]);
+  const [patternFile, setPatternFile] = useState<File | null>(null);
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
+  const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(null);
+
+
+  function dbg(label: string, data?: any) { try { console.log('[Profile]', label, data ?? ''); } catch {} }
+
+
+    async function uploadToS3(scope: 'avatars' | 'patterns', file: File): Promise<{ key: string; url: string }>{
+    const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
+    const contentType = file.type || (scope === 'patterns' ? 'image/svg+xml' : 'application/octet-stream');
+    dbg('presign:request', { scope, name: file.name, type: contentType });
+    const pre = await fetch('/uploads/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' },
+      body: JSON.stringify({ filename: file.name, contentType, scope })
+    });
+    if (!pre.ok) { dbg('presign:fail', pre.status); throw new Error('presign failed'); } else { dbg('presign:ok'); }
+    const data = await pre.json(); dbg('presign:response', data);
+    if (data?.method === 'POST' && data?.post?.url && data?.post?.fields) {
+      const fd = new FormData();
+      Object.entries(data.post.fields as Record<string,string>).forEach(([k, v]) => fd.append(k, v));
+      fd.append('file', file);
+      dbg('upload:post:start', { url: data.post.url });
+      await fetch(data.post.url, { method: 'POST', body: fd, mode: 'no-cors' });
+      dbg('upload:post:done');
+      dbg('complete:request', { key: data.key, scope });
+      const rec = await fetch('/uploads/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' },
+        body: JSON.stringify({ key: data.key, scope })
+      });
+      const rjson = rec.ok ? await rec.json() : { id: undefined }; dbg('complete:response', rjson);
+      const key = (rjson?.key as string) || (data.key as string);
+      const prox = `/uploads/serve?key=${encodeURIComponent(key)}`;
+      return { key: (rjson as any)?.id || key, url: prox };
+    }
+    const { uploadUrl, key } = data;
+    if (!uploadUrl || !key) throw new Error('invalid presign response');
+    const put = await fetch(uploadUrl, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': contentType }, body: file });
+    if (!put.ok) { const msg = await put.text().catch(()=>'' ); throw new Error('upload failed ' + msg); }
+    const prox = `/uploads/serve?key=${encodeURIComponent(key)}`;
+    return { key, url: prox };
+  }
+
+
   function hexToRgb(hex?: string | null): [number, number, number] | null {
     if (!hex) return null;
     const m = hex.trim().match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
@@ -99,6 +156,7 @@ export default function ChildDashboard() {
       nav('/');
       return;
     }
+    try { document.cookie = `auth=${encodeURIComponent(token)}; Path=/; SameSite=Lax; Max-Age=604800`; } catch {}
     (async () => {
       try {
         const me = await fetch('/me', { headers: { Authorization: `Bearer ${token}` } });
@@ -120,6 +178,15 @@ export default function ChildDashboard() {
           setCuteBg(on);
           if (on) document.body.classList.add('cute-bg-on'); else document.body.classList.remove('cute-bg-on');
         } catch {}
+        // Fetch uploaded images for avatar/patterns
+        try {
+          const upA = await fetch(`/uploads?scope=avatars`, { headers: { Authorization: `Bearer ${token}` } });
+          const upP = await fetch(`/uploads?scope=patterns`, { headers: { Authorization: `Bearer ${token}` } });
+          const la = upA.ok ? await upA.json() : [];
+          const lp = upP.ok ? await upP.json() : [];
+          setAvatarUploads((la || []).map((r: any) => ({ id: r.id, url: r.url })));
+          setPatternUploads((lp || []).map((r: any) => ({ id: r.id, url: r.url })));
+        } catch {}
         // profile editing moved off dashboard
         const r1 = await fetch(`/children/${data.id}/chores?scope=today`);
         const r2 = await fetch(`/children/${data.id}/chores/week`);
@@ -133,6 +200,7 @@ export default function ChildDashboard() {
           setBalance(b.balance);
           setLedger(b.entries || []);
         }
+        try { setSelectedAvatarUrl(data.avatarUrl || null); } catch {}
         // Restore background pattern if present
         try {
           const patt = localStorage.getItem(`child_pattern_${data.id}`);
@@ -167,10 +235,10 @@ export default function ChildDashboard() {
     <React.Fragment>
       <TopBar
         name={child?.displayName || 'Welcome'}
-        avatar={child?.avatarUrl || null}
+        avatar={avatarSrc}
         accent={child?.themeColor || null}
         onMenuToggle={() => setMenuOpen(true)}
-        onLogout={() => { localStorage.removeItem('childToken'); nav('/'); }}
+        onLogout={() => { try { document.cookie = 'auth=; Path=/; Max-Age=0'; } catch {}; localStorage.removeItem('childToken'); nav('/'); }}
       />
       <Celebration trigger={celebrate} />
       {/* Sidebar overlay and panel */}
@@ -525,7 +593,7 @@ export default function ChildDashboard() {
                     <input id="alloc-amt" type="number" min={1} className="form-control" placeholder="Coins" />
                     <button className="btn btn-outline-warning" onClick={async () => {
                       const cid = child?.id; if (!cid) return;
-                      const tok = localStorage.getItem('childToken');
+                      const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
                       const saverId = (document.getElementById('alloc-saver') as HTMLSelectElement).value;
                       const amt = parseInt((document.getElementById('alloc-amt') as HTMLInputElement).value || '0', 10);
                       if (!saverId || !amt) return;
@@ -627,10 +695,10 @@ export default function ChildDashboard() {
                                         const name = e.currentTarget.value.trim() || 'Untitled';
                                         if (name === s.name) { setEditing(null); return; }
                                         try {
-                                          const tok = localStorage.getItem('childToken');
+                                          const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
                                           const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ name }) });
                                           if (r.ok) {
-                                            const updated = await r.json();
+                                            const updated = await r.json(); dbg('save:success', updated);
                                             setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
                                             push('success', 'Renamed');
                                           } else {
@@ -676,10 +744,10 @@ export default function ChildDashboard() {
                                           const nextTarget = Number.isFinite(val) && val > 0 ? val : target;
                                           if (nextTarget === target) { setEditing(null); return; }
                                           try {
-                                            const tok = localStorage.getItem('childToken');
+                                            const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
                                             const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ target: nextTarget }) });
                                             if (r.ok) {
-                                              const updated = await r.json();
+                                              const updated = await r.json(); dbg('save:success', updated);
                                               setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
                                               push('success', 'Target updated');
                                             } else {
@@ -722,10 +790,10 @@ export default function ChildDashboard() {
                                           let pct = Math.round((wk / weeklyTotal) * 100);
                                           pct = Math.max(0, Math.min(100, pct));
                                           try {
-                                            const tok = localStorage.getItem('childToken');
+                                            const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
                                             const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ allocation: pct }) });
                                             if (r.ok) {
-                                              const updated = await r.json();
+                                              const updated = await r.json(); dbg('save:success', updated);
                                               setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
                                               push('success', 'Weekly allocation updated');
                                             } else {
@@ -756,7 +824,7 @@ export default function ChildDashboard() {
                                     onClick={async () => {
                                       if (!confirm('Delete this item? Reserved coins (if any) will be released.')) return;
                                       try {
-                                        const tok = localStorage.getItem('childToken');
+                                        const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
                                         const r = await fetch(`/savers/${s.id}`, { method: 'DELETE', headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
                                         if (r.ok) {
                                           setSavers((prev) => prev.filter((x) => x.id !== s.id));
@@ -844,22 +912,43 @@ export default function ChildDashboard() {
                     <div className="d-flex align-items-center gap-3 flex-wrap">
                       {avatarSvgs.map((u) => (
                         <button key={u} type="button" className="btn btn-outline-secondary" onClick={() => {
-                          (document.getElementById('prof-avatar-url') as HTMLInputElement).value = u;
+                          setSelectedAvatarId(null);
+                          setSelectedAvatarUrl(u);
+                          
                         }}>
                           <img src={u} alt="avatar option" style={{ width: 28, height: 28 }} />
                         </button>
                       ))}
-                      <input type="file" accept="image/*" className="form-control" style={{ maxWidth: 260 }} onChange={(ev) => {
-                        const f = (ev.target as HTMLInputElement).files?.[0];
-                        if (!f) return;
-                        const r = new FileReader();
-                        r.onload = () => { (document.getElementById('prof-avatar-url') as HTMLInputElement).value = String(r.result || ''); };
-                        r.readAsDataURL(f);
-                      }} />
-                      {/* Pattern controls moved to Background pattern editor below */}
-                      <input id="prof-avatar-url" className="form-control" placeholder="Avatar URL or auto-filled" style={{ maxWidth: 420 }} defaultValue={child?.avatarUrl || ''} />
-                    </div>
-                  </div>
+                      {avatarUploads.map((a) => (
+                        <button key={a.id} type="button" className="btn btn-outline-secondary" onClick={() => {
+                          setSelectedAvatarId(a.id);
+                          
+                          setSelectedAvatarUrl(a.url);
+                        }}>
+                          <img src={a.url} alt="uploaded avatar" style={{ width: 28, height: 28 }} />
+                        </button>
+                      ))}
+                      <div className="d-flex align-items-center gap-2">
+                        <input type="file" accept="image/*" className="form-control" style={{ maxWidth: 260 }} onChange={(ev) => {
+                          const f = (ev.target as HTMLInputElement).files?.[0] || null;
+                          setAvatarFile(f);
+                        }} />
+                        <button type="button" className="btn btn-primary" disabled={!avatarFile} onClick={async () => {
+                          const f = avatarFile; if (!f) return;
+                          try {
+                            const { key, url } = await uploadToS3('avatars', f);
+                            setAvatarUploads((prev) => [{ id: key, url }, ...prev]);
+                            setSelectedAvatarId(key);
+                            
+                            setSelectedAvatarUrl(url);
+                            setAvatarFile(null);
+                          } catch (e) { try { push('error', 'Upload failed'); } catch {} }
+                        }}>Upload</button>
+                      </div>
+                      
+                      
+                      
+                    </div></div>
                   <div className="col-12">
                     <label className="form-label">Background pattern</label>
                     {cuteBg ? (
@@ -867,6 +956,7 @@ export default function ChildDashboard() {
                         {patternSvgs.map((u) => (
                           <button key={u} type="button" className="btn btn-outline-secondary" onClick={() => {
                             if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, u);
+                            localStorage.removeItem(`child_pattern_id_${child?.id || ''}`);
                             document.documentElement.style.setProperty('--pattern-image', `url("${u}")`);
                             document.body.classList.add('cute-bg-on');
                             setCuteBg(true);
@@ -874,44 +964,88 @@ export default function ChildDashboard() {
                             <img src={u} alt="pattern option" style={{ width: 28, height: 28 }} />
                           </button>
                         ))}
-                        <input id="prof-pattern-upload" type="file" accept="image/svg+xml,image/png,image/jpeg" className="form-control" style={{ maxWidth: 420 }} onChange={(ev) => {
-                          const f = (ev.target as HTMLInputElement).files?.[0];
-                          if (!f) return;
-                          const r = new FileReader();
-                          r.onload = () => {
-                            const dataUrl = String(r.result || '');
-                            document.documentElement.style.setProperty('--pattern-image', `url("${dataUrl}")`);
-                            if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, dataUrl);
+                        {patternUploads.map((patt) => (
+                          <button key={patt.id} type="button" className="btn btn-outline-secondary" onClick={() => {
+                            if (child?.id) {
+                              localStorage.setItem(`child_pattern_id_${child.id}`, patt.id);
+                              localStorage.setItem(`child_pattern_${child.id}`, patt.url);
+                            }
+                            document.documentElement.style.setProperty('--pattern-image', `url("${patt.url}")`);
                             document.body.classList.add('cute-bg-on');
                             setCuteBg(true);
-                          };
-                          r.readAsDataURL(f);
-                        }} />
+                          }}>
+                            <img src={patt.url} alt="uploaded pattern" style={{ width: 28, height: 28 }} />
+                          </button>
+                        ))}
+                        <div className="d-flex align-items-center gap-2">
+                          <input
+                          id="prof-pattern-upload"
+                          type="file"
+                          accept="image/svg+xml"
+                          className="form-control"
+                          style={{ maxWidth: 420 }}
+                          onChange={(ev) => {
+                            const f = (ev.target as HTMLInputElement).files?.[0] || null;
+                            dbg('pattern:file:change', f ? { name: f.name, type: f.type, size: f.size } : 'none');
+                            setPatternFile(f);
+                          }}
+                        />
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={!patternFile}
+                            onClick={async () => {
+                              const f = patternFile; if (!f) { dbg('pattern:upload:cancel', 'no file'); return; }
+                              if (f.type && f.type !== 'image/svg+xml') { dbg('pattern:upload:blocked', { type: f.type }); push('error', 'Only SVG backgrounds are allowed'); return; }
+                              try {
+                                dbg('pattern:upload:start', { name: f.name, type: f.type });
+                                const { key, url } = await uploadToS3('patterns', f);
+                                dbg('pattern:upload:done', { key });
+                                setPatternUploads((prev) => [{ id: key, url }, ...prev]);
+                                if (child?.id) { localStorage.setItem(`child_pattern_id_${child.id}`, key); localStorage.setItem(`child_pattern_${child.id}`, url); }
+                                document.documentElement.style.setProperty('--pattern-image', `url("${url}")`);
+                                document.body.classList.add('cute-bg-on');
+                                setCuteBg(true);
+                                setPatternFile(null);
+                              } catch (e) { dbg('pattern:upload:error', String(e)); try { push('error', 'Upload failed'); } catch {} }
+                            }}
+                          >Upload</button>
+                        </div>
                         <div className="row g-2 w-100 mt-1">
                           <div className="col-12 col-md-6">
                             <label className="form-label">Pattern size</label>
-                            <input id="prof-pattern-size" type="range" min={40} max={320} defaultValue={120} className="form-range" onChange={(e) => {
-                              const val = `${(e.target as HTMLInputElement).value}px`;
-                              document.documentElement.style.setProperty('--pattern-size', val);
-                              if (child?.id) localStorage.setItem(`child_pattern_size_${child.id}`, val);
-                            }} />
+                            <input
+                              id="prof-pattern-size"
+                              type="range"
+                              min={40}
+                              max={320}
+                              defaultValue={(() => { try { return (localStorage.getItem(child ? `child_pattern_size_${child.id}` : '') || '120px').replace('px',''); } catch { return '120'; } })()}
+                              className="form-range"
+                              onChange={(e) => {
+                                const val = `${(e.target as HTMLInputElement).value}px`;
+                                document.documentElement.style.setProperty('--pattern-size', val);
+                                try { if (child?.id) localStorage.setItem(`child_pattern_size_${child.id}`, val); } catch {}
+                              }}
+                            />
                           </div>
+                        
+
                           <div className="col-12 col-md-6">
                             <label className="form-label">Pattern transparency</label>
-                            <input id="prof-pattern-opacity" type="range" min={0} max={100} defaultValue={15} className="form-range" onChange={(e) => {
-                              const frac = Math.max(0, Math.min(1, parseInt((e.target as HTMLInputElement).value, 10) / 100));
-                              document.documentElement.style.setProperty('--pattern-opacity', String(frac));
-                              if (child?.id) localStorage.setItem(`child_pattern_opacity_${child.id}`, String(frac));
-                            }} />
-                          </div>
-                          
-                        </div>
-                        <button type="button" className="btn btn-outline-secondary" onClick={() => {
-                          document.body.classList.remove('cute-bg-on');
-                          setCuteBg(false);
-                          document.documentElement.style.removeProperty('--pattern-image');
-                          if (child?.id) localStorage.removeItem(`child_pattern_${child.id}`);
-                        }}>Clear pattern</button>
+                            <input
+                              id="prof-pattern-opacity"
+                              type="range"
+                              min={0}
+                              max={100}
+                              defaultValue={(() => { try { const v = localStorage.getItem(child ? `child_pattern_opacity_${child.id}` : ''); return v ? String(Math.round(parseFloat(v) * 100)) : '15'; } catch { return '15'; } })()}
+                              className="form-range"
+                              onChange={(e) => {
+                                const frac = Math.max(0, Math.min(1, parseInt((e.target as HTMLInputElement).value, 10) / 100));
+                                document.documentElement.style.setProperty('--pattern-opacity', String(frac));
+                                try { if (child?.id) localStorage.setItem(`child_pattern_opacity_${child.id}`, String(frac)); } catch {}
+                              }}
+                            />
+                          </div></div>
                       </div>
                     ) : (
                       <div className="text-muted small">Toggle the switch below to customize a background pattern.</div>
@@ -931,14 +1065,18 @@ export default function ChildDashboard() {
                   <div className="col-12">
                     <button className="btn btn-primary" onClick={async () => {
                       const cid = child?.id; if (!cid) return;
-                      const tok = localStorage.getItem('childToken');
-                      const name = (document.getElementById('prof-name') as HTMLInputElement).value;
-                      const color = (document.getElementById('prof-color') as HTMLInputElement).value;
-                      const avatarUrl = (document.getElementById('prof-avatar-url') as HTMLInputElement).value || null;
-                      try {
-                        const r = await fetch(`/children/${cid}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ displayName: name, themeColor: color, avatarUrl }) });
+                      const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
+                      const nameEl = document.getElementById('prof-name') as HTMLInputElement | null;
+                      const colorEl = document.getElementById('prof-color') as HTMLInputElement | null;
+                      const name = nameEl ? nameEl.value : (child?.displayName || '');
+                      const color = colorEl ? colorEl.value : (child?.themeColor || '#7C5CFC');
+                      dbg('save:payload', { name, color, selectedAvatarId, selectedAvatarUrl });
+                                            try {
+                        dbg('save:fetch');
+                        const r = await fetch(`/children/${cid}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ displayName: name, themeColor: color, avatarImageId: selectedAvatarId || undefined, avatarUrl: selectedAvatarId ? undefined : (selectedAvatarUrl || null) }) });
+                        dbg('save:response', r.status);
                         if (r.ok) {
-                          const updated = await r.json();
+                          const updated = await r.json(); dbg('save:success', updated);
                           setChild((c) => c ? { ...c, displayName: updated.displayName, themeColor: updated.themeColor, avatarUrl: updated.avatarUrl } : c);
                           try {
                             const root = document.documentElement;
@@ -949,10 +1087,10 @@ export default function ChildDashboard() {
                           push('success', 'Profile updated');
                           setSection('home');
                         } else {
-                          const e = await r.json().catch(() => ({}));
+                          const e = await r.json().catch(() => ({})); dbg('save:error', e);
                           push('error', e?.error || 'Update failed');
                         }
-                      } catch { push('error', 'Update failed'); }
+                      } catch (err) { dbg('save:exception', String(err)); push('error', 'Update failed'); }
                     }}>Save changes</button>
                   </div>
                 </div>

@@ -2,6 +2,7 @@ import { ChildUser, Family, ParentUser } from './types';
 import { Chore, Completion } from './chores.types';
 import { LedgerEntry } from './bank.types';
 import { SaverItem } from './savers.types';
+import { UploadRecord, UploadScope } from './uploads.types';
 
 export interface UsersRepository {
   getParentByEmail(email: string): Promise<ParentUser | undefined>;
@@ -50,7 +51,7 @@ export interface SaversRepository {
   deleteSaver(id: string): Promise<void>;
 }
 
-export class InMemoryRepos implements UsersRepository, FamiliesRepository, ChoresRepository, BankRepository, SaversRepository {
+export class InMemoryRepos implements UsersRepository, FamiliesRepository, ChoresRepository, BankRepository, SaversRepository, UploadsRepository {
   private parents = new Map<string, ParentUser>();
   private children = new Map<string, ChildUser>();
   private families = new Map<string, Family>();
@@ -58,6 +59,7 @@ export class InMemoryRepos implements UsersRepository, FamiliesRepository, Chore
   private completions = new Map<string, Completion>();
   private ledger = new Map<string, LedgerEntry[]>(); // key: childId
   private savers = new Map<string, SaverItem>(); // key: saverId
+  private uploads = new Map<string, UploadRecord>(); // key: uploadId
 
   async getParentByEmail(email: string) {
     for (const p of this.parents.values()) if (p.email === email) return p;
@@ -222,4 +224,25 @@ export class InMemoryRepos implements UsersRepository, FamiliesRepository, Chore
   async deleteSaver(id: string) {
     this.savers.delete(id);
   }
+
+  // UploadsRepository
+  async createUpload(rec: UploadRecord) {
+    this.uploads.set(rec.id, rec);
+    return rec;
+  }
+  async listUploads(ownerRole: "child"|"parent", ownerId: string, scope?: UploadScope) {
+    let list = Array.from(this.uploads.values()).filter((u) => u.ownerRole === ownerRole && u.ownerId === ownerId);
+    if (scope) list = list.filter((u) => u.scope === scope);
+    list.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    return list;
+  }
+  async getUploadById(id: string) {
+    return this.uploads.get(id);
+  }
+}
+
+export interface UploadsRepository {
+  createUpload(rec: UploadRecord): Promise<UploadRecord>;
+  listUploads(ownerRole: 'child'|'parent', ownerId: string, scope?: UploadScope): Promise<UploadRecord[]>;
+  getUploadById(id: string): Promise<UploadRecord | undefined>;
 }
