@@ -70,9 +70,15 @@ export default function ChildDashboard() {
       Object.entries(data.post.fields as Record<string,string>).forEach(([k, v]) => fd.append(k, v));
       fd.append('file', file);
       await fetch(data.post.url, { method: 'POST', body: fd, mode: 'no-cors' });
-      const key = data.key as string;
+      const rec = await fetch('/uploads/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' },
+        body: JSON.stringify({ key: data.key, scope })
+      });
+      const rjson = rec.ok ? await rec.json() : { id: undefined };
+      const key = (rjson?.key as string) || (data.key as string);
       const prox = `/uploads/serve?key=${encodeURIComponent(key)}${tok ? `&token=${encodeURIComponent(tok)}` : ''}`;
-      return { key, url: prox };
+      return { key: (rjson as any)?.id || key, url: prox };
     }
     const { uploadUrl, key } = data;
     if (!uploadUrl || !key) throw new Error('invalid presign response');
@@ -160,6 +166,15 @@ export default function ChildDashboard() {
           const on = pref === '1';
           setCuteBg(on);
           if (on) document.body.classList.add('cute-bg-on'); else document.body.classList.remove('cute-bg-on');
+        } catch {}
+        // Fetch uploaded images for avatar/patterns
+        try {
+          const upA = await fetch(`/uploads?scope=avatars`, { headers: { Authorization: `Bearer ${token}` } });
+          const upP = await fetch(`/uploads?scope=patterns`, { headers: { Authorization: `Bearer ${token}` } });
+          const la = upA.ok ? await upA.json() : [];
+          const lp = upP.ok ? await upP.json() : [];
+          setAvatarUploads((la || []).map((r: any) => ({ id: r.id, url: r.url })));
+          setPatternUploads((lp || []).map((r: any) => ({ id: r.id, url: r.url })));
         } catch {}
         // profile editing moved off dashboard
         const r1 = await fetch(`/children/${data.id}/chores?scope=today`);

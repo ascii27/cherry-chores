@@ -11,7 +11,13 @@ services:
       - SESSION_SECRET=${SESSION_SECRET}
       - USE_DB=${USE_DB-true}
       - DATABASE_URL=${DATABASE_URL-postgresql://postgres:postgres@db:5432/cherry_chores?schema=public}
+      - LOG_LEVEL=DEBUG
       - JWT_SECRET=${JWT_SECRET-dev-secret}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_PUBLIC_BASE_URL=${S3_PUBLIC_BASE_URL}
     depends_on:
       - db
   db:

@@ -22,11 +22,15 @@ import { meRoutes } from './routes/me';
 import { configureGoogleAuth } from './auth.google';
 import { configRoutes } from './routes/config';
 import { uploadRoutes } from './routes/uploads';
+import { PgUploadsRepo } from './repos.uploads.pg';
+import { requestLogger } from './middleware/logger';
 
 export function createApp(deps?: { useDb?: boolean }) {
   const app = express();
   app.use(cors());
   app.use(express.json());
+  // Global request logging (respects LOG_LEVEL)
+  app.use(requestLogger());
   const useDb = deps?.useDb || process.env.USE_DB === 'true';
   const repos = useDb ? new PgRepos() : new InMemoryRepos();
   const jwt = new JwtService({ jwtSecret: process.env.JWT_SECRET || 'dev-secret', tokenExpiry: '7d' });
@@ -51,9 +55,15 @@ export function createApp(deps?: { useDb?: boolean }) {
   app.use(meRoutes({ users: repos }));
   app.use(configRoutes());
   app.use(familyRoutes({ families: repos, users: repos }));
-  app.use(childrenRoutes({ users: repos, families: repos }));
-  // Uploads (S3 presign) – enabled when S3 env configured
-  app.use(uploadRoutes());
+  // Uploads (S3 presign + records) – enabled when S3 env configured
+  if (useDb) {
+    const pool2 = new (require('pg').Pool)({ connectionString: process.env.DATABASE_URL });
+    const uploadsRepo = new (require('./repos.uploads.pg').PgUploadsRepo)(pool2);
+    uploadsRepo.init().catch(() => {});
+    app.use(uploadRoutes({ uploads: uploadsRepo }));
+  } else {
+    app.use(uploadRoutes({ uploads: repos as any }));
+  }
   if (useDb) {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     const choresRepo = new PgChoresRepo(pool);
@@ -66,6 +76,10 @@ export function createApp(deps?: { useDb?: boolean }) {
     app.use(choresRoutes({ chores: choresRepo, families: repos, users: repos }));
     app.use(bankRoutes({ bank: bankRepo, users: repos, families: repos, chores: choresRepo, savers: saversRepo }));
     app.use(saversRoutes({ savers: saversRepo, users: repos, families: repos, bank: bankRepo }));
+    const uploadsRepo = new (require('./repos.uploads.pg').PgUploadsRepo)(pool);
+    uploadsRepo.init().catch(() => {});
+    app.use(childrenRoutes({ users: repos, families: repos, uploads: uploadsRepo }));
+    app.use(uploadRoutes({ uploads: uploadsRepo }));
   } else {
     app.use(choresRoutes({ chores: repos as any, families: repos, users: repos }));
     app.use(bankRoutes({ bank: repos as any, users: repos, families: repos, chores: repos as any, savers: repos as any }));

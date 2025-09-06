@@ -1,10 +1,10 @@
 import { Request, Router } from 'express';
-import { UsersRepository, FamiliesRepository } from '../repositories';
+import { UsersRepository, FamiliesRepository, UploadsRepository } from '../repositories';
 import { AuthedRequest, requireRole } from '../middleware/auth';
 
-export function childrenRoutes(opts: { users: UsersRepository; families: FamiliesRepository }) {
+export function childrenRoutes(opts: { users: UsersRepository; families: FamiliesRepository; uploads?: UploadsRepository }) {
   const router = Router();
-  const { users, families } = opts;
+  const { users, families, uploads } = opts;
 
   // Parent creates a child under a family
   router.post('/children', requireRole('parent'), async (req: Request, res) => {
@@ -39,13 +39,28 @@ export function childrenRoutes(opts: { users: UsersRepository; families: Familie
     const isParent = fam.parentIds.includes(actor.id) && actor.role === 'parent';
     const isChildSelf = actor.role === 'child' && actor.id === child.id;
     if (!isParent && !isChildSelf) return res.status(403).json({ error: 'forbidden' });
-    const { username, displayName, password, avatarUrl, themeColor } = req.body || {};
+    const { username, displayName, password, avatarUrl, avatarImageId, themeColor } = req.body || {};
     try {
+      let nextAvatarUrl = avatarUrl;
+      if (avatarImageId && typeof avatarImageId === 'string') {
+        if (avatarImageId.startsWith('uploads/')) {
+          const ok = avatarImageId.includes(`/child-${child.id}/`);
+          if (!ok) return res.status(400).json({ error: 'invalid avatar image id' });
+          nextAvatarUrl = `/uploads/serve?key=${encodeURIComponent(avatarImageId)}`;
+        } else if (uploads) {
+          const rec = await (uploads as any).getUploadById(avatarImageId);
+          if (!rec || rec.ownerRole !== 'child' || rec.ownerId !== child.id || rec.scope !== 'avatars') {
+            return res.status(400).json({ error: 'invalid avatar image id' });
+          }
+          nextAvatarUrl = `/uploads/serve?key=${encodeURIComponent(rec.key)}`;
+        }
+      }
+      
       const updated = await users.updateChild(child.id, {
         username,
         displayName,
         passwordHash: password,
-        avatarUrl,
+        avatarUrl: nextAvatarUrl,
         themeColor
       });
       return res.json({ id: updated!.id, username: updated!.username, displayName: updated!.displayName, avatarUrl: updated!.avatarUrl, themeColor: updated!.themeColor });

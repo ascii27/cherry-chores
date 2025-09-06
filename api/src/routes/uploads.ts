@@ -9,9 +9,10 @@ function sanitizeFilename(name: string): string {
   return n.replace(/-+/g, '-');
 }
 
-export function uploadRoutes() {
+export function uploadRoutes(opts: { uploads: any }) {
   const router = Router();
   const enabled = !!(process.env.S3_BUCKET && (process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION));
+  const uploads = opts.uploads;
 
   router.post('/uploads/presign', async (req: Request, res) => {
     let u = (req as AuthedRequest).user;
@@ -62,6 +63,32 @@ export function uploadRoutes() {
       return res.status(404).json({ error: 'not found' });
     }
   });
+  // List uploads for current user
+  router.get('/uploads', async (req: Request, res) => {
+    const u = (req as AuthedRequest).user;
+    if (!u) return res.status(401).json({ error: 'unauthorized' });
+    const scope = String((req.query as any).scope || '');
+    const list = await uploads.listUploads(u.role, u.id, scope || undefined);
+    return res.json(list.map((r: any) => ({ id: r.id, scope: r.scope, url: r.url, key: r.key, createdAt: r.createdAt })));
+  });
+
+  // Record completion of an upload (client calls after successful S3 write)
+  router.post('/uploads/complete', async (req: Request, res) => {
+    const u = (req as AuthedRequest).user;
+    if (!u) return res.status(401).json({ error: 'unauthorized' });
+    if (!enabled) return res.status(501).json({ error: 'uploads not configured' });
+    const { key, scope } = (req.body || {}) as any;
+    if (!key || typeof key !== 'string' || !scope) return res.status(400).json({ error: 'missing fields' });
+    const ownerSeg = `${u.role}-${u.id}`;
+    if (!key.startsWith('uploads/') || key.indexOf(`/${ownerSeg}/`) === -1) {
+      return res.status(400).json({ error: 'invalid key' });
+    }
+    const url = `/uploads/serve?key=${encodeURIComponent(key)}`;
+    const rec = { id: `upl_${Date.now()}`, ownerRole: u.role, ownerId: u.id, scope, key, url, createdAt: new Date().toISOString() };
+    const saved = await uploads.createUpload(rec);
+    return res.status(201).json({ id: saved.id, url: saved.url, key: saved.key, scope: saved.scope, createdAt: saved.createdAt });
+  });
+
 
   return router;
 }
