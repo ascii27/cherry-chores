@@ -1028,7 +1028,24 @@ export default function ChildDashboard() {
                               }}
                             />
                           </div>
-                        </div>
+                        
+
+                          <div className="col-12 col-md-6">
+                            <label className="form-label">Pattern transparency</label>
+                            <input
+                              id="prof-pattern-opacity"
+                              type="range"
+                              min={0}
+                              max={100}
+                              defaultValue={(() => { try { const v = localStorage.getItem(child ? `child_pattern_opacity_${child.id}` : ''); return v ? String(Math.round(parseFloat(v) * 100)) : '15'; } catch { return '15'; } })()}
+                              className="form-range"
+                              onChange={(e) => {
+                                const frac = Math.max(0, Math.min(1, parseInt((e.target as HTMLInputElement).value, 10) / 100));
+                                document.documentElement.style.setProperty('--pattern-opacity', String(frac));
+                                try { if (child?.id) localStorage.setItem(`child_pattern_opacity_${child.id}`, String(frac)); } catch {}
+                              }}
+                            />
+                          </div></div>
                       </div>
                     ) : (
                       <div className="text-muted small">Toggle the switch below to customize a background pattern.</div>
