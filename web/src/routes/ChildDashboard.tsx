@@ -1011,7 +1011,24 @@ export default function ChildDashboard() {
                             }}
                           >Upload</button>
                         </div>
-                        <div className="row g-2 w-100 mt-1"></div>
+                        <div className="row g-2 w-100 mt-1">
+                          <div className="col-12 col-md-6">
+                            <label className="form-label">Pattern size</label>
+                            <input
+                              id="prof-pattern-size"
+                              type="range"
+                              min={40}
+                              max={320}
+                              defaultValue={(() => { try { return (localStorage.getItem(child ? `child_pattern_size_${child.id}` : '') || '120px').replace('px',''); } catch { return '120'; } })()}
+                              className="form-range"
+                              onChange={(e) => {
+                                const val = `${(e.target as HTMLInputElement).value}px`;
+                                document.documentElement.style.setProperty('--pattern-size', val);
+                                try { if (child?.id) localStorage.setItem(`child_pattern_size_${child.id}`, val); } catch {}
+                              }}
+                            />
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <div className="text-muted small">Toggle the switch below to customize a background pattern.</div>
