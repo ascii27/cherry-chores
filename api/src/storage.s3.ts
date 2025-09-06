@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export interface PresignOptions {
@@ -47,3 +47,14 @@ export class S3Storage {
   }
 }
 
+  async getObject(key: string): Promise<{ body: any; contentType?: string; contentLength?: number; etag?: string }>{
+    const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
+    const res = await this.client.send(cmd);
+    return {
+      body: res.Body as any,
+      contentType: res.ContentType,
+      contentLength: typeof res.ContentLength === "number" ? res.ContentLength : undefined,
+      etag: (res.ETag as any) || undefined,
+    };
+  }
+}

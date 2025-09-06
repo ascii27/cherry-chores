@@ -30,6 +30,27 @@ export function uploadRoutes() {
     }
   });
 
+  // Secure fetch: stream object through API after ownership check
+  router.get('/uploads/serve', async (req: Request, res) => {
+    const u = (req as AuthedRequest).user;
+    if (!u) return res.status(401).json({ error: 'unauthorized' });
+    if (!enabled) return res.status(501).json({ error: 'uploads not configured' });
+    const key = String((req.query as any).key || '');
+    if (!key || !key.startsWith('uploads/')) return res.status(400).json({ error: 'invalid key' });
+    const ownerSeg = `${u.role}-${u.id}`;
+    if (!key.includes(`/${ownerSeg}/`)) return res.status(403).json({ error: 'forbidden' });
+    try {
+      const s3 = new S3Storage();
+      const obj = await s3.getObject(key);
+      if (obj.contentType) res.setHeader('Content-Type', obj.contentType);
+      if (obj.contentLength != null) res.setHeader('Content-Length', String(obj.contentLength));
+      res.setHeader('Cache-Control', 'private, max-age=300');
+      (obj.body as any).pipe(res);
+    } catch (e) {
+      return res.status(404).json({ error: 'not found' });
+    }
+  });
+
   return router;
 }
 
