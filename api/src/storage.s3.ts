@@ -1,5 +1,7 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
+import { logDebug, logInfo, logError } from './log';
 
 export interface PresignOptions {
   key: string;
@@ -21,11 +23,13 @@ export class S3Storage {
     this.region = region;
     const endpoint = process.env.S3_ENDPOINT;
     const forcePathStyle = process.env.S3_FORCE_PATH_STYLE === 'true';
-    this.client = new S3Client({
+    const cfg: any = {
       region,
       endpoint: endpoint || undefined,
       forcePathStyle: forcePathStyle || undefined,
-    });
+    };
+    this.client = new S3Client(cfg);
+    logInfo('uploads', 'S3 client configured', { region, bucket, endpoint: endpoint || null, forcePathStyle });
     this.publicBase = process.env.S3_PUBLIC_BASE_URL || undefined;
   }
 
@@ -42,6 +46,7 @@ export class S3Storage {
       ContentType: opts.contentType,
     });
     const uploadUrl = await getSignedUrl(this.client, cmd, { expiresIn: opts.expiresIn ?? 300 });
+    logDebug('uploads', 'Presigned PUT created', { key: opts.key, contentType: opts.contentType, expiresIn: opts.expiresIn ?? 300 });
     return { uploadUrl, publicUrl: this.publicUrl(opts.key), key: opts.key };
   }
 
@@ -49,11 +54,30 @@ export class S3Storage {
   async getObject(key: string): Promise<{ body: any; contentType?: string; contentLength?: number; etag?: string }>{
     const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
     const res = await this.client.send(cmd);
+    logDebug('uploads', 'GetObject fetched', { key });
     return {
       body: res.Body as any,
       contentType: res.ContentType,
       contentLength: typeof res.ContentLength === "number" ? res.ContentLength : undefined,
       etag: (res.ETag as any) || undefined,
     };
+  }
+
+
+  async presignPost(opts: PresignOptions): Promise<{ url: string; fields: Record<string, string>; publicUrl: string; key: string }>{
+    const { url, fields } = await createPresignedPost(this.client, {
+      Bucket: this.bucket,
+      Key: opts.key,
+      Conditions: [
+        ['content-length-range', 0, 25 * 1024 * 1024],
+        ['eq', '$Content-Type', opts.contentType],
+      ],
+      Fields: {
+        'Content-Type': opts.contentType,
+        'key': opts.key,
+      },
+      Expires: Math.min(opts.expiresIn ?? 300, 3600),
+    });
+    return { url, fields, publicUrl: this.publicUrl(opts.key), key: opts.key };
   }
 }

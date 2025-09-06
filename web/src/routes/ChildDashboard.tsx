@@ -42,6 +42,48 @@ export default function ChildDashboard() {
   const [section, setSection] = useState<'home' | 'bank' | 'goals' | 'profile'>('home');
   const [cuteBg, setCuteBg] = useState(false);
 
+  const avatarSrc = useMemo(() => {
+    const u = child?.avatarUrl || null;
+    if (!u) return null;
+    if (u.startsWith('/uploads/serve')) {
+      try { const tok = localStorage.getItem('childToken'); if (tok && !u.includes('token=')) return u + (u.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(tok); } catch {}
+    }
+    return u;
+  }, [child]);
+  const [avatarUploads, setAvatarUploads] = useState<{ id: string; url: string }[]>([]);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [patternUploads, setPatternUploads] = useState<{ id: string; url: string }[]>([]);
+  const [patternFile, setPatternFile] = useState<File | null>(null);
+
+    async function uploadToS3(scope: 'avatars' | 'patterns', file: File): Promise<{ key: string; url: string }>{
+    const tok = localStorage.getItem('childToken');
+    const contentType = file.type || (scope === 'patterns' ? 'image/svg+xml' : 'application/octet-stream');
+    const pre = await fetch('/uploads/presign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' },
+      body: JSON.stringify({ filename: file.name, contentType, scope })
+    });
+    if (!pre.ok) throw new Error('presign failed');
+    const data = await pre.json();
+    if (data?.method === 'POST' && data?.post?.url && data?.post?.fields) {
+      const fd = new FormData();
+      Object.entries(data.post.fields as Record<string,string>).forEach(([k, v]) => fd.append(k, v));
+      fd.append('file', file);
+      const r = await fetch(data.post.url, { method: 'POST', body: fd, mode: 'cors' });
+      if (!r.ok) { const msg = await r.text().catch(()=>'' ); throw new Error('upload failed ' + msg); }
+      const key = data.key as string;
+      const prox = `/uploads/serve?key=${encodeURIComponent(key)}${tok ? `&token=${encodeURIComponent(tok)}` : ''}`;
+      return { key, url: prox };
+    }
+    const { uploadUrl, key } = data;
+    if (!uploadUrl || !key) throw new Error('invalid presign response');
+    const put = await fetch(uploadUrl, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': contentType }, body: file });
+    if (!put.ok) { const msg = await put.text().catch(()=>'' ); throw new Error('upload failed ' + msg); }
+    const prox = `/uploads/serve?key=${encodeURIComponent(key)}${tok ? `&token=${encodeURIComponent(tok)}` : ''}`;
+    return { key, url: prox };
+  }
+
+
   function hexToRgb(hex?: string | null): [number, number, number] | null {
     if (!hex) return null;
     const m = hex.trim().match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
@@ -167,7 +209,7 @@ export default function ChildDashboard() {
     <React.Fragment>
       <TopBar
         name={child?.displayName || 'Welcome'}
-        avatar={child?.avatarUrl || null}
+        avatar={avatarSrc}
         accent={child?.themeColor || null}
         onMenuToggle={() => setMenuOpen(true)}
         onLogout={() => { localStorage.removeItem('childToken'); nav('/'); }}
@@ -844,22 +886,48 @@ export default function ChildDashboard() {
                     <div className="d-flex align-items-center gap-3 flex-wrap">
                       {avatarSvgs.map((u) => (
                         <button key={u} type="button" className="btn btn-outline-secondary" onClick={() => {
+                          (document.getElementById('prof-avatar-id') as HTMLInputElement).value = '';
                           (document.getElementById('prof-avatar-url') as HTMLInputElement).value = u;
+                          const prev = document.getElementById('prof-avatar-preview') as HTMLImageElement | null;
+                          if (prev) prev.src = u;
                         }}>
                           <img src={u} alt="avatar option" style={{ width: 28, height: 28 }} />
                         </button>
                       ))}
-                      <input type="file" accept="image/*" className="form-control" style={{ maxWidth: 260 }} onChange={(ev) => {
-                        const f = (ev.target as HTMLInputElement).files?.[0];
-                        if (!f) return;
-                        const r = new FileReader();
-                        r.onload = () => { (document.getElementById('prof-avatar-url') as HTMLInputElement).value = String(r.result || ''); };
-                        r.readAsDataURL(f);
-                      }} />
-                      {/* Pattern controls moved to Background pattern editor below */}
-                      <input id="prof-avatar-url" className="form-control" placeholder="Avatar URL or auto-filled" style={{ maxWidth: 420 }} defaultValue={child?.avatarUrl || ''} />
-                    </div>
-                  </div>
+                      {avatarUploads.map((a) => (
+                        <button key={a.id} type="button" className="btn btn-outline-secondary" onClick={() => {
+                          (document.getElementById('prof-avatar-id') as HTMLInputElement).value = a.id;
+                          (document.getElementById('prof-avatar-url') as HTMLInputElement).value = '';
+                          const prev = document.getElementById('prof-avatar-preview') as HTMLImageElement | null;
+                          if (prev) prev.src = a.url;
+                        }}>
+                          <img src={a.url} alt="uploaded avatar" style={{ width: 28, height: 28 }} />
+                        </button>
+                      ))}
+                      <div className="d-flex align-items-center gap-2">
+                        <input type="file" accept="image/*" className="form-control" style={{ maxWidth: 260 }} onChange={(ev) => {
+                          const f = (ev.target as HTMLInputElement).files?.[0] || null;
+                          setAvatarFile(f);
+                        }} />
+                        <button type="button" className="btn btn-primary" disabled={!avatarFile} onClick={async () => {
+                          const f = avatarFile; if (!f) return;
+                          try {
+                            const { key, url } = await uploadToS3('avatars', f);
+                            setAvatarUploads((prev) => [{ id: key, url }, ...prev]);
+                            (document.getElementById('prof-avatar-id') as HTMLInputElement).value = key;
+                            (document.getElementById('prof-avatar-url') as HTMLInputElement).value = '';
+                            const prevImg = document.getElementById('prof-avatar-preview') as HTMLImageElement | null;
+                            if (prevImg) prevImg.src = url;
+                            setAvatarFile(null);
+                          } catch (e) { try { push('error', 'Upload failed'); } catch {} }
+                        }}>Upload</button>
+                      </div>
+                      <input id="prof-avatar-url" className="form-control" placeholder="Avatar URL (fallback)" style={{ maxWidth: 420 }} defaultValue={child?.avatarUrl || ''} />
+                      <input id="prof-avatar-id" type="hidden" />
+                      <div className="mt-2">
+                        <img id="prof-avatar-preview" alt="avatar preview" style={{ width: 40, height: 40, borderRadius: '50%' }} src={child?.avatarUrl || ''} />
+                      </div>
+                    </div></div>
                   <div className="col-12">
                     <label className="form-label">Background pattern</label>
                     {cuteBg ? (
@@ -867,6 +935,7 @@ export default function ChildDashboard() {
                         {patternSvgs.map((u) => (
                           <button key={u} type="button" className="btn btn-outline-secondary" onClick={() => {
                             if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, u);
+                            localStorage.removeItem(`child_pattern_id_${child?.id || ''}`);
                             document.documentElement.style.setProperty('--pattern-image', `url("${u}")`);
                             document.body.classList.add('cute-bg-on');
                             setCuteBg(true);
@@ -874,44 +943,35 @@ export default function ChildDashboard() {
                             <img src={u} alt="pattern option" style={{ width: 28, height: 28 }} />
                           </button>
                         ))}
-                        <input id="prof-pattern-upload" type="file" accept="image/svg+xml,image/png,image/jpeg" className="form-control" style={{ maxWidth: 420 }} onChange={(ev) => {
-                          const f = (ev.target as HTMLInputElement).files?.[0];
-                          if (!f) return;
-                          const r = new FileReader();
-                          r.onload = () => {
-                            const dataUrl = String(r.result || '');
-                            document.documentElement.style.setProperty('--pattern-image', `url("${dataUrl}")`);
-                            if (child?.id) localStorage.setItem(`child_pattern_${child.id}`, dataUrl);
+                        {patternUploads.map((patt) => (
+                          <button key={patt.id} type="button" className="btn btn-outline-secondary" onClick={() => {
+                            if (child?.id) {
+                              localStorage.setItem(`child_pattern_id_${child.id}`, patt.id);
+                              localStorage.setItem(`child_pattern_${child.id}`, patt.url);
+                            }
+                            document.documentElement.style.setProperty('--pattern-image', `url("${patt.url}")`);
                             document.body.classList.add('cute-bg-on');
                             setCuteBg(true);
-                          };
-                          r.readAsDataURL(f);
-                        }} />
-                        <div className="row g-2 w-100 mt-1">
-                          <div className="col-12 col-md-6">
-                            <label className="form-label">Pattern size</label>
-                            <input id="prof-pattern-size" type="range" min={40} max={320} defaultValue={120} className="form-range" onChange={(e) => {
-                              const val = `${(e.target as HTMLInputElement).value}px`;
-                              document.documentElement.style.setProperty('--pattern-size', val);
-                              if (child?.id) localStorage.setItem(`child_pattern_size_${child.id}`, val);
-                            }} />
-                          </div>
-                          <div className="col-12 col-md-6">
-                            <label className="form-label">Pattern transparency</label>
-                            <input id="prof-pattern-opacity" type="range" min={0} max={100} defaultValue={15} className="form-range" onChange={(e) => {
-                              const frac = Math.max(0, Math.min(1, parseInt((e.target as HTMLInputElement).value, 10) / 100));
-                              document.documentElement.style.setProperty('--pattern-opacity', String(frac));
-                              if (child?.id) localStorage.setItem(`child_pattern_opacity_${child.id}`, String(frac));
-                            }} />
-                          </div>
-                          
+                          }}>
+                            <img src={patt.url} alt="uploaded pattern" style={{ width: 28, height: 28 }} />
+                          </button>
+                        ))}
+                        <div className="d-flex align-items-center gap-2">
+                          <input id="prof-pattern-upload" type="file" accept="image/svg+xml" className="form-control" style={{ maxWidth: 420 }} onChange={(ev) => { const f = (ev.target as HTMLInputElement).files?.[0] || null; setPatternFile(f); }} />
+                          <button type="button" className="btn btn-primary" disabled={!patternFile} onClick={async () => {
+                            const f = patternFile; if (!f) return;
+                            try {
+                              const { key, url } = await uploadToS3('patterns', f);
+                              setPatternUploads((prev) => [{ id: key, url }, ...prev]);
+                              if (child?.id) { localStorage.setItem(`child_pattern_id_${child.id}`, key); localStorage.setItem(`child_pattern_${child.id}`, url); }
+                              document.documentElement.style.setProperty('--pattern-image', `url("${url}")`);
+                              document.body.classList.add('cute-bg-on');
+                              setCuteBg(true);
+                              setPatternFile(null);
+                            } catch (e) { try { push('error', 'Upload failed'); } catch {} }
+                          }}>Upload</button>
                         </div>
-                        <button type="button" className="btn btn-outline-secondary" onClick={() => {
-                          document.body.classList.remove('cute-bg-on');
-                          setCuteBg(false);
-                          document.documentElement.style.removeProperty('--pattern-image');
-                          if (child?.id) localStorage.removeItem(`child_pattern_${child.id}`);
-                        }}>Clear pattern</button>
+                        <div className="row g-2 w-100 mt-1"></div>
                       </div>
                     ) : (
                       <div className="text-muted small">Toggle the switch below to customize a background pattern.</div>
@@ -936,7 +996,7 @@ export default function ChildDashboard() {
                       const color = (document.getElementById('prof-color') as HTMLInputElement).value;
                       const avatarUrl = (document.getElementById('prof-avatar-url') as HTMLInputElement).value || null;
                       try {
-                        const r = await fetch(`/children/${cid}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ displayName: name, themeColor: color, avatarUrl }) });
+                        const r = await fetch(`/children/${cid}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ displayName: name, themeColor: color, avatarImageId: (document.getElementById('prof-avatar-id') as HTMLInputElement).value || undefined, avatarUrl: (document.getElementById('prof-avatar-id') as HTMLInputElement).value ? undefined : ((document.getElementById('prof-avatar-url') as HTMLInputElement).value || null) }) });
                         if (r.ok) {
                           const updated = await r.json();
                           setChild((c) => c ? { ...c, displayName: updated.displayName, themeColor: updated.themeColor, avatarUrl: updated.avatarUrl } : c);
