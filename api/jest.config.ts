@@ -4,6 +4,8 @@ const config: Config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
+  // Force unit tests to run against in-memory repos, not Postgres
+  setupFiles: ['<rootDir>/tests/test.env.ts'],
   // Ensure DB/OAuth runtime files are ignored even if imported
   coveragePathIgnorePatterns: [
     '<rootDir>/src/repos\\.pg\\.ts',
