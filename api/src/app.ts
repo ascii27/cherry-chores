@@ -21,6 +21,7 @@ import { childrenRoutes } from './routes/children';
 import { meRoutes } from './routes/me';
 import { configureGoogleAuth } from './auth.google';
 import { configRoutes } from './routes/config';
+import { uploadRoutes } from './routes/uploads';
 
 export function createApp(deps?: { useDb?: boolean }) {
   const app = express();
@@ -51,6 +52,8 @@ export function createApp(deps?: { useDb?: boolean }) {
   app.use(configRoutes());
   app.use(familyRoutes({ families: repos, users: repos }));
   app.use(childrenRoutes({ users: repos, families: repos }));
+  // Uploads (S3 presign) – enabled when S3 env configured
+  app.use(uploadRoutes());
   if (useDb) {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     const choresRepo = new PgChoresRepo(pool);
