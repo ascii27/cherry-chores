@@ -17,13 +17,28 @@ export interface AuthedRequest extends Request {
 
 export const authMiddleware: RequestHandler = (req: Request, _res: Response, next: NextFunction) => {
   const header = req.header('Authorization');
-  if (!header || !header.startsWith('Bearer ')) return next();
-  const token = header.substring('Bearer '.length);
-  try {
-    const payload = global.__jwtService!.verify(token);
-    (req as AuthedRequest).user = { id: payload.sub, role: payload.role, familyId: payload.familyId };
-  } catch {
-    // ignore invalid tokens; routes can enforce requirements
+  let token: string | undefined;
+  if (header && header.startsWith('Bearer ')) {
+    token = header.substring('Bearer '.length);
+  } else if (req.headers.cookie) {
+    try {
+      const cookies = Object.fromEntries((req.headers.cookie || '').split(';').filter(Boolean).map((p) => {
+        const i = p.indexOf('=');
+        if (i === -1) return [p.trim(), ''];
+        const k = decodeURIComponent(p.slice(0, i).trim());
+        const v = decodeURIComponent(p.slice(i + 1).trim());
+        return [k, v];
+      }));
+      token = (cookies as any)['auth'] || (cookies as any)['token'] || undefined;
+    } catch {}
+  }
+  if (token) {
+    try {
+      const payload = global.__jwtService!.verify(token);
+      (req as AuthedRequest).user = { id: payload.sub, role: payload.role, familyId: payload.familyId };
+    } catch {
+      // ignore invalid tokens; routes can enforce requirements
+    }
   }
   next();
 }

@@ -46,7 +46,7 @@ export default function ChildDashboard() {
     const u = child?.avatarUrl || null;
     if (!u) return null;
     if (u.startsWith('/uploads/serve')) {
-      try { const tok = localStorage.getItem('childToken'); if (tok && !u.includes('token=')) return u + (u.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(tok); } catch {}
+      
     }
     return u;
   }, [child]);
@@ -54,37 +54,47 @@ export default function ChildDashboard() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [patternUploads, setPatternUploads] = useState<{ id: string; url: string }[]>([]);
   const [patternFile, setPatternFile] = useState<File | null>(null);
+  const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
+  const [selectedAvatarUrl, setSelectedAvatarUrl] = useState<string | null>(null);
+
+
+  function dbg(label: string, data?: any) { try { console.log('[Profile]', label, data ?? ''); } catch {} }
+
 
     async function uploadToS3(scope: 'avatars' | 'patterns', file: File): Promise<{ key: string; url: string }>{
-    const tok = localStorage.getItem('childToken');
+    const tok = localStorage.getItem('childToken'); dbg('save:start', { cid, hasToken: !!tok });
     const contentType = file.type || (scope === 'patterns' ? 'image/svg+xml' : 'application/octet-stream');
+    dbg('presign:request', { scope, name: file.name, type: contentType });
     const pre = await fetch('/uploads/presign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' },
       body: JSON.stringify({ filename: file.name, contentType, scope })
     });
-    if (!pre.ok) throw new Error('presign failed');
-    const data = await pre.json();
+    if (!pre.ok) { dbg('presign:fail', pre.status); throw new Error('presign failed'); } else { dbg('presign:ok'); }
+    const data = await pre.json(); dbg('presign:response', data);
     if (data?.method === 'POST' && data?.post?.url && data?.post?.fields) {
       const fd = new FormData();
       Object.entries(data.post.fields as Record<string,string>).forEach(([k, v]) => fd.append(k, v));
       fd.append('file', file);
+      dbg('upload:post:start', { url: data.post.url });
       await fetch(data.post.url, { method: 'POST', body: fd, mode: 'no-cors' });
+      dbg('upload:post:done');
+      dbg('complete:request', { key: data.key, scope });
       const rec = await fetch('/uploads/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' },
         body: JSON.stringify({ key: data.key, scope })
       });
-      const rjson = rec.ok ? await rec.json() : { id: undefined };
+      const rjson = rec.ok ? await rec.json() : { id: undefined }; dbg('complete:response', rjson);
       const key = (rjson?.key as string) || (data.key as string);
-      const prox = `/uploads/serve?key=${encodeURIComponent(key)}${tok ? `&token=${encodeURIComponent(tok)}` : ''}`;
+      const prox = `/uploads/serve?key=${encodeURIComponent(key)}`;
       return { key: (rjson as any)?.id || key, url: prox };
     }
     const { uploadUrl, key } = data;
     if (!uploadUrl || !key) throw new Error('invalid presign response');
     const put = await fetch(uploadUrl, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': contentType }, body: file });
     if (!put.ok) { const msg = await put.text().catch(()=>'' ); throw new Error('upload failed ' + msg); }
-    const prox = `/uploads/serve?key=${encodeURIComponent(key)}${tok ? `&token=${encodeURIComponent(tok)}` : ''}`;
+    const prox = `/uploads/serve?key=${encodeURIComponent(key)}`;
     return { key, url: prox };
   }
 
@@ -146,6 +156,7 @@ export default function ChildDashboard() {
       nav('/');
       return;
     }
+    try { document.cookie = `auth=${encodeURIComponent(token)}; Path=/; SameSite=Lax; Max-Age=604800`; } catch {}
     (async () => {
       try {
         const me = await fetch('/me', { headers: { Authorization: `Bearer ${token}` } });
@@ -189,6 +200,7 @@ export default function ChildDashboard() {
           setBalance(b.balance);
           setLedger(b.entries || []);
         }
+        try { setSelectedAvatarUrl(data.avatarUrl || null); } catch {}
         // Restore background pattern if present
         try {
           const patt = localStorage.getItem(`child_pattern_${data.id}`);
@@ -226,7 +238,7 @@ export default function ChildDashboard() {
         avatar={avatarSrc}
         accent={child?.themeColor || null}
         onMenuToggle={() => setMenuOpen(true)}
-        onLogout={() => { localStorage.removeItem('childToken'); nav('/'); }}
+        onLogout={() => { try { document.cookie = 'auth=; Path=/; Max-Age=0'; } catch {}; localStorage.removeItem('childToken'); nav('/'); }}
       />
       <Celebration trigger={celebrate} />
       {/* Sidebar overlay and panel */}
@@ -581,7 +593,7 @@ export default function ChildDashboard() {
                     <input id="alloc-amt" type="number" min={1} className="form-control" placeholder="Coins" />
                     <button className="btn btn-outline-warning" onClick={async () => {
                       const cid = child?.id; if (!cid) return;
-                      const tok = localStorage.getItem('childToken');
+                      const tok = localStorage.getItem('childToken'); dbg('save:start', { cid, hasToken: !!tok });
                       const saverId = (document.getElementById('alloc-saver') as HTMLSelectElement).value;
                       const amt = parseInt((document.getElementById('alloc-amt') as HTMLInputElement).value || '0', 10);
                       if (!saverId || !amt) return;
@@ -683,10 +695,10 @@ export default function ChildDashboard() {
                                         const name = e.currentTarget.value.trim() || 'Untitled';
                                         if (name === s.name) { setEditing(null); return; }
                                         try {
-                                          const tok = localStorage.getItem('childToken');
+                                          const tok = localStorage.getItem('childToken'); dbg('save:start', { cid, hasToken: !!tok });
                                           const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ name }) });
                                           if (r.ok) {
-                                            const updated = await r.json();
+                                            const updated = await r.json(); dbg('save:success', updated);
                                             setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
                                             push('success', 'Renamed');
                                           } else {
@@ -732,10 +744,10 @@ export default function ChildDashboard() {
                                           const nextTarget = Number.isFinite(val) && val > 0 ? val : target;
                                           if (nextTarget === target) { setEditing(null); return; }
                                           try {
-                                            const tok = localStorage.getItem('childToken');
+                                            const tok = localStorage.getItem('childToken'); dbg('save:start', { cid, hasToken: !!tok });
                                             const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ target: nextTarget }) });
                                             if (r.ok) {
-                                              const updated = await r.json();
+                                              const updated = await r.json(); dbg('save:success', updated);
                                               setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
                                               push('success', 'Target updated');
                                             } else {
@@ -778,10 +790,10 @@ export default function ChildDashboard() {
                                           let pct = Math.round((wk / weeklyTotal) * 100);
                                           pct = Math.max(0, Math.min(100, pct));
                                           try {
-                                            const tok = localStorage.getItem('childToken');
+                                            const tok = localStorage.getItem('childToken'); dbg('save:start', { cid, hasToken: !!tok });
                                             const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ allocation: pct }) });
                                             if (r.ok) {
-                                              const updated = await r.json();
+                                              const updated = await r.json(); dbg('save:success', updated);
                                               setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
                                               push('success', 'Weekly allocation updated');
                                             } else {
@@ -812,7 +824,7 @@ export default function ChildDashboard() {
                                     onClick={async () => {
                                       if (!confirm('Delete this item? Reserved coins (if any) will be released.')) return;
                                       try {
-                                        const tok = localStorage.getItem('childToken');
+                                        const tok = localStorage.getItem('childToken'); dbg('save:start', { cid, hasToken: !!tok });
                                         const r = await fetch(`/savers/${s.id}`, { method: 'DELETE', headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
                                         if (r.ok) {
                                           setSavers((prev) => prev.filter((x) => x.id !== s.id));
@@ -900,20 +912,18 @@ export default function ChildDashboard() {
                     <div className="d-flex align-items-center gap-3 flex-wrap">
                       {avatarSvgs.map((u) => (
                         <button key={u} type="button" className="btn btn-outline-secondary" onClick={() => {
-                          (document.getElementById('prof-avatar-id') as HTMLInputElement).value = '';
-                          (document.getElementById('prof-avatar-url') as HTMLInputElement).value = u;
-                          const prev = document.getElementById('prof-avatar-preview') as HTMLImageElement | null;
-                          if (prev) prev.src = u;
+                          setSelectedAvatarId(null);
+                          setSelectedAvatarUrl(u);
+                          
                         }}>
                           <img src={u} alt="avatar option" style={{ width: 28, height: 28 }} />
                         </button>
                       ))}
                       {avatarUploads.map((a) => (
                         <button key={a.id} type="button" className="btn btn-outline-secondary" onClick={() => {
-                          (document.getElementById('prof-avatar-id') as HTMLInputElement).value = a.id;
-                          (document.getElementById('prof-avatar-url') as HTMLInputElement).value = '';
-                          const prev = document.getElementById('prof-avatar-preview') as HTMLImageElement | null;
-                          if (prev) prev.src = a.url;
+                          setSelectedAvatarId(a.id);
+                          
+                          setSelectedAvatarUrl(a.url);
                         }}>
                           <img src={a.url} alt="uploaded avatar" style={{ width: 28, height: 28 }} />
                         </button>
@@ -928,19 +938,16 @@ export default function ChildDashboard() {
                           try {
                             const { key, url } = await uploadToS3('avatars', f);
                             setAvatarUploads((prev) => [{ id: key, url }, ...prev]);
-                            (document.getElementById('prof-avatar-id') as HTMLInputElement).value = key;
-                            (document.getElementById('prof-avatar-url') as HTMLInputElement).value = '';
-                            const prevImg = document.getElementById('prof-avatar-preview') as HTMLImageElement | null;
-                            if (prevImg) prevImg.src = url;
+                            setSelectedAvatarId(key);
+                            
+                            setSelectedAvatarUrl(url);
                             setAvatarFile(null);
                           } catch (e) { try { push('error', 'Upload failed'); } catch {} }
                         }}>Upload</button>
                       </div>
-                      <input id="prof-avatar-url" className="form-control" placeholder="Avatar URL (fallback)" style={{ maxWidth: 420 }} defaultValue={child?.avatarUrl || ''} />
-                      <input id="prof-avatar-id" type="hidden" />
-                      <div className="mt-2">
-                        <img id="prof-avatar-preview" alt="avatar preview" style={{ width: 40, height: 40, borderRadius: '50%' }} src={child?.avatarUrl || ''} />
-                      </div>
+                      
+                      
+                      
                     </div></div>
                   <div className="col-12">
                     <label className="form-label">Background pattern</label>
@@ -1005,14 +1012,18 @@ export default function ChildDashboard() {
                   <div className="col-12">
                     <button className="btn btn-primary" onClick={async () => {
                       const cid = child?.id; if (!cid) return;
-                      const tok = localStorage.getItem('childToken');
-                      const name = (document.getElementById('prof-name') as HTMLInputElement).value;
-                      const color = (document.getElementById('prof-color') as HTMLInputElement).value;
-                      const avatarUrl = (document.getElementById('prof-avatar-url') as HTMLInputElement).value || null;
-                      try {
-                        const r = await fetch(`/children/${cid}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ displayName: name, themeColor: color, avatarImageId: (document.getElementById('prof-avatar-id') as HTMLInputElement).value || undefined, avatarUrl: (document.getElementById('prof-avatar-id') as HTMLInputElement).value ? undefined : ((document.getElementById('prof-avatar-url') as HTMLInputElement).value || null) }) });
+                      const tok = localStorage.getItem('childToken'); dbg('save:start', { cid, hasToken: !!tok });
+                      const nameEl = document.getElementById('prof-name') as HTMLInputElement | null;
+                      const colorEl = document.getElementById('prof-color') as HTMLInputElement | null;
+                      const name = nameEl ? nameEl.value : (child?.displayName || '');
+                      const color = colorEl ? colorEl.value : (child?.themeColor || '#7C5CFC');
+                      dbg('save:payload', { name, color, selectedAvatarId, selectedAvatarUrl });
+                                            try {
+                        dbg('save:fetch');
+                        const r = await fetch(`/children/${cid}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ displayName: name, themeColor: color, avatarImageId: selectedAvatarId || undefined, avatarUrl: selectedAvatarId ? undefined : (selectedAvatarUrl || null) }) });
+                        dbg('save:response', r.status);
                         if (r.ok) {
-                          const updated = await r.json();
+                          const updated = await r.json(); dbg('save:success', updated);
                           setChild((c) => c ? { ...c, displayName: updated.displayName, themeColor: updated.themeColor, avatarUrl: updated.avatarUrl } : c);
                           try {
                             const root = document.documentElement;
@@ -1023,10 +1034,10 @@ export default function ChildDashboard() {
                           push('success', 'Profile updated');
                           setSection('home');
                         } else {
-                          const e = await r.json().catch(() => ({}));
+                          const e = await r.json().catch(() => ({})); dbg('save:error', e);
                           push('error', e?.error || 'Update failed');
                         }
-                      } catch { push('error', 'Update failed'); }
+                      } catch (err) { dbg('save:exception', String(err)); push('error', 'Update failed'); }
                     }}>Save changes</button>
                   </div>
                 </div>
