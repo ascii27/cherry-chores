@@ -69,8 +69,7 @@ export default function ChildDashboard() {
       const fd = new FormData();
       Object.entries(data.post.fields as Record<string,string>).forEach(([k, v]) => fd.append(k, v));
       fd.append('file', file);
-      const r = await fetch(data.post.url, { method: 'POST', body: fd, mode: 'cors' });
-      if (!r.ok) { const msg = await r.text().catch(()=>'' ); throw new Error('upload failed ' + msg); }
+      await fetch(data.post.url, { method: 'POST', body: fd, mode: 'no-cors' });
       const key = data.key as string;
       const prox = `/uploads/serve?key=${encodeURIComponent(key)}${tok ? `&token=${encodeURIComponent(tok)}` : ''}`;
       return { key, url: prox };
