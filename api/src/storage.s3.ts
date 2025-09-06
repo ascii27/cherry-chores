@@ -35,8 +35,7 @@ export class S3Storage {
     return `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`;
   }
 
-  async presignPut(opts: PresignOptions): Promise<{ uploadUrl: string; publicUrl: string; key: string }>
-  {
+  async presignPut(opts: PresignOptions): Promise<{ uploadUrl: string; publicUrl: string; key: string }>{
     const cmd = new PutObjectCommand({
       Bucket: this.bucket,
       Key: opts.key,
@@ -45,7 +44,7 @@ export class S3Storage {
     const uploadUrl = await getSignedUrl(this.client, cmd, { expiresIn: opts.expiresIn ?? 300 });
     return { uploadUrl, publicUrl: this.publicUrl(opts.key), key: opts.key };
   }
-}
+
 
   async getObject(key: string): Promise<{ body: any; contentType?: string; contentLength?: number; etag?: string }>{
     const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
