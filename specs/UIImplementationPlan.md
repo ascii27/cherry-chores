@@ -115,3 +115,35 @@ Deliverables & Definition of Done
 - Accessibility: focus, labels, and contrast meet guidelines; reduced motion respected.
 - Visual QA against reference (soft cards, rounded corners, airy spacing, friendly typography).
 
+## Parent Dashboard – Mobile Guidelines (Link + Tasks)
+
+Reference: see specs/ParentDashboardMobile.md for detailed UX and example snippets adapted to our Bootstrap stack.
+
+Implementation Tasks (Ticket Out)
+1) Global no-x-scroll and wrapping
+   - Add `overflow-x: hidden` to html/body; ensure long text wraps (`.text-wrap`/`.text-break`).
+2) AppShell + Off-canvas drawer
+   - Add sticky header with hamburger on small screens; off-canvas nav with routes: Family, Parents, Children, Chores, Approvals, Week.
+3) Children & Chores responsive rendering
+   - Render stacked cards on small screens (`d-block d-md-none`); keep existing tables on md+ (`d-none d-md-block`).
+   - Replace per-row sprawl with compact 2×2 grid of actions or a ‘More’ menu on mobile.
+4) Approvals primary actions
+   - Add sticky bottom action bar on mobile for “Run payout” and “Add child”.
+5) Week Overview (mobile pager)
+   - On small screens, show one day at a time with prev/next; md+ keeps 7-column grid.
+6) Week Details (accordion)
+   - Convert per-child weekly details into collapsible cards on mobile; include status badges and values.
+7) Chores editor responsive form
+   - Single column on small; two columns on md+. Ensure assigned-child chips wrap.
+8) Accessibility & tap targets
+   - Ensure 44×44px targets for primary buttons; add `aria-expanded` for disclosures; maintain visible focus rings.
+9) Performance polish
+   - Lazy-render expanded details; consider `content-visibility: auto` on long lists.
+
+Acceptance (matches spec)
+- No horizontal scroll; long text wraps.
+- Drawer/hamburger navigation works on mobile; desktop retains inline actions.
+- Children/Chores use cards on mobile and tables on md+; actions are reachable without overflow.
+- Week Overview uses day pager on small; Week Details use collapsible cards.
+- Sticky action bar present on mobile for key actions.
+- Forms are usable on mobile; chips wrap; A11y targets and attributes present.
