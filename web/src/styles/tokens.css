@@ -44,6 +44,8 @@ body {
 html, body { overflow-x: hidden; }
 .text-anywhere { overflow-wrap: anywhere; word-break: break-word; }
 .wrap-long { white-space: normal !important; overflow-wrap: anywhere; }
+/* Ensure comfortable tap targets on mobile */
+.touch-target { min-height: 44px; min-width: 44px; }
 
 /* Cute background variant with tiled cherries (toggle via body.cute-bg-on) */
 /* Pattern layer behind everything via mask */

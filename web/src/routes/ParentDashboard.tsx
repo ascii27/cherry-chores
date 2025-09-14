@@ -256,7 +256,7 @@ export default function ParentDashboard() {
           <div className="fw-semibold">Menu</div>
           <button className="btn btn-sm btn-outline-secondary" onClick={() => setMenuOpen(false)} aria-label="Close menu">Close</button>
         </div>
-        <nav className="nav flex-column">
+        <nav className="nav flex-column" aria-label="Sections">
           {[
             { label: 'Family', ref: familyRef },
             { label: 'Add child', ref: addChildRef },
@@ -268,7 +268,7 @@ export default function ParentDashboard() {
           ].map((it) => (
             <button
               key={it.label}
-              className="btn btn-outline-secondary text-start mb-2"
+              className="btn btn-outline-secondary text-start mb-2 touch-target"
               onClick={() => { it.ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setMenuOpen(false); }}
             >
               {it.label}
@@ -389,7 +389,7 @@ export default function ParentDashboard() {
                 ) : (
                   <>
                     {/* Mobile: stacked cards */}
-                    <section className="d-block d-md-none">
+                    <section className="d-block d-md-none" style={{ contentVisibility: 'auto' as any }}>
                       {children.map((c) => (
                         <div key={`child-card-${c.id}`} className="card mb-2 shadow-sm">
                           <div className="card-body">
@@ -712,7 +712,7 @@ export default function ParentDashboard() {
                 ) : (
                   <>
                     {/* Mobile: chore cards */}
-                    <div className="d-block d-md-none">
+                    <div className="d-block d-md-none" style={{ contentVisibility: 'auto' as any }}>
                       {chores.map((h) => {
                         const assigned = children.filter((c) => h.assignedChildIds?.includes(c.id)).map((c) => c.displayName).join(', ') || '-';
                         return (
@@ -1001,7 +1001,7 @@ export default function ParentDashboard() {
               </div>
             </div>
           </div>
-          <div className="col-12">
+          <div className="col-12 mobile-bottom">
             <div className="card" ref={weekDetailsRef}>
               <div className="card-body">
                 <h2 className="h5">Week Details</h2>
@@ -1010,18 +1010,19 @@ export default function ParentDashboard() {
                 ) : (
                   <>
                     {/* Mobile: collapsible cards per child */}
-                    <div className="d-block d-md-none">
+                    <div className="d-block d-md-none" style={{ contentVisibility: 'auto' as any }}>
                       {children.map((c) => {
                         const w = weeklyByChild[c.id];
                         const open = !!detailsOpen[c.id];
+                        const contentId = `wd-panel-${c.id}`;
                         return (
                           <div key={`wd-card-${c.id}`} className="card mb-2">
-                            <button className="btn text-start w-100 px-3 py-2 d-flex justify-content-between align-items-center" onClick={() => setDetailsOpen((prev) => ({ ...prev, [c.id]: !open }))} aria-expanded={open}>
+                            <button className="btn text-start w-100 px-3 py-2 d-flex justify-content-between align-items-center touch-target" onClick={() => setDetailsOpen((prev) => ({ ...prev, [c.id]: !open }))} aria-expanded={open} aria-controls={contentId}>
                               <span className="fw-semibold text-anywhere">{c.displayName}</span>
                               {w ? <span className="text-muted small">Coins: {w.totalApproved} / {w.totalPlanned}</span> : null}
                             </button>
                             {open && (
-                              <div className="px-3 pb-3">
+                              <div id={contentId} className="px-3 pb-3">
                                 {!w ? (
                                   <div className="text-muted small">No chores this week.</div>
                                 ) : (
@@ -1125,8 +1126,8 @@ export default function ParentDashboard() {
       {/* Sticky mobile actions: Approvals primary controls */}
       <div className="d-md-none" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1040, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(6px)', borderTop: '1px solid var(--border)' }}>
         <div className="container py-2 d-flex gap-2">
-          <button className="btn btn-primary w-100" disabled={payoutBusy || !selectedFamily} onClick={runPayout}>{payoutBusy ? 'Paying…' : 'Run payout'}</button>
-          <button className="btn btn-outline-secondary" style={{ minWidth: 120 }} onClick={() => childrenRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Add Coins</button>
+          <button className="btn btn-primary w-100 touch-target" disabled={payoutBusy || !selectedFamily} onClick={runPayout}>{payoutBusy ? 'Paying…' : 'Run payout'}</button>
+          <button className="btn btn-outline-secondary touch-target" style={{ minWidth: 120 }} onClick={() => childrenRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Add Coins</button>
         </div>
       </div>
     </>
