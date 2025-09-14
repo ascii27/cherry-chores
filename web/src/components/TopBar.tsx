@@ -7,6 +7,7 @@ export default function TopBar({
   accent,
   onMenuToggle,
   onNameClick,
+  onAvatarClick,
   profileHref
 }: {
   name?: string | null;
@@ -15,6 +16,7 @@ export default function TopBar({
   accent?: string | null;
   onMenuToggle?: () => void;
   onNameClick?: () => void;
+  onAvatarClick?: () => void;
   profileHref?: string;
 }) {
   return (
@@ -37,9 +39,33 @@ export default function TopBar({
             </button>
           ) : null}
           {avatar ? (
-            <img src={avatar} alt="avatar" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+            onAvatarClick ? (
+              <button
+                type="button"
+                className="btn btn-link p-0"
+                aria-label="Edit profile"
+                onClick={onAvatarClick}
+                style={{ lineHeight: 0 }}
+              >
+                <img src={avatar} alt="avatar" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+              </button>
+            ) : (
+              <img src={avatar} alt="avatar" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+            )
           ) : (
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary-light)' }} />
+            onAvatarClick ? (
+              <button
+                type="button"
+                className="btn btn-link p-0"
+                aria-label="Edit profile"
+                onClick={onAvatarClick}
+                style={{ lineHeight: 0 }}
+              >
+                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary-light)' }} />
+              </button>
+            ) : (
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary-light)' }} />
+            )
           )}
           {onNameClick || profileHref ? (
             profileHref ? (

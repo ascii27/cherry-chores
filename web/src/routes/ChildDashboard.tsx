@@ -61,7 +61,7 @@ export default function ChildDashboard() {
   function dbg(label: string, data?: any) { try { console.log('[Profile]', label, data ?? ''); } catch {} }
 
 
-    async function uploadToS3(scope: 'avatars' | 'patterns', file: File): Promise<{ key: string; url: string }>{
+    async function uploadToS3(scope: 'avatars' | 'patterns' | 'goals', file: File): Promise<{ key: string; url: string }>{
     const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
     const contentType = file.type || (scope === 'patterns' ? 'image/svg+xml' : 'application/octet-stream');
     dbg('presign:request', { scope, name: file.name, type: contentType });
@@ -95,7 +95,7 @@ export default function ChildDashboard() {
     const put = await fetch(uploadUrl, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': contentType }, body: file });
     if (!put.ok) { const msg = await put.text().catch(()=>'' ); throw new Error('upload failed ' + msg); }
     const prox = `/uploads/serve?key=${encodeURIComponent(key)}`;
-    return { key, url: prox };
+      return { key, url: prox };
   }
 
 
@@ -237,6 +237,8 @@ export default function ChildDashboard() {
         name={child?.displayName || 'Welcome'}
         avatar={avatarSrc}
         accent={child?.themeColor || null}
+        onNameClick={() => setSection('profile')}
+        onAvatarClick={() => setSection('profile')}
         onMenuToggle={() => setMenuOpen(true)}
         onLogout={() => { try { document.cookie = 'auth=; Path=/; Max-Age=0'; } catch {}; localStorage.removeItem('childToken'); nav('/'); }}
       />
@@ -680,6 +682,45 @@ export default function ChildDashboard() {
                           return (
                             <li key={s.id} className="list-group-item">
                               <div className="d-flex justify-content-between align-items-center gap-3">
+                                <div className="d-flex align-items-center gap-3">
+                                  <div style={{ width: 48, height: 48, borderRadius: 6, overflow: 'hidden', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {s.imageUrl ? (
+                                      <img src={s.imageUrl} alt="goal" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                      <span className="text-muted" aria-hidden>🖼️</span>
+                                    )}
+                                  </div>
+                                  <div className="d-flex flex-column">
+                                    <label className="btn btn-sm btn-outline-secondary mb-0" style={{ width: 'fit-content' }}>
+                                      {s.imageUrl ? 'Change picture' : 'Add picture'}
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={async (ev) => {
+                                          const f = (ev.target as HTMLInputElement).files?.[0] || null;
+                                          if (!f) return;
+                                          try {
+                                            const { url } = await uploadToS3('goals', f);
+                                            const tok = localStorage.getItem('childToken');
+                                            const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ imageUrl: url }) });
+                                            if (r.ok) {
+                                              const updated = await r.json();
+                                              setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
+                                              push('success', 'Picture updated');
+                                            } else {
+                                              push('error', 'Update failed');
+                                            }
+                                          } catch {
+                                            push('error', 'Upload failed');
+                                          } finally {
+                                            (ev.target as HTMLInputElement).value = '';
+                                          }
+                                        }}
+                                      />
+                                    </label>
+                                  </div>
+                                </div>
                                 <div className="flex-grow-1">
                                   {editing?.id === s.id && editing.field === 'name' ? (
                                     <input

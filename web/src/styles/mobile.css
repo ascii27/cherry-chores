@@ -45,3 +45,7 @@ html.is-mobile .card {
     padding-right: max(env(safe-area-inset-right), 0px);
   }
 }
+
+.mobile-bottom {
+  padding-bottom: 75px;
+}
