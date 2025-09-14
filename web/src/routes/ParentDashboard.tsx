@@ -27,6 +27,13 @@ export default function ParentDashboard() {
   const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({}); // mobile accordion for Week Details
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
   const addChildRef = useRef<HTMLDivElement | null>(null);
+  const familyRef = useRef<HTMLDivElement | null>(null);
+  const childrenRef = useRef<HTMLDivElement | null>(null);
+  const choresRef = useRef<HTMLDivElement | null>(null);
+  const approvalsRef = useRef<HTMLDivElement | null>(null);
+  const weekOverviewRef = useRef<HTMLDivElement | null>(null);
+  const weekDetailsRef = useRef<HTMLDivElement | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const t = hashToken || localStorage.getItem('parentToken');
@@ -225,8 +232,52 @@ export default function ParentDashboard() {
 
   return (
     <>
-      <TopBar name={me?.name || me?.email || 'Parent'} avatar={null} onLogout={async () => { try { await fetch('/auth/logout', { method: 'POST' }); } catch {}; localStorage.removeItem('parentToken'); nav('/'); }} />
-      <div className="container py-4">
+      <TopBar
+        name={me?.name || me?.email || 'Parent'}
+        avatar={null}
+        onMenuToggle={() => setMenuOpen(true)}
+        onLogout={async () => { try { await fetch('/auth/logout', { method: 'POST' }); } catch {}; localStorage.removeItem('parentToken'); nav('/'); }}
+      />
+
+      {/* Off-canvas drawer */}
+      {menuOpen ? (
+        <div
+          role="button"
+          aria-label="Close menu"
+          onClick={() => setMenuOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 1030 }}
+        />
+      ) : null}
+      <aside
+        aria-label="Navigation"
+        style={{ position: 'fixed', top: 0, bottom: 0, left: 0, width: 260, background: 'var(--surface)', borderRight: '1px solid var(--border)', transform: menuOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 150ms ease', zIndex: 1040, padding: '16px' }}
+      >
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <div className="fw-semibold">Menu</div>
+          <button className="btn btn-sm btn-outline-secondary" onClick={() => setMenuOpen(false)} aria-label="Close menu">Close</button>
+        </div>
+        <nav className="nav flex-column">
+          {[
+            { label: 'Family', ref: familyRef },
+            { label: 'Add child', ref: addChildRef },
+            { label: 'Children', ref: childrenRef },
+            { label: 'Chores', ref: choresRef },
+            { label: 'Approvals', ref: approvalsRef },
+            { label: 'Week Overview', ref: weekOverviewRef },
+            { label: 'Week Details', ref: weekDetailsRef }
+          ].map((it) => (
+            <button
+              key={it.label}
+              className="btn btn-outline-secondary text-start mb-2"
+              onClick={() => { it.ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setMenuOpen(false); }}
+            >
+              {it.label}
+            </button>
+          ))}
+        </nav>
+      </aside>
+
+      <div className="container py-4" style={{ paddingBottom: 72 }}>
         <div className="d-flex align-items-center justify-content-between mb-3">
           <h1 className="h3 mb-0">Parent Dashboard</h1>
         </div>
@@ -252,7 +303,7 @@ export default function ParentDashboard() {
       ) : (
         <div className="row g-4">
           <div className="col-md-6">
-          <div className="card h-100">
+          <div className="card h-100" ref={familyRef}>
             <div className="card-body">
               <h2 className="h5">Family</h2>
               <p className="mb-1"><strong>Name:</strong> {selectedFamily?.name}</p>
@@ -329,7 +380,7 @@ export default function ParentDashboard() {
             </div>
         </div>
           <div className="col-12">
-            <div className="card">
+            <div className="card" ref={childrenRef}>
               <div className="card-body">
                 <h2 className="h5">Children</h2>
                 {/* TODO(mobile): Render stacked cards on small screens; keep table on md+. See specs/ParentDashboardMobile.md */}
@@ -480,7 +531,7 @@ export default function ParentDashboard() {
             </div>
           </div>
           <div className="col-12">
-            <div className="card">
+            <div className="card" ref={choresRef}>
               <div className="card-body">
                 <h2 className="h5">Chores</h2>
                 {/* TODO(mobile): Make new/edit chore forms single-column on small; chips wrap. See spec */}
@@ -772,7 +823,7 @@ export default function ParentDashboard() {
             </div>
           </div>
           <div className="col-12">
-            <div className="card">
+            <div className="card" ref={approvalsRef}>
               <div className="card-body">
                 <h2 className="h5">Approvals</h2>
                 {/* TODO(mobile): Add sticky bottom action bar with Run payout / Add child on small screens */}
@@ -870,7 +921,7 @@ export default function ParentDashboard() {
             </div>
           </div>
           <div className="col-12">
-            <div className="card">
+            <div className="card" ref={weekOverviewRef}>
               <div className="card-body">
                 <h2 className="h5">Week Overview</h2>
                 {/* TODO(mobile): Replace 7-column grid with day pager on small; keep grid on md+ */}
@@ -951,7 +1002,7 @@ export default function ParentDashboard() {
             </div>
           </div>
           <div className="col-12">
-            <div className="card">
+            <div className="card" ref={weekDetailsRef}>
               <div className="card-body">
                 <h2 className="h5">Week Details</h2>
                 {children.length === 0 ? (
