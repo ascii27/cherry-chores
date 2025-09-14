@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '../components/Toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TopBar from '../components/TopBar';
@@ -26,6 +26,7 @@ export default function ParentDashboard() {
   const [weekDayIndex, setWeekDayIndex] = useState(0); // mobile pager for Week Overview
   const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({}); // mobile accordion for Week Details
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
+  const addChildRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const t = hashToken || localStorage.getItem('parentToken');
@@ -202,6 +203,26 @@ export default function ParentDashboard() {
     setChildren((prev) => prev.filter((c) => c.id !== id));
   };
 
+  async function runPayout() {
+    if (!token || !selectedFamily) return;
+    setPayoutBusy(true);
+    try {
+      const res = await fetch('/bank/payout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ familyId: selectedFamily.id })
+      });
+      if (!res.ok) {
+        try { const err = await res.json(); push('error', err?.error || 'Payout failed'); } catch { push('error', 'Payout failed'); }
+      } else {
+        push('success', 'Payout complete for this week');
+        await refreshWeekly();
+      }
+    } finally {
+      setPayoutBusy(false);
+    }
+  }
+
   return (
     <>
       <TopBar name={me?.name || me?.email || 'Parent'} avatar={null} onLogout={async () => { try { await fetch('/auth/logout', { method: 'POST' }); } catch {}; localStorage.removeItem('parentToken'); nav('/'); }} />
@@ -241,25 +262,7 @@ export default function ParentDashboard() {
                   className="btn btn-sm btn-outline-primary"
                   type="button"
                   disabled={payoutBusy || !selectedFamily}
-                  onClick={async () => {
-                    if (!token || !selectedFamily) return;
-                    setPayoutBusy(true);
-                    try {
-                      const res = await fetch('/bank/payout', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({ familyId: selectedFamily.id })
-                      });
-                      if (!res.ok) {
-                        try { const err = await res.json(); push('error', err?.error || 'Payout failed'); } catch { push('error', 'Payout failed'); }
-                      } else {
-                        push('success', 'Payout complete for this week');
-                        await refreshWeekly();
-                      }
-                    } finally {
-                      setPayoutBusy(false);
-                    }
-                  }}
+                  onClick={runPayout}
                 >
                   {payoutBusy ? 'Paying…' : 'Run payout for this week'}
                 </button>
@@ -302,7 +305,7 @@ export default function ParentDashboard() {
             </div>
           </div>
           <div className="col-md-6">
-            <div className="card h-100">
+            <div className="card h-100" ref={addChildRef}>
               <div className="card-body">
                 <h2 className="h5">Add child</h2>
                 <form className="row g-2" onSubmit={handleAddChild}>
@@ -1067,6 +1070,13 @@ export default function ParentDashboard() {
           </div>
         </div>
       )}
+      </div>
+      {/* Sticky mobile actions: Approvals primary controls */}
+      <div className="d-md-none" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1040, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(6px)', borderTop: '1px solid var(--border)' }}>
+        <div className="container py-2 d-flex gap-2">
+          <button className="btn btn-primary w-100" disabled={payoutBusy || !selectedFamily} onClick={runPayout}>{payoutBusy ? 'Paying…' : 'Run payout'}</button>
+          <button className="btn btn-outline-secondary" style={{ minWidth: 120 }} onClick={() => addChildRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Add child</button>
+        </div>
       </div>
     </>
   );
