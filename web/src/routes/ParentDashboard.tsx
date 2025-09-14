@@ -4,8 +4,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 
 export default function ParentDashboard() {
-  // TODO(mobile): Wrap ParentDashboard with an AppShell and off-canvas drawer per specs/ParentDashboardMobile.md
-  // TODO(mobile): Ensure global no-x-scroll and long-text wrapping are applied (see spec: overflow-x hidden, text wrapping)
   const nav = useNavigate();
   const loc = useLocation();
   const [token, setToken] = useState<string | null>(null);
@@ -383,7 +381,7 @@ export default function ParentDashboard() {
             <div className="card" ref={childrenRef}>
               <div className="card-body">
                 <h2 className="h5">Children</h2>
-                {/* TODO(mobile): Render stacked cards on small screens; keep table on md+. See specs/ParentDashboardMobile.md */}
+                {/* Children: mobile cards (small) and table (md+) */}
                 {children.length === 0 ? (
                   <div className="text-muted">No children yet.</div>
                 ) : (
@@ -534,7 +532,7 @@ export default function ParentDashboard() {
             <div className="card" ref={choresRef}>
               <div className="card-body">
                 <h2 className="h5">Chores</h2>
-                {/* TODO(mobile): Make new/edit chore forms single-column on small; chips wrap. See spec */}
+                {/* Chores form: single column on small; chips wrap */}
                 <form
                   className="row g-2 mb-3"
                   onSubmit={async (e) => {
@@ -706,7 +704,7 @@ export default function ParentDashboard() {
                     </div>
                   </form>
                 )}
-                {/* TODO(mobile): Render chore rows as cards on small; keep table on md+. Consider compact action menu */}
+                {/* Chores: mobile cards (small) and table (md+) */}
                 {chores.length === 0 ? (
                   <div className="text-muted">No chores yet.</div>
                 ) : (
@@ -826,7 +824,7 @@ export default function ParentDashboard() {
             <div className="card" ref={approvalsRef}>
               <div className="card-body">
                 <h2 className="h5">Approvals</h2>
-                {/* TODO(mobile): Add sticky bottom action bar with Run payout / Add child on small screens */}
+                {/* Approvals: actions above table; sticky action bar provided on mobile */}
                 {approvals.length === 0 ? (
                   <div className="text-muted">No pending approvals.</div>
                 ) : (
@@ -924,7 +922,7 @@ export default function ParentDashboard() {
             <div className="card" ref={weekOverviewRef}>
               <div className="card-body">
                 <h2 className="h5">Week Overview</h2>
-                {/* TODO(mobile): Replace 7-column grid with day pager on small; keep grid on md+ */}
+                {/* Week Overview: day pager on small; 7-col grid on md+ */}
                 {children.length === 0 ? (
                   <div className="text-muted">No children.</div>
                 ) : (
