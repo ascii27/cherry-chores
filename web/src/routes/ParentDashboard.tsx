@@ -277,7 +277,7 @@ export default function ParentDashboard() {
         </nav>
       </aside>
 
-      <div className="container py-4" style={{ paddingBottom: 72 }}>
+      <div className="container py-4" style={{ paddingBottom: 120 }}>
         <div className="d-flex align-items-center justify-content-between mb-3">
           <h1 className="h3 mb-0">Parent Dashboard</h1>
         </div>
@@ -1126,7 +1126,7 @@ export default function ParentDashboard() {
       <div className="d-md-none" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1040, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(6px)', borderTop: '1px solid var(--border)' }}>
         <div className="container py-2 d-flex gap-2">
           <button className="btn btn-primary w-100" disabled={payoutBusy || !selectedFamily} onClick={runPayout}>{payoutBusy ? 'Paying…' : 'Run payout'}</button>
-          <button className="btn btn-outline-secondary" style={{ minWidth: 120 }} onClick={() => addChildRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Add child</button>
+          <button className="btn btn-outline-secondary" style={{ minWidth: 120 }} onClick={() => childrenRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Add Coins</button>
         </div>
       </div>
     </>
