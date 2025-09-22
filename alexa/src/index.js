@@ -65,7 +65,7 @@ function speak(text) {
   };
 }
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   try {
     const type = event.request?.type;
     if (type === 'LaunchRequest') {
@@ -137,4 +137,3 @@ exports.handler = async (event) => {
     return speak('Something went wrong talking to Cherry Chores.');
   }
 };
-
