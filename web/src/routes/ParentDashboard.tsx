@@ -19,6 +19,9 @@ export default function ParentDashboard() {
   const [weeklyByChild, setWeeklyByChild] = useState<Record<string, any>>({});
   const [balances, setBalances] = useState<Record<string, { available: number; reserved: number }>>({});
   const [payoutBusy, setPayoutBusy] = useState(false);
+  const [apiTokens, setApiTokens] = useState<Array<{ id: string; label?: string; createdAt: string; lastUsedAt?: string; expiresAt?: string | null }>>([]);
+  const [newTokenLabel, setNewTokenLabel] = useState('');
+  const [newTokenValue, setNewTokenValue] = useState<string | null>(null);
   const { push } = useToast();
   const [saversByChild, setSaversByChild] = useState<Record<string, any[]>>({});
   const [weekDayIndex, setWeekDayIndex] = useState(0); // mobile pager for Week Overview
@@ -56,6 +59,11 @@ export default function ParentDashboard() {
         setSelectedFamily(list?.[0] || null);
       })
       .catch(() => setFamilies([]));
+    // Load API tokens
+    fetch('/tokens', { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => setApiTokens(list || []))
+      .catch(() => setApiTokens([]));
   }, [token]);
 
   // Load core lists when token or selected family changes
@@ -377,6 +385,63 @@ export default function ParentDashboard() {
               </div>
             </div>
         </div>
+          <div className="col-md-6">
+            <div className="card h-100">
+              <div className="card-body">
+                <h2 className="h5">API Tokens</h2>
+                <p className="text-muted small">Create long-lived tokens for integrations like Alexa. Keep them secret.</p>
+                <form className="d-flex gap-2 align-items-end mb-3" onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!token) return;
+                  const res = await fetch('/tokens', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ label: newTokenLabel || undefined }) });
+                  if (res.ok) {
+                    const rec = await res.json();
+                    setNewTokenValue(rec.token);
+                    setNewTokenLabel('');
+                    const list = await fetch('/tokens', { headers: { Authorization: `Bearer ${token}` } });
+                    setApiTokens(list.ok ? await list.json() : []);
+                  }
+                }}>
+                  <div className="flex-grow-1">
+                    <label htmlFor="tokLabel" className="form-label">Label</label>
+                    <input id="tokLabel" className="form-control" placeholder="Alexa" value={newTokenLabel} onChange={(e)=>setNewTokenLabel(e.target.value)} />
+                  </div>
+                  <button className="btn btn-outline-primary" type="submit">Create</button>
+                </form>
+                {newTokenValue && (
+                  <div className="alert alert-warning d-flex justify-content-between align-items-center">
+                    <div>
+                      <div className="fw-semibold">New token</div>
+                      <code>{newTokenValue}</code>
+                      <div className="small text-muted">Copy and store this token now. It won't be shown again.</div>
+                    </div>
+                    <button className="btn btn-sm btn-outline-secondary" onClick={() => { navigator.clipboard?.writeText(newTokenValue!); }}>Copy</button>
+                  </div>
+                )}
+                {apiTokens.length === 0 ? (
+                  <div className="text-muted small">No tokens yet.</div>
+                ) : (
+                  <ul className="list-unstyled mb-0 small">
+                    {apiTokens.map((t) => (
+                      <li key={t.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
+                        <div>
+                          <div className="fw-medium">{t.label || 'Unnamed token'}</div>
+                          <div className="text-muted">Created {new Date(t.createdAt).toLocaleString()}{t.lastUsedAt ? ` • Last used ${new Date(t.lastUsedAt).toLocaleString()}` : ''}</div>
+                        </div>
+                        <button className="btn btn-sm btn-outline-danger" onClick={async () => {
+                          if (!token) return;
+                          if (!window.confirm('Revoke this token?')) return;
+                          await fetch(`/tokens/${t.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                          const list = await fetch('/tokens', { headers: { Authorization: `Bearer ${token}` } });
+                          setApiTokens(list.ok ? await list.json() : []);
+                        }}>Revoke</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
           <div className="col-12">
             <div className="card" ref={childrenRef}>
               <div className="card-body">
