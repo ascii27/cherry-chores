@@ -3,6 +3,7 @@ import { Chore, Completion } from './chores.types';
 import { LedgerEntry } from './bank.types';
 import { SaverItem } from './savers.types';
 import { UploadRecord, UploadScope } from './uploads.types';
+import crypto from 'crypto';
 
 export interface UsersRepository {
   getParentByEmail(email: string): Promise<ParentUser | undefined>;
@@ -51,7 +52,14 @@ export interface SaversRepository {
   deleteSaver(id: string): Promise<void>;
 }
 
-export class InMemoryRepos implements UsersRepository, FamiliesRepository, ChoresRepository, BankRepository, SaversRepository, UploadsRepository {
+export interface TokensRepository {
+  createToken(parentId: string, label?: string, expiresAt?: string | null): Promise<{ id: string; token: string; label?: string; createdAt: string; expiresAt?: string | null }>;
+  listTokens(parentId: string): Promise<Array<{ id: string; label?: string; createdAt: string; lastUsedAt?: string; expiresAt?: string | null }>>;
+  revokeToken(parentId: string, id: string): Promise<void>;
+  verify(rawToken: string): Promise<{ parentId: string; tokenId: string } | null>;
+}
+
+export class InMemoryRepos implements UsersRepository, FamiliesRepository, ChoresRepository, BankRepository, SaversRepository, UploadsRepository, TokensRepository {
   private parents = new Map<string, ParentUser>();
   private children = new Map<string, ChildUser>();
   private families = new Map<string, Family>();
@@ -60,6 +68,8 @@ export class InMemoryRepos implements UsersRepository, FamiliesRepository, Chore
   private ledger = new Map<string, LedgerEntry[]>(); // key: childId
   private savers = new Map<string, SaverItem>(); // key: saverId
   private uploads = new Map<string, UploadRecord>(); // key: uploadId
+  private tokens = new Map<string, { id: string; parentId: string; label?: string; createdAt: string; lastUsedAt?: string; expiresAt?: string | null; tokenHash: string }>();
+  private tokenByHash = new Map<string, string>(); // hash -> tokenId
 
   async getParentByEmail(email: string) {
     for (const p of this.parents.values()) if (p.email === email) return p;
@@ -238,6 +248,41 @@ export class InMemoryRepos implements UsersRepository, FamiliesRepository, Chore
   }
   async getUploadById(id: string) {
     return this.uploads.get(id);
+  }
+
+  // TokensRepository
+  async createToken(parentId: string, label?: string, expiresAt?: string | null) {
+    const id = `tok_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const raw = crypto.randomBytes(24).toString('hex');
+    const createdAt = new Date().toISOString();
+    const tokenHash = crypto.createHash('sha256').update(raw).digest('hex');
+    const rec = { id, parentId, label, createdAt, lastUsedAt: undefined as string | undefined, expiresAt: expiresAt ?? null, tokenHash };
+    this.tokens.set(id, rec);
+    this.tokenByHash.set(tokenHash, id);
+    return { id, token: raw, label, createdAt, expiresAt: rec.expiresAt };
+  }
+  async listTokens(parentId: string) {
+    return Array.from(this.tokens.values())
+      .filter((t) => t.parentId === parentId)
+      .map(({ id, label, createdAt, lastUsedAt, expiresAt }) => ({ id, label, createdAt, lastUsedAt, expiresAt }));
+  }
+  async revokeToken(parentId: string, id: string) {
+    const rec = this.tokens.get(id);
+    if (rec && rec.parentId === parentId) {
+      this.tokens.delete(id);
+      this.tokenByHash.delete(rec.tokenHash);
+    }
+  }
+  async verify(rawToken: string) {
+    const hash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const id = this.tokenByHash.get(hash);
+    if (!id) return null;
+    const rec = this.tokens.get(id);
+    if (!rec) return null;
+    if (rec.expiresAt && new Date(rec.expiresAt).getTime() < Date.now()) return null;
+    rec.lastUsedAt = new Date().toISOString();
+    this.tokens.set(id, rec);
+    return { parentId: rec.parentId, tokenId: rec.id };
   }
 }
 

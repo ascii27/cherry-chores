@@ -14,7 +14,7 @@ import { saversRoutes } from './routes/savers';
 import { choresRoutes } from './routes/chores';
 import { Pool } from 'pg';
 import { DevAuthProvider, JwtService } from './auth';
-import { withJwt, authMiddleware } from './middleware/auth';
+import { withJwt, authMiddleware, withTokensRepo } from './middleware/auth';
 import { authRoutes } from './routes/auth';
 import { familyRoutes } from './routes/families';
 import { childrenRoutes } from './routes/children';
@@ -24,6 +24,8 @@ import { configRoutes } from './routes/config';
 import { uploadRoutes } from './routes/uploads';
 import { PgUploadsRepo } from './repos.uploads.pg';
 import { requestLogger } from './middleware/logger';
+import { tokenRoutes } from './routes/tokens';
+import { PgTokensRepo } from './repos.tokens.pg';
 
 export function createApp(deps?: { useDb?: boolean }) {
   const app = express();
@@ -55,6 +57,17 @@ export function createApp(deps?: { useDb?: boolean }) {
   app.use(meRoutes({ users: repos }));
   app.use(configRoutes());
   app.use(familyRoutes({ families: repos, users: repos }));
+  // Tokens routes and repo wiring
+  if (useDb) {
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const tokensRepo = new PgTokensRepo(pool);
+    (tokensRepo as any).init?.().catch(() => {});
+    withTokensRepo(tokensRepo);
+    app.use(tokenRoutes({ tokens: tokensRepo, users: repos }));
+  } else {
+    withTokensRepo(repos as any);
+    app.use(tokenRoutes({ tokens: repos as any, users: repos }));
+  }
   // Uploads (S3 presign + records) – enabled when S3 env configured
   if (useDb) {
     const pool2 = new (require('pg').Pool)({ connectionString: process.env.DATABASE_URL });

@@ -1,0 +1,65 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "cherry chores",
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "GetChoresIntent",
+          "slots": [
+            { "name": "ChildName", "type": "AMAZON.FirstName" }
+          ],
+          "samples": [
+            "what chores do I have today",
+            "what chores does {ChildName} have today",
+            "what are {ChildName}'s chores",
+            "list chores for {ChildName}"
+          ]
+        },
+        {
+          "name": "CompleteChoreIntent",
+          "slots": [
+            { "name": "ChildName", "type": "AMAZON.FirstName" },
+            { "name": "ChoreName", "type": "AMAZON.SearchQuery" }
+          ],
+          "samples": [
+            "I finished {ChoreName}",
+            "mark {ChoreName} done",
+            "{ChildName} finished {ChoreName}"
+          ]
+        },
+        {
+          "name": "GetBalanceIntent",
+          "slots": [
+            { "name": "ChildName", "type": "AMAZON.FirstName" }
+          ],
+          "samples": [
+            "how much money is in my bank",
+            "what's {ChildName}'s balance",
+            "how many coins does {ChildName} have"
+          ]
+        },
+        {
+          "name": "GetRemainingChoresIntent",
+          "samples": [
+            "what chores are left",
+            "what chores are left to finish"
+          ]
+        }
+      ],
+      "types": []
+    }
+  }
+}
+

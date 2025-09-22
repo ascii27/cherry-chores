@@ -1,21 +1,28 @@
 import { NextFunction, Request, Response, RequestHandler } from 'express';
 import { JwtService } from '../auth';
+import { TokensRepository } from '../repositories';
 import { Role } from '../types';
 
 declare global {
   // eslint-disable-next-line no-var
   var __jwtService: JwtService | undefined;
+  // eslint-disable-next-line no-var
+  var __tokensRepo: TokensRepository | undefined;
 }
 
 export function withJwt(service: JwtService) {
   global.__jwtService = service;
 }
 
+export function withTokensRepo(repo: TokensRepository) {
+  global.__tokensRepo = repo;
+}
+
 export interface AuthedRequest extends Request {
   user?: { id: string; role: Role; familyId?: string };
 }
 
-export const authMiddleware: RequestHandler = (req: Request, _res: Response, next: NextFunction) => {
+export const authMiddleware: RequestHandler = async (req: Request, _res: Response, next: NextFunction) => {
   const header = req.header('Authorization');
   let token: string | undefined;
   if (header && header.startsWith('Bearer ')) {
@@ -32,12 +39,27 @@ export const authMiddleware: RequestHandler = (req: Request, _res: Response, nex
       token = (cookies as any)['auth'] || (cookies as any)['token'] || undefined;
     } catch {}
   }
-  if (token) {
+  if (token && global.__jwtService) {
     try {
-      const payload = global.__jwtService!.verify(token);
+      const payload = global.__jwtService.verify(token);
       (req as AuthedRequest).user = { id: payload.sub, role: payload.role, familyId: payload.familyId };
     } catch {
       // ignore invalid tokens; routes can enforce requirements
+    }
+  }
+
+  // Fallback: API key auth for long-lived tokens (parent role)
+  if (!(req as AuthedRequest).user && global.__tokensRepo) {
+    const apiKey = (req.header('x-api-key') || req.header('X-Api-Key')) as string | undefined;
+    if (apiKey) {
+      try {
+        const result = await global.__tokensRepo.verify(apiKey);
+        if (result) {
+          (req as AuthedRequest).user = { id: result.parentId, role: 'parent' };
+        }
+      } catch {
+        // ignore
+      }
     }
   }
   next();
