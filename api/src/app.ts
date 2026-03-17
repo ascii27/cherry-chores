@@ -26,6 +26,9 @@ import { PgUploadsRepo } from './repos.uploads.pg';
 import { requestLogger } from './middleware/logger';
 import { tokenRoutes } from './routes/tokens';
 import { PgTokensRepo } from './repos.tokens.pg';
+import { bonusRoutes } from './routes/bonuses';
+import { InMemoryBonusRepo } from './repositories';
+import { PgBonusRepo } from './repos.bonus.pg';
 
 export function createApp(deps?: { useDb?: boolean }) {
   const app = express();
@@ -86,17 +89,23 @@ export function createApp(deps?: { useDb?: boolean }) {
     choresRepo.init().catch(() => {});
     bankRepo.init().catch(() => {});
     saversRepo.init().catch(() => {});
+    const bonusRepo = new PgBonusRepo(pool);
+    bonusRepo.init().catch(() => {});
     app.use(choresRoutes({ chores: choresRepo, families: repos, users: repos }));
     app.use(bankRoutes({ bank: bankRepo, users: repos, families: repos, chores: choresRepo, savers: saversRepo }));
     app.use(saversRoutes({ savers: saversRepo, users: repos, families: repos, bank: bankRepo }));
+    app.use('/api', bonusRoutes({ bonus: bonusRepo, users: repos, families: repos, bank: bankRepo, savers: saversRepo }));
     const uploadsRepo = new (require('./repos.uploads.pg').PgUploadsRepo)(pool);
     uploadsRepo.init().catch(() => {});
     app.use(childrenRoutes({ users: repos, families: repos, uploads: uploadsRepo }));
     app.use(uploadRoutes({ uploads: uploadsRepo }));
   } else {
+    const bonusRepo = new InMemoryBonusRepo();
     app.use(choresRoutes({ chores: repos as any, families: repos, users: repos }));
     app.use(bankRoutes({ bank: repos as any, users: repos, families: repos, chores: repos as any, savers: repos as any }));
     app.use(saversRoutes({ savers: repos as any, users: repos, families: repos, bank: repos as any }));
+    app.use('/api', bonusRoutes({ bonus: bonusRepo, users: repos, families: repos, bank: repos as any, savers: repos as any }));
+    app.use(childrenRoutes({ users: repos, families: repos }));
   }
 
   // Serve built web app statically if present (single-container runtime)
