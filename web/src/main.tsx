@@ -7,6 +7,7 @@ import App from './App';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import ParentDashboard from './routes/ParentDashboard';
 import ChildDashboard from './routes/ChildDashboard';
+import Settings from './routes/Settings';
 import { ToastProvider } from './components/Toast';
 
 // Detect mobile and toggle native-like mobile styles early
@@ -22,6 +23,7 @@ if (root) {
             <Route path="/" element={<App />} />
             <Route path="/parent" element={<ParentDashboard />} />
             <Route path="/child" element={<ChildDashboard />} />
+            <Route path="/settings" element={<Settings />} />
           </Routes>
         </BrowserRouter>
       </ToastProvider>
