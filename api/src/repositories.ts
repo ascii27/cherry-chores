@@ -4,6 +4,7 @@ import { LedgerEntry } from './bank.types';
 import { SaverItem } from './savers.types';
 import { UploadRecord, UploadScope } from './uploads.types';
 import { Bonus, BonusClaim } from './bonus.types';
+import { ActivityEntry } from './activity.types';
 import crypto from 'crypto';
 
 export interface UsersRepository {
@@ -305,6 +306,31 @@ export interface BonusRepository {
   listPendingClaimsByFamily(familyId: string): Promise<BonusClaim[]>;
   hasChildClaimed(bonusId: string, childId: string): Promise<boolean>;
   updateClaim(claim: BonusClaim): Promise<BonusClaim>;
+}
+
+export interface ActivityRepository {
+  addEntry(entry: ActivityEntry): Promise<ActivityEntry>;
+  listByFamily(familyId: string, opts?: { limit?: number; before?: string }): Promise<ActivityEntry[]>;
+}
+
+export class InMemoryActivityRepo implements ActivityRepository {
+  private entries: ActivityEntry[] = [];
+
+  async addEntry(entry: ActivityEntry): Promise<ActivityEntry> {
+    this.entries.push(entry);
+    return entry;
+  }
+
+  async listByFamily(familyId: string, opts?: { limit?: number; before?: string }): Promise<ActivityEntry[]> {
+    const limit = opts?.limit ?? 50;
+    const before = opts?.before;
+    let result = this.entries.filter((e) => e.familyId === familyId);
+    if (before) {
+      result = result.filter((e) => e.createdAt < before);
+    }
+    result.sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
+    return result.slice(0, limit);
+  }
 }
 
 export class InMemoryBonusRepo implements BonusRepository {

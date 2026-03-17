@@ -27,8 +27,10 @@ import { requestLogger } from './middleware/logger';
 import { tokenRoutes } from './routes/tokens';
 import { PgTokensRepo } from './repos.tokens.pg';
 import { bonusRoutes } from './routes/bonuses';
-import { InMemoryBonusRepo } from './repositories';
+import { InMemoryBonusRepo, InMemoryActivityRepo } from './repositories';
 import { PgBonusRepo } from './repos.bonus.pg';
+import { PgActivityRepo } from './repos.activity.pg';
+import { activityRoutes } from './routes/activity';
 
 export function createApp(deps?: { useDb?: boolean }) {
   const app = express();
@@ -85,26 +87,31 @@ export function createApp(deps?: { useDb?: boolean }) {
     const choresRepo = new PgChoresRepo(pool);
     const bankRepo = new PgBankRepo(pool);
     const saversRepo = new PgSaversRepo(pool);
+    const activityRepo = new PgActivityRepo(pool);
     // fire and forget init
     choresRepo.init().catch(() => {});
     bankRepo.init().catch(() => {});
     saversRepo.init().catch(() => {});
+    activityRepo.init().catch(() => {});
     const bonusRepo = new PgBonusRepo(pool);
     bonusRepo.init().catch(() => {});
-    app.use(choresRoutes({ chores: choresRepo, families: repos, users: repos }));
-    app.use(bankRoutes({ bank: bankRepo, users: repos, families: repos, chores: choresRepo, savers: saversRepo }));
+    app.use(choresRoutes({ chores: choresRepo, families: repos, users: repos, activity: activityRepo }));
+    app.use(bankRoutes({ bank: bankRepo, users: repos, families: repos, chores: choresRepo, savers: saversRepo, activity: activityRepo }));
     app.use(saversRoutes({ savers: saversRepo, users: repos, families: repos, bank: bankRepo }));
     app.use('/api', bonusRoutes({ bonus: bonusRepo, users: repos, families: repos, bank: bankRepo, savers: saversRepo }));
+    app.use('/api', activityRoutes({ activity: activityRepo, families: repos }));
     const uploadsRepo = new (require('./repos.uploads.pg').PgUploadsRepo)(pool);
     uploadsRepo.init().catch(() => {});
     app.use(childrenRoutes({ users: repos, families: repos, uploads: uploadsRepo }));
     app.use(uploadRoutes({ uploads: uploadsRepo }));
   } else {
     const bonusRepo = new InMemoryBonusRepo();
-    app.use(choresRoutes({ chores: repos as any, families: repos, users: repos }));
-    app.use(bankRoutes({ bank: repos as any, users: repos, families: repos, chores: repos as any, savers: repos as any }));
+    const activityRepo = new InMemoryActivityRepo();
+    app.use(choresRoutes({ chores: repos as any, families: repos, users: repos, activity: activityRepo }));
+    app.use(bankRoutes({ bank: repos as any, users: repos, families: repos, chores: repos as any, savers: repos as any, activity: activityRepo }));
     app.use(saversRoutes({ savers: repos as any, users: repos, families: repos, bank: repos as any }));
     app.use('/api', bonusRoutes({ bonus: bonusRepo, users: repos, families: repos, bank: repos as any, savers: repos as any }));
+    app.use('/api', activityRoutes({ activity: activityRepo, families: repos }));
     app.use(childrenRoutes({ users: repos, families: repos }));
   }
 
