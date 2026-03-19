@@ -30,7 +30,7 @@ export class LocalStorage implements StorageProvider {
 
   async presignPost(opts: { key: string; contentType: string; expiresIn?: number }): Promise<PresignPostResult> {
     return {
-      url: '/api/uploads/local',
+      url: '/uploads/local',
       fields: { key: opts.key },
       key: opts.key,
       driver: 'local',
@@ -50,7 +50,7 @@ export class LocalStorage implements StorageProvider {
   }
 
   publicUrl(key: string): string {
-    return `/api/uploads/serve?key=${encodeURIComponent(key)}`;
+    return `/uploads/serve?key=${encodeURIComponent(key)}`;
   }
 
   /** Expose uploadDir for use by the upload endpoint */
