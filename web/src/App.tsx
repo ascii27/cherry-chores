@@ -88,10 +88,10 @@ export default function App() {
         </ul>
 
         <div className="lp-nav-actions">
-          <button className="lp-btn lp-btn-ghost" onClick={() => setDialog('child')}>
+          <button className="lp-btn lp-btn-ghost" aria-label="Child sign in" onClick={() => setDialog('child')}>
             I'm a Kid 🎮
           </button>
-          <button className="lp-btn lp-btn-primary" style={{ fontSize: 14, padding: '10px 20px' }} onClick={() => setDialog('parent')}>
+          <button className="lp-btn lp-btn-primary" style={{ fontSize: 14, padding: '10px 20px' }} aria-label="Parent sign in" onClick={() => setDialog('parent')}>
             Parent Login
           </button>
           <button
