@@ -182,6 +182,25 @@ export function uploadRoutes(opts: { uploads: any }) {
     return res.json(list.map((r: any) => ({ id: r.id, scope: r.scope, url: r.url, key: r.key, createdAt: r.createdAt })));
   });
 
+  // Delete an upload by ID (owner only)
+  router.delete('/uploads/:id', async (req: Request, res) => {
+    const u = (req as AuthedRequest).user;
+    if (!u) return res.status(401).json({ error: 'unauthorized' });
+    const { id } = req.params;
+    const rec = await uploads.deleteUpload(id, u.role, u.id);
+    if (!rec) return res.status(404).json({ error: 'not found' });
+    if (enabled) {
+      try {
+        const storage = createStorageProvider();
+        await storage.deleteObject(rec.key);
+      } catch (e: any) {
+        logError('uploads', 'Storage delete error (continuing)', { key: rec.key, error: String(e?.message || e) });
+      }
+    }
+    logInfo('uploads', 'Upload deleted', { id, key: rec.key, user: u });
+    return res.status(204).send();
+  });
+
   // Record completion of an upload (client calls after successful S3/local write)
   router.post('/uploads/complete', async (req: Request, res) => {
     const u = (req as AuthedRequest).user;

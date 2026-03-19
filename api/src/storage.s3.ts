@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { logDebug, logInfo, logError } from './log';
@@ -64,6 +64,12 @@ export class S3Storage implements StorageProvider {
     };
   }
 
+
+  async deleteObject(key: string): Promise<void> {
+    const cmd = new DeleteObjectCommand({ Bucket: this.bucket, Key: key });
+    await this.client.send(cmd);
+    logInfo('uploads', 'DeleteObject success', { key });
+  }
 
   async presignPost(opts: PresignOptions): Promise<PresignPostResult & { publicUrl: string }>{
     const { url, fields } = await createPresignedPost(this.client, {

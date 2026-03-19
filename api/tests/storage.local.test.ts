@@ -34,7 +34,7 @@ describe('LocalStorage unit tests', () => {
     const storage = new LocalStorage();
     const result = await storage.presignPost({ key: 'uploads/misc/parent-1/test.png', contentType: 'image/png' });
     expect(result.driver).toBe('local');
-    expect(result.url).toBe('/api/uploads/local');
+    expect(result.url).toBe('/uploads/local');
     expect(result.fields).toEqual({ key: 'uploads/misc/parent-1/test.png' });
     expect(result.key).toBe('uploads/misc/parent-1/test.png');
   });
@@ -42,7 +42,7 @@ describe('LocalStorage unit tests', () => {
   it('publicUrl returns a serve URL', () => {
     const storage = new LocalStorage();
     const url = storage.publicUrl('uploads/misc/parent-1/test.png');
-    expect(url).toContain('/api/uploads/serve');
+    expect(url).toContain('/uploads/serve');
     expect(url).toContain(encodeURIComponent('uploads/misc/parent-1/test.png'));
   });
 
