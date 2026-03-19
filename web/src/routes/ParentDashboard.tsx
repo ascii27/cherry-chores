@@ -1359,26 +1359,41 @@ export default function ParentDashboard() {
                   <div className="text-muted">No pending approvals.</div>
                 ) : (
                   <div className="table-responsive">
-                    <div className="d-flex justify-content-end mb-2 gap-2">
+                    <div className="d-flex justify-content-end mb-2 gap-2 flex-wrap align-items-center">
                       <button
                         className="btn btn-sm btn-outline-secondary"
                         onClick={() => setBulk(Object.fromEntries(approvals.map((a) => [a.id, true])))}
                       >
                         Select all
                       </button>
-                      <button
-                        className="btn btn-sm btn-success"
-                        onClick={async () => {
-                          const ids = approvals.filter((a) => bulk[a.id]).map((a) => a.id);
-                          if (ids.length === 0) return;
-                          await fetch('/approvals/bulk-approve', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ familyId: selectedFamily!.id, ids }) });
-                          await refreshApprovals();
-                          await refreshWeekly();
-                          setBulk({});
-                        }}
-                      >
-                        Approve selected
-                      </button>
+                      {approvals.filter((a) => bulk[a.id]).length > 0 && (
+                        <button
+                          className="btn btn-sm btn-success"
+                          onClick={async () => {
+                            const ids = approvals.filter((a) => bulk[a.id]).map((a) => a.id);
+                            if (ids.length === 0) return;
+                            try {
+                              const res = await fetch('/api/approvals/bulk-approve', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ completionIds: ids }),
+                              });
+                              const data = await res.json();
+                              const succeededCount = data.succeeded?.length ?? 0;
+                              const failedCount = data.failed?.length ?? 0;
+                              if (succeededCount > 0) push('success', `Approved ${succeededCount} chore${succeededCount !== 1 ? 's' : ''}`);
+                              if (failedCount > 0) push('warning', `${failedCount} item${failedCount !== 1 ? 's' : ''} could not be approved`);
+                            } catch {
+                              push('error', 'Bulk approve failed');
+                            }
+                            await refreshApprovals();
+                            await refreshWeekly();
+                            setBulk({});
+                          }}
+                        >
+                          Approve Selected ({approvals.filter((a) => bulk[a.id]).length})
+                        </button>
+                      )}
                       <button
                         className="btn btn-sm btn-outline-danger"
                         onClick={async () => {
