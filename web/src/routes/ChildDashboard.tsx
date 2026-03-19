@@ -52,7 +52,8 @@ export default function ChildDashboard() {
     const u = child?.avatarUrl || null;
     if (!u) return null;
     if (u.startsWith('/uploads/serve')) {
-      
+      const tok = localStorage.getItem('childToken');
+      if (tok) return `${u}&token=${encodeURIComponent(tok)}`;
     }
     return u;
   }, [child]);
@@ -65,6 +66,13 @@ export default function ChildDashboard() {
 
 
   function dbg(label: string, data?: any) { try { console.log('[Profile]', label, data ?? ''); } catch {} }
+
+  // Append the child auth token to /uploads/serve URLs so <img> tags can authenticate
+  function serveImgUrl(url: string): string {
+    if (!url.startsWith('/uploads/serve')) return url;
+    const tok = localStorage.getItem('childToken');
+    return tok ? `${url}&token=${encodeURIComponent(tok)}` : url;
+  }
 
 
     async function uploadToS3(scope: 'avatars' | 'patterns' | 'goals', file: File): Promise<{ key: string; url: string }>{
@@ -83,7 +91,10 @@ export default function ChildDashboard() {
       Object.entries(data.post.fields as Record<string,string>).forEach(([k, v]) => fd.append(k, v));
       fd.append('file', file);
       dbg('upload:post:start', { url: data.post.url });
-      await fetch(data.post.url, { method: 'POST', body: fd, mode: 'no-cors' });
+      // Same-origin local uploads use 'cors' so errors are readable; cross-origin S3 needs 'no-cors'
+      const uploadMode = data.post.url.startsWith('/') ? 'cors' : 'no-cors';
+      const uploadRes = await fetch(data.post.url, { method: 'POST', body: fd, mode: uploadMode });
+      if (uploadMode === 'cors' && !uploadRes.ok) { dbg('upload:post:fail', uploadRes.status); throw new Error('upload failed: ' + uploadRes.status); }
       dbg('upload:post:done');
       dbg('complete:request', { key: data.key, scope });
       const rec = await fetch('/uploads/complete', {
@@ -1099,7 +1110,7 @@ export default function ChildDashboard() {
                           
                           setSelectedAvatarUrl(a.url);
                         }}>
-                          <img src={a.url} alt="uploaded avatar" style={{ width: 28, height: 28 }} />
+                          <img src={serveImgUrl(a.url)} alt="uploaded avatar" style={{ width: 28, height: 28 }} />
                         </button>
                       ))}
                       <div className="d-flex align-items-center gap-2">
@@ -1148,7 +1159,7 @@ export default function ChildDashboard() {
                             document.body.classList.add('cute-bg-on');
                             setCuteBg(true);
                           }}>
-                            <img src={patt.url} alt="uploaded pattern" style={{ width: 28, height: 28 }} />
+                            <img src={serveImgUrl(patt.url)} alt="uploaded pattern" style={{ width: 28, height: 28 }} />
                           </button>
                         ))}
                         <div className="d-flex align-items-center gap-2">
