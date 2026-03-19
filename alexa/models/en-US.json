@@ -23,7 +23,7 @@
           "samples": [
             "what chores do I have today",
             "what chores does {ChildName} have today",
-            "what are {ChildName}'s chores",
+            "what are {ChildName}s chores",
             "list chores for {ChildName}"
           ]
         },
@@ -46,7 +46,7 @@
           ],
           "samples": [
             "how much money is in my bank",
-            "what's {ChildName}'s balance",
+            "whats {ChildName}s balance",
             "how many coins does {ChildName} have"
           ]
         },

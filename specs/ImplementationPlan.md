@@ -1,218 +1,254 @@
 # Cherry Chores – Implementation Plan
 
+_Last updated: 2026-03-17 | Revision 2_
+
 ## Purpose
 Phased delivery of a usable product at the end of every iteration. Each phase develops on a feature branch and merges to `main` only when completion criteria (including tests) are met.
 
-- Backend: Node.js (Express) + PostgreSQL (via Prisma or Knex; decided in Tech Spec)
-- Frontend: Web, mobile-first (React + Vite or SvelteKit; decided in Tech Spec) with Bootstrap
-- Testing: Jest + Supertest (API), Testing Library (UI), all DB/auth/cloud dependencies mocked
-- Packaging: Docker, ready for AWS container; RDS later
+- **Backend:** Node.js (Express + TypeScript) + PostgreSQL
+- **Frontend:** React + Vite + TypeScript + Bootstrap
+- **Voice:** AWS Lambda (ESM) Alexa skill
+- **Testing:** Jest + Supertest (API), Vitest + Testing Library (UI)
+- **Packaging:** Docker, AWS-container-ready; single-container prod build
 
 ## Branching & CI
-- Branch naming: `phase-0-bootstrap`, `phase-1-auth-family`, `phase-2-chores`, etc.
+- Branch naming: `phase-N-description` (e.g., `phase-7-bonuses-activity`)
 - Merge policy: PR with passing checks (lint, typecheck, unit tests, min coverage) and completion checklist.
-- CI: GitHub Actions (or similar) runs `lint`, `typecheck`, `test` on push/PR. Cache deps. No live DB needed.
+- CI: GitHub Actions runs `lint`, `typecheck`, `test` on push/PR. No live DB required.
 
 ## Test Strategy
-- Unit-first with dependency injection: repositories (DB), auth, scheduler abstracted behind interfaces.
-- Use Jest mocks or test doubles; use Supertest to hit Express routes with mocked repositories.
+- Unit-first with dependency injection: repositories abstracted behind interfaces; InMemoryRepos for tests.
+- Jest + Supertest for API routes; Vitest + Testing Library for UI components.
 - Fake timers for scheduler tests; invoke job functions directly.
-- Contract tests for API request/response shapes; UI component tests for core flows; snapshots only for stable UI (icons/layout).
-- Coverage gates (backend): statements 80%, branches 70% (raise over time). Critical paths >90%.
+- Coverage gates (backend): statements 80%, branches 70%. Critical paths >90%.
 
 ---
 
-## Phase 0 – Project Bootstrap and CI
-Branch: `phase-0-bootstrap`
+## Phases 0–5: COMPLETE ✓
 
-Scope
-- Repo scaffolding: monorepo or two folders (`api/`, `web/`) with shared `specs/`.
-- Tooling: TypeScript, linting (ESLint), formatting (Prettier), basic env config.
-- API stub: Express app with health (`/healthz`), version (`/version`). In production, also serves `web/dist` statically with SPA fallback.
-- Web stub: Vite app with Bootstrap, base theme tokens, simple landing.
-- Testing setup: Jest, Supertest (API); Testing Library (web). Example tests run in CI.
-- Single-container packaging: root `Dockerfile` builds `web` and `api`; runtime serves the web build via the API process. Simplified `docker-compose.yml` with one service.
-- Dev scripts: root `npm run dev` runs both servers concurrently; `npm run build` builds web then api; `npm run start:prod` runs the API which serves the web build.
+All foundational and core phases have shipped:
 
-Deliverables
-- Running API and web locally (dev) and as a single container (prod-like). CI pipeline green.
+| Phase | Description | Status |
+|---|---|---|
+| 0 | Project bootstrap, CI, Docker, monorepo | ✓ Done |
+| 1 | Auth (Google OAuth + child login), family CRUD | ✓ Done |
+| 2 | Chore management, child dashboard, approvals queue | ✓ Done |
+| 3 | Bank, ledger, weekly payout job (idempotent) | ✓ Done |
+| 4 | Saver items, goals, auto-allocation, affordability | ✓ Done |
+| 5 | UX polish, avatars, theming, mobile parent dashboard | ✓ Done |
 
-Completion Criteria
-- `npm run dev` works for `api` and `web`.
-- `npm test` passes with example tests and >80% coverage on API stubs.
-- Health endpoints return 200 and JSON payload.
- - Docker image builds and serves the SPA at `/` and API at `/healthz`, `/version`.
-
-Validation Tests (examples)
-- API: GET `/healthz` => 200 { status: "ok" }.
-- API: GET `/version` => includes `version` from package.
-- Web: renders landing, contains primary CTA button.
+**Also shipped (outside original phase plan):**
+- Long-lived API tokens (`api/src/routes/tokens.ts`, `repos.tokens.pg.ts`)
+- Alexa skill (`alexa/src/index.js`, `alexa/models/en-US.json`)
+- S3 presigned image uploads (`api/src/routes/uploads.ts`, `repos.uploads.pg.ts`)
 
 ---
 
-## Phase 1 – Auth & Family Setup
-Branch: `phase-1-auth-family`
+## Phase 7 – Bonus Opportunities and Claims
+Branch: `phase-7-bonuses`
 
-Scope
-- Parent auth: Google OAuth (mocked in tests via adapter interface).
-- Child accounts: parent creates username/password accounts; simple login for children.
-- Family model: create family, add/remove parents (invite flow stub), add/remove children, set timezone.
-- Roles/permissions middleware; session management.
-- UI: parent sign-in, family dashboard (basic), add child form; child sign-in page and simple dashboard shell.
+### Scope
 
-Deliverables
-- Usable: a parent can sign in, create a family, add at least one child; child can sign in and see a placeholder dashboard.
+**Backend**
+1. `BonusRepository` interface in `repositories.ts`:
+   ```typescript
+   interface BonusRepository {
+     createBonus(bonus: Bonus): Promise<Bonus>;
+     updateBonus(bonus: Bonus): Promise<Bonus>;
+     deleteBonus(id: string): Promise<void>;
+     getBonusById(id: string): Promise<Bonus | undefined>;
+     listBonusesByFamily(familyId: string): Promise<Bonus[]>;
+     createClaim(claim: BonusClaim): Promise<BonusClaim>;
+     getClaimById(id: string): Promise<BonusClaim | undefined>;
+     listClaimsByBonus(bonusId: string): Promise<BonusClaim[]>;
+     listPendingClaimsByFamily(familyId: string): Promise<BonusClaim[]>;
+     hasChildClaimed(bonusId: string, childId: string): Promise<boolean>;
+   }
+   ```
 
-Completion Criteria
-- Parents and children authenticate; unauthorized access blocked by role guards.
-- Family data persists to DB; migrations versioned.
-- Tests for auth flows and family CRUD pass with mocks for Google and DB.
+2. `bonus.types.ts`:
+   ```typescript
+   type Bonus = {
+     id: string; familyId: string;
+     name: string; description?: string; value: number;
+     claimType: 'one-time' | 'unlimited';
+     childIds?: string[]; // undefined = all children
+     active: boolean; createdAt: string;
+   };
+   type BonusClaim = {
+     id: string; bonusId: string; childId: string;
+     note?: string; status: 'pending' | 'approved' | 'rejected';
+     rejectionReason?: string;
+     createdAt: string; resolvedAt?: string; resolvedBy?: string;
+   };
+   ```
 
-Validation Tests (examples)
-- API: POST `/auth/google/callback` => creates/returns parent session (mock Google profile).
-- API: POST `/families` => 201 creates family (parent only).
-- API: POST `/children` => 201 creates child under family; child login works.
-- RBAC: child cannot access parent-only routes (403).
-- Web: parent can add child; child sees their name and empty chores list.
+3. `api/src/routes/bonuses.ts` endpoints:
+   - `GET /families/:familyId/bonuses` — list bonuses (parent); or list visible bonuses (child)
+   - `POST /families/:familyId/bonuses` — create bonus (parent only)
+   - `PATCH /bonuses/:id` — update bonus (parent only)
+   - `DELETE /bonuses/:id` — delete bonus (parent only)
+   - `POST /bonuses/:id/claim` — child submits claim (with optional note)
+   - `GET /families/:familyId/bonuses/claims/pending` — pending claims (parent)
+   - `POST /bonuses/claims/:claimId/approve` — parent approves → creates ledger entry (type: `bonus`) → triggers goal allocation
+   - `POST /bonuses/claims/:claimId/reject` — parent rejects with optional reason
 
----
+4. `InMemoryBonusRepo` in `repositories.ts`
+5. `PgBonusRepo` in `repos.bonus.pg.ts`
+6. Wire bonus routes into `app.ts`
 
-## Phase 2 – Chore Management & Child Dashboard
-Branch: `phase-2-chores`
+**Frontend**
 
-Scope
-- Chores: CRUD with fields (name, description, value, recurrence daily/weekly, due day/time, requiresApproval, assignments, active).
-- Recurrence engine: compute today/this week views (no rollovers in MVP).
-- Child actions: mark done/unmark; if approval required, set status to pending.
-- Approvals queue (parent): view pending, approve/reject (no ledger credit yet).
-- UI: parent chore builder/list; child dashboard with Today and This Week; pending states.
+Child Dashboard:
+- Add "Bonuses" section to `ChildDashboard.tsx`
+- List available (active, visible to this child) bonuses with name, description, coin value chip
+- "Claim" button → modal with optional note field → POST claim → show pending state
+- Show previously claimed bonuses with status chip (Pending / Approved / Rejected + reason)
 
-Deliverables
-- Usable: parent creates chores and assigns; child sees list and marks done; parent can approve/reject requiring-approval chores.
+Parent Dashboard:
+- Add bonus creation/management: form (name, description, value, claim type, visibility) in chores/bonuses tab
+- Bonus list with edit/delete and claim counts
+- Approvals queue: add "Bonuses" filter tab alongside existing chores tab
+- Approve/reject claims with optional rejection reason
 
-Completion Criteria
-- Correct visibility of chores per day/week and per child.
-- Approval-required chores move to pending and are visible in parent queue.
-- All endpoints and views covered by unit/route tests with mocked DB.
+### Completion Criteria
+- One-time bonus cannot be claimed twice by the same child (enforced at API level).
+- Approving a claim immediately creates a ledger entry and triggers goal auto-allocation.
+- All endpoints covered by unit/route tests with mocked repos.
+- Child UI shows correct bonus list and claim status.
+- Parent UI shows pending bonus claims in approvals queue.
 
-Validation Tests (examples)
-- API: POST `/chores` => 201; GET `/children/:id/chores?scope=today|week` returns correct items.
-- API: POST `/chores/:id/complete` (child) => 200 sets pending/complete as configured; unmark allowed before approval.
-- API: POST `/approvals/:id/approve|reject` => updates status.
-- Recurrence unit tests: daily vs weekly due computation across week boundaries and timezones.
-- Web: child dashboard renders today/week lists; approval badges visible.
-
----
-
-## Phase 3 – Bank, Ledger, and Weekly Payout
-Branch: `phase-3-bank-ledger`
-
-Scope
-- Per-child ledger: immutable entries (payout, manual credit/debit, spend, reserve/release placeholder for goals).
-- Balance view: available vs reserved (reserved zero until goals phase).
-- Weekly payout job: Sunday at 00:00 family timezone; idempotent per family+week; sums eligible (approved or auto-eligible) completions.
-- Manual adjustments by parents; child "spend" record (no approval in MVP).
-- UI: bank card on child dashboard; parent adjustments screen; ledger list.
-
-Deliverables
-- Usable: balances reflect approved chores each week; parents can adjust; children can record spends.
-
-Completion Criteria
-- Idempotent payout (re-running job does not double-pay).
-- Ledger invariants: sum(entries) = balance; entries append-only.
-- Tests cover payout math, idempotency, and manual/spend operations using mocked repos and fake timers.
-
-Validation Tests (examples)
-- Job: run payout twice for same week => one payout entry only.
-- API: GET `/bank/:childId` => returns available/reserved totals and recent entries.
-- API: POST `/bank/:childId/adjust` credit/debit => updates ledger.
-- API: POST `/bank/:childId/spend` => creates spend entry; balance reduced.
-
----
-
-## Phase 4 – Saver Items and Goals
-Branch: `phase-4-saver-goals`
-
-Scope
-- Saver items per child: name, description, image URL/upload stub, target coins.
-- Goals: mark saver items as goals; per-goal allocation percentages (total ≤ 100%).
-- Auto-allocation: on credits (payout/bonus/manual credit), reserve per goal allocations; update available vs reserved.
-- Affordability indicators.
-- UI: saver grid, make-goal toggle, allocation sliders, affordability badges.
-
-Deliverables
-- Usable: kids add items, set goals, and see reserved vs available balances update on new credits.
-
-Completion Criteria
-- Allocation math correct; never over-reserves; reserved released when goal is purchased or un-goaled.
-- Tests for allocation engine and edge cases.
-
-Validation Tests (examples)
-- Unit: allocate 30%/20% across two goals; verify reserved/available results.
-- API: POST `/saver` creates item; PATCH `/saver/:id/goal` sets allocation; credit event triggers reserve entries.
-- Web: affordability label updates when balance changes.
+### Validation Tests
+- `POST /bonuses/:id/claim` twice for one-time bonus → second returns 409.
+- `POST /bonuses/claims/:id/approve` → ledger entry created, balance updated.
+- `GET /families/:id/bonuses/claims/pending` → returns pending claims only.
+- Child can only see bonuses assigned to them or global bonuses.
+- Parent-only routes return 403 for child token.
 
 ---
 
-## Phase 5 – UX Polish, Customization, and Accessibility
-Branch: `phase-6-ux-customization`
+## Phase 8 – Activity Feed & In-App Notifications
+Branch: `phase-8-activity-feed`
 
-Scope
-- Update the layout with a top bar that includes the signed in user and logout button
-- Profile section where kids can customize their names, their avatar, and the theme and colors for their experience
-- Avatars: curated set + upload (validation), select per user.
-- Kid theming: per-child accent color and optional background from curated set; persists to profile. We should have lots of cartoonish icons for things.
-- In-app indicators: badges for pending approvals; gentle celebrations on completion.
-- Accessibility pass: contrast, focus states, reduced motion support.
+### Scope
 
-Deliverables
-- Usable: kids can personalize their dashboard; visuals consistent and accessible.
+**Backend**
+1. `ActivityEntry` type in `activity.types.ts`:
+   ```typescript
+   type ActivityEntry = {
+     id: string; familyId: string;
+     eventType: 'chore_completed' | 'chore_approved' | 'chore_rejected' |
+                'bonus_claimed' | 'bonus_approved' | 'bonus_rejected' |
+                'payout' | 'adjustment' | 'spend' | 'purchase';
+     childId: string; actorId?: string; actorRole?: 'parent' | 'child' | 'system';
+     refId?: string; amount?: number; note?: string;
+     createdAt: string;
+   };
+   ```
 
-Completion Criteria
-- Theme settings persist and apply across sessions; no cross-user bleed.
-- A11y checks: keyboard focus visible, color contrast passes, animations respect reduced-motion.
+2. `ActivityRepository` interface + `InMemoryActivityRepo` + `PgActivityRepo`
 
-Validation Tests (examples)
-- Web: theme context applies accent color; avatar selection persists (mock API).
-- Lighthouse/axe checks for key pages (informational, not gating if minor issues).
+3. Emit activity entries from existing route handlers (chores, bank, savers) and new bonus route.
+
+4. `GET /families/:familyId/activity?limit=50&before=<cursor>` — paginated feed (parent only).
+
+**Frontend**
+
+Parent Dashboard:
+- Activity feed section (below approvals or as a separate tab): last 20 events.
+- Each entry shows: icon by event type, child name, description, amount (if applicable), relative timestamp.
+- Empty state: friendly message when no activity yet.
+
+In-App Badges:
+- Pending approval count badge on parent nav/top bar (already polled via existing approvals endpoint; add bonus claim count).
+- Child chore status chips already implemented; verify rejection reason is surfaced.
+
+### Completion Criteria
+- Activity entries created for: chore completions, approvals/rejections, payouts, adjustments, bonus claims/approvals/rejections, purchases.
+- Parent can see paginated activity feed.
+- Pending count badge on parent nav reflects both chore and bonus approvals.
+
+### Validation Tests
+- Completing a chore creates an activity entry.
+- Approving a bonus claim creates an activity entry.
+- `GET /families/:id/activity` returns entries sorted by createdAt desc, paginated.
+- Parent-only route returns 403 for child token.
 
 ---
 
-## Phase 6 – Bonus Opportunities and Claims
-Branch: `phase-5-bonuses`
+## Phase 9 – Settings & Family Configuration
+Branch: `phase-9-settings`
 
-Scope
-- Bonus definitions: name, description, value, claim type (one-time/unlimited), visibility (all vs child-specific).
-- Claims: child submits claim; parent approves/rejects; approved awards coins immediately via ledger entry.
-- UI: child bonus list and claim flow; parent approvals include bonus filter.
+### Scope
 
-Deliverables
-- Usable: kids can see and claim bonuses; parents approve and coins credit immediately.
+**Backend**
+- `PATCH /families/:id` — update family name and/or timezone (parent only; already partially supported via `updateFamily`).
+- Validate timezone against IANA list on server.
+- Ensure payout job and daily rollover respect stored family timezone.
 
-Completion Criteria
-- One-time bonus enforceable per child (idempotent claims).
-- Tests for claim lifecycle and ledger interaction.
+**Frontend**
 
-Validation Tests (examples)
-- API: POST `/bonuses` creates; child GET `/bonuses` filtered by visibility.
-- API: POST `/bonuses/:id/claim` => pending; parent approve => ledger credit; duplicate one-time claim rejected.
+Settings Page (`/settings`):
+- **Family section:** edit family name, select timezone (searchable dropdown of IANA zones).
+- **Children section:** list children; rename, reset password, deactivate/reactivate, delete.
+- **Parents section:** list co-parents; "Leave family" action (with confirmation).
+- **API Tokens section:** list tokens (label, created date, last used, masked); create new token (modal shows raw token once); revoke with confirmation.
+
+Navigation:
+- Add Settings link to parent top bar / navigation drawer.
+- Child dashboard does not have a settings page; profile editor (avatar, theme) remains inline on child dashboard.
+
+### Completion Criteria
+- Family timezone change is persisted and used by payout job.
+- Parent can create, view (masked), and revoke API tokens from Settings UI.
+- Child rename and password reset work from Settings.
+- Settings page is accessible on mobile without horizontal scroll.
+
+### Validation Tests
+- `PATCH /families/:id` with invalid timezone returns 400.
+- Token created in Settings UI can authenticate Alexa-style API call.
+- Child renamed in Settings shows new name in child dashboard immediately.
+
+---
+
+## Phase 10 – Bulk Approvals & UX Refinements
+Branch: `phase-10-approvals-ux`
+
+### Scope
+
+**Backend**
+- `POST /approvals/bulk-approve` — accept array of completion/claim IDs; approve all in a single request; atomic where possible.
+
+**Frontend**
+- Bulk-approve chores: select-all checkbox + "Approve Selected" button in approvals queue.
+- Pending approvals count prominently displayed; auto-refresh or optimistic update after bulk approve.
+- Empty state for approvals queue: friendly message, direct link to add a chore.
+
+**Polish**
+- Consistent loading skeletons across Parent and Child dashboards.
+- Ensure all modals (chore edit, adjustment, bonus create) close properly and reset state.
+- Verify celebration animation fires on chore completion and bonus approval.
+- Cross-browser visual pass (Chrome, Safari, Firefox on mobile).
+
+### Completion Criteria
+- Bulk-approve endpoint handles partial failures gracefully (returns list of successes/failures).
+- Selecting all chores and bulk-approving them processes correctly; page updates without full reload.
+- No regressions in existing approval flows.
 
 ---
 
 ## Cross-Cutting Concerns
-- Migrations: versioned SQL or Prisma schema per phase; backward-compatible where possible.
-- Feature flags: gate incomplete features during a phase to keep main releasable.
-- Observability (added incrementally): structured logs, error boundaries on web, health/readiness endpoints.
-- Security: input validation, authz on every route, minimal PII, safe file handling for images (later S3).
-- Documentation: `README` updates per phase; API reference (OpenAPI) evolves.
+- **Migrations:** versioned SQL per phase; backward-compatible additions only.
+- **Observability:** structured logs on all route handlers; error boundaries in React.
+- **Security:** input validation on all new routes; authz check on every endpoint; minimal PII.
+- **Documentation:** `README` updated each phase; OpenAPI spec evolves.
 
-## Scripts (planned)
-- API: `dev`, `build`, `start`, `test`, `test:watch`, `lint`, `typecheck`, `coverage`.
-- Web: `dev`, `build`, `preview`, `test`, `lint`, `typecheck`.
-- Root: `lint`, `test`, `format`, `ci` (runs all with proper workspaces).
-
-## Exit Criteria to MVP (end of Phase 6)
-- Parent can set up family, manage chores/bonuses, approve items.
+## Exit Criteria for MVP Complete (end of Phase 10)
+- Parent can set up family, manage chores/bonuses, approve items, adjust balances.
 - Child can complete chores, claim bonuses, track balance, set goals and personalization.
 - Weekly payout correct and idempotent; ledger immutable and auditable.
-- CI green with required coverage; Docker images build and run locally.
+- Activity feed gives parents visibility into family events.
+- Settings page allows family configuration (name, timezone, API tokens, children).
+- Alexa skill working end-to-end with API token authentication.
+- CI green with required coverage; Docker images build and run correctly.
+- No horizontal scroll on mobile; accessible tap targets throughout.
