@@ -2,6 +2,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { logDebug, logInfo, logError } from './log';
+import { StorageProvider, PresignPostResult, GetObjectResult } from './storage';
 
 export interface PresignOptions {
   key: string;
@@ -9,7 +10,7 @@ export interface PresignOptions {
   expiresIn?: number; // seconds
 }
 
-export class S3Storage {
+export class S3Storage implements StorageProvider {
   private client: S3Client;
   private bucket: string;
   private region: string;
@@ -51,7 +52,7 @@ export class S3Storage {
   }
 
 
-  async getObject(key: string): Promise<{ body: any; contentType?: string; contentLength?: number; etag?: string }>{
+  async getObject(key: string): Promise<GetObjectResult & { etag?: string }>{
     const cmd = new GetObjectCommand({ Bucket: this.bucket, Key: key });
     const res = await this.client.send(cmd);
     logDebug('uploads', 'GetObject fetched', { key });
@@ -64,7 +65,7 @@ export class S3Storage {
   }
 
 
-  async presignPost(opts: PresignOptions): Promise<{ url: string; fields: Record<string, string>; publicUrl: string; key: string }>{
+  async presignPost(opts: PresignOptions): Promise<PresignPostResult & { publicUrl: string }>{
     const { url, fields } = await createPresignedPost(this.client, {
       Bucket: this.bucket,
       Key: opts.key,
@@ -78,6 +79,6 @@ export class S3Storage {
       },
       Expires: Math.min(opts.expiresIn ?? 300, 3600),
     });
-    return { url, fields, publicUrl: this.publicUrl(opts.key), key: opts.key };
+    return { url, fields, publicUrl: this.publicUrl(opts.key), key: opts.key, driver: 's3' };
   }
 }

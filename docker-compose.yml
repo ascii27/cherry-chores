@@ -18,6 +18,10 @@ services:
       - AWS_REGION=${AWS_REGION}
       - S3_BUCKET=${S3_BUCKET}
       - S3_PUBLIC_BASE_URL=${S3_PUBLIC_BASE_URL}
+      - STORAGE_DRIVER=${STORAGE_DRIVER-}
+      - LOCAL_UPLOAD_DIR=${LOCAL_UPLOAD_DIR-/data/uploads}
+    volumes:
+      - uploads:/data/uploads
     depends_on:
       - db
   db:
@@ -33,3 +37,4 @@ services:
 
 volumes:
   pgdata:
+  uploads:
