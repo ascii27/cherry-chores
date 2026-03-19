@@ -1,13 +1,14 @@
 import { Request, Router } from 'express';
 import { AuthedRequest, requireRole } from '../middleware/auth';
-import { BankRepository, ChoresRepository, FamiliesRepository, UsersRepository, SaversRepository } from '../repositories';
+import { ActivityRepository, BankRepository, ChoresRepository, FamiliesRepository, UsersRepository, SaversRepository } from '../repositories';
 import { LedgerEntry } from '../bank.types';
 import { runWeeklyPayout } from '../jobs/payout';
 import { applyAllocation } from '../alloc';
+import { emitActivity } from '../activity';
 
-export function bankRoutes(opts: { bank: BankRepository; users: UsersRepository; families: FamiliesRepository; chores: ChoresRepository; savers?: SaversRepository }) {
+export function bankRoutes(opts: { bank: BankRepository; users: UsersRepository; families: FamiliesRepository; chores: ChoresRepository; savers?: SaversRepository; activity?: ActivityRepository }) {
   const router = Router();
-  const { bank, users, families, chores, savers } = opts;
+  const { bank, users, families, chores, savers, activity } = opts;
 
   // Get balance and recent ledger entries for a child
   router.get('/bank/:childId', async (req: Request, res) => {
@@ -38,6 +39,15 @@ export function bankRoutes(opts: { bank: BankRepository; users: UsersRepository;
     };
     await bank.addLedgerEntry(entry);
     if (amount > 0 && savers) await applyAllocation(bank, savers, child.id, amount);
+    await emitActivity(activity, {
+      familyId: child.familyId,
+      childId: child.id,
+      eventType: 'adjustment',
+      actorId: actorParent?.id,
+      actorRole: 'parent',
+      amount,
+      note,
+    });
     const bal = await bank.getBalance(child.id);
     res.status(201).json({ ok: true, balance: bal });
   });
@@ -68,6 +78,15 @@ export function bankRoutes(opts: { bank: BankRepository; users: UsersRepository;
       createdAt: new Date().toISOString()
     };
     await bank.addLedgerEntry(entry);
+    await emitActivity(activity, {
+      familyId: child.familyId,
+      childId: child.id,
+      eventType: 'spend',
+      actorId: actor?.id,
+      actorRole: isParent ? 'parent' : 'child',
+      amount: Math.abs(amount),
+      note,
+    });
     const newBal = await bank.getBalance(child.id);
     res.status(201).json({ ok: true, balance: newBal });
   });
@@ -89,6 +108,15 @@ export function bankRoutes(opts: { bank: BankRepository; users: UsersRepository;
     }
     const ws = typeof weekStart === 'string' && weekStart.length >= 8 ? weekStart : currentWeekStartStr();
     await runWeeklyPayout({ bank, chores, users, families, savers }, familyId, ws);
+    // Emit payout activity for each child in the family (fire-and-forget)
+    for (const childId of fam.childIds) {
+      await emitActivity(activity, {
+        familyId,
+        childId,
+        eventType: 'payout',
+        actorRole: 'system',
+      });
+    }
     res.status(204).send();
   });
 

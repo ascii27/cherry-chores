@@ -12,6 +12,9 @@ const config: Config = {
     '<rootDir>/src/repos\\.chores\\.pg\\.ts',
     '<rootDir>/src/repos\\.bank\\.pg\\.ts',
     '<rootDir>/src/repos\\.savers\\.pg\\.ts',
+    '<rootDir>/src/repos\\.bonus\\.pg\\.ts',
+    '<rootDir>/src/repos\\.tokens\\.pg\\.ts',
+    '<rootDir>/src/repos\\.uploads\\.pg\\.ts',
     '<rootDir>/src/auth\\.google\\.ts'
   ],
   collectCoverageFrom: [
@@ -22,6 +25,10 @@ const config: Config = {
     '!<rootDir>/src/repos.pg.ts',
     '!<rootDir>/src/repos.chores.pg.ts',
     '!<rootDir>/src/repos.bank.pg.ts',
+    '!<rootDir>/src/repos.savers.pg.ts',
+    '!<rootDir>/src/repos.bonus.pg.ts',
+    '!<rootDir>/src/repos.tokens.pg.ts',
+    '!<rootDir>/src/repos.uploads.pg.ts',
     // Exclude Google OAuth runtime wiring (requires external service)
     '!<rootDir>/src/auth.google.ts'
   ],

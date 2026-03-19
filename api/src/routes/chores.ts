@@ -1,7 +1,8 @@
 import { Request, Router } from 'express';
 import { AuthedRequest, requireRole } from '../middleware/auth';
-import { ChoresRepository, FamiliesRepository, UsersRepository } from '../repositories';
+import { ActivityRepository, ChoresRepository, FamiliesRepository, UsersRepository } from '../repositories';
 import { Chore, Completion } from '../chores.types';
+import { emitActivity } from '../activity';
 
 function todayStr(): string {
   const d = new Date();
@@ -11,9 +12,9 @@ function todayStr(): string {
   return `${y}-${m}-${dd}`;
 }
 
-export function choresRoutes(opts: { chores: ChoresRepository; families: FamiliesRepository; users: UsersRepository }) {
+export function choresRoutes(opts: { chores: ChoresRepository; families: FamiliesRepository; users: UsersRepository; activity?: ActivityRepository }) {
   const router = Router();
-  const { chores, families, users } = opts;
+  const { chores, families, users, activity } = opts;
 
   // Parent creates chore
   router.post('/chores', requireRole('parent'), async (req: Request, res) => {
@@ -178,6 +179,15 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
     const compDate = typeof date === 'string' && /\d{4}-\d{2}-\d{2}/.test(date) ? date : todayStr();
     const c: Completion = { id: `comp_${Date.now()}`, choreId: chore.id, childId, date: compDate, status: chore.requiresApproval ? 'pending' : 'approved' };
     await chores.createCompletion(c);
+    await emitActivity(activity, {
+      familyId: chore.familyId,
+      childId,
+      eventType: 'chore_completed',
+      actorId: childId,
+      actorRole: 'child',
+      refId: chore.id,
+      amount: chore.value,
+    });
     res.json(c);
   });
 
@@ -218,6 +228,16 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
     if (!pending) return res.status(404).json({ error: 'not found' });
     await chores.deleteCompletion(pending.id);
     await chores.createCompletion({ ...pending, id: `comp_${Date.now()}`, status: 'approved' });
+    const approvedChore = await chores.getChoreById(pending.choreId);
+    await emitActivity(activity, {
+      familyId,
+      childId: pending.childId,
+      eventType: 'chore_approved',
+      actorId: (req as AuthedRequest).user!.id,
+      actorRole: 'parent',
+      refId: pending.choreId,
+      amount: approvedChore?.value,
+    });
     res.status(204).send();
   });
 
@@ -230,6 +250,14 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
     const pending = (await chores.listPendingCompletionsByFamily(familyId)).find((x) => x.id === id);
     if (!pending) return res.status(404).json({ error: 'not found' });
     await chores.deleteCompletion(pending.id);
+    await emitActivity(activity, {
+      familyId,
+      childId: pending.childId,
+      eventType: 'chore_rejected',
+      actorId: (req as AuthedRequest).user!.id,
+      actorRole: 'parent',
+      refId: pending.choreId,
+    });
     res.status(204).send();
   });
 

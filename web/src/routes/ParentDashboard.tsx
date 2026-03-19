@@ -3,6 +3,11 @@ import { useToast } from '../components/Toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 
+// Types for bonus/activity features
+interface Bonus { id: string; familyId: string; name: string; description?: string; value: number; claimType: 'one-time' | 'unlimited'; childIds?: string[]; active: boolean; createdAt: string; }
+interface BonusClaim { id: string; bonusId: string; childId: string; note?: string; status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string; createdAt: string; resolvedAt?: string; resolvedBy?: string; }
+interface ActivityEntry { id: string; familyId: string; childId: string; eventType: string; actorId?: string; actorRole?: string; refId?: string; amount?: number; note?: string; createdAt: string; }
+
 export default function ParentDashboard() {
   const nav = useNavigate();
   const loc = useLocation();
@@ -35,6 +40,20 @@ export default function ParentDashboard() {
   const weekOverviewRef = useRef<HTMLDivElement | null>(null);
   const weekDetailsRef = useRef<HTMLDivElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Bonus state
+  const [bonuses, setBonuses] = useState<Bonus[]>([]);
+  const [bonusClaims, setBonusClaims] = useState<BonusClaim[]>([]);
+  const [showAddBonus, setShowAddBonus] = useState(false);
+  const [editingBonus, setEditingBonus] = useState<Bonus | null>(null);
+  const [approvalsTab, setApprovalsTab] = useState<'chores' | 'bonuses'>('chores');
+  const [rejectingClaimId, setRejectingClaimId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
+  // Activity feed state
+  const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([]);
+  const bonusesRef = useRef<HTMLDivElement | null>(null);
+  const activityRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const t = hashToken || localStorage.getItem('parentToken');
@@ -86,6 +105,18 @@ export default function ParentDashboard() {
       .then((r) => (r.ok ? r.json() : []))
       .then(setApprovals)
       .catch(() => setApprovals([]));
+    fetch(`/api/families/${selectedFamily.id}/bonuses`, { headers: hdrs })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => setBonuses(list || []))
+      .catch(() => setBonuses([]));
+    fetch(`/api/families/${selectedFamily.id}/bonuses/claims/pending`, { headers: hdrs })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => setBonusClaims(list || []))
+      .catch(() => setBonusClaims([]));
+    fetch(`/api/families/${selectedFamily.id}/activity?limit=20`, { headers: hdrs })
+      .then((r) => (r.ok ? r.json() : { entries: [] }))
+      .then((data) => setActivityFeed(data?.entries || []))
+      .catch(() => setActivityFeed([]));
   }, [token, selectedFamily]);
 
   // Derive weekly/balances/savers when children list changes
@@ -141,6 +172,74 @@ export default function ParentDashboard() {
     if (!token || !selectedFamily) return;
     const r = await fetch(`/approvals?familyId=${selectedFamily.id}`, { headers: { Authorization: `Bearer ${token}` } });
     if (r.ok) setApprovals(await r.json());
+  }
+
+  async function refreshBonuses() {
+    if (!token || !selectedFamily) return;
+    const hdrs = { Authorization: `Bearer ${token}` };
+    const r = await fetch(`/api/families/${selectedFamily.id}/bonuses`, { headers: hdrs });
+    if (r.ok) setBonuses(await r.json());
+  }
+
+  async function refreshBonusClaims() {
+    if (!token || !selectedFamily) return;
+    const hdrs = { Authorization: `Bearer ${token}` };
+    const r = await fetch(`/api/families/${selectedFamily.id}/bonuses/claims/pending`, { headers: hdrs });
+    if (r.ok) setBonusClaims(await r.json());
+  }
+
+  async function refreshActivity() {
+    if (!token || !selectedFamily) return;
+    const hdrs = { Authorization: `Bearer ${token}` };
+    const r = await fetch(`/api/families/${selectedFamily.id}/activity?limit=20`, { headers: hdrs });
+    if (r.ok) {
+      const data = await r.json();
+      setActivityFeed(data?.entries || []);
+    }
+  }
+
+  function formatRelativeTime(dateStr: string): string {
+    const now = Date.now();
+    const then = new Date(dateStr).getTime();
+    const diff = Math.floor((now - then) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 172800) return 'yesterday';
+    return new Date(dateStr).toLocaleDateString();
+  }
+
+  function activityIcon(eventType: string): string {
+    const map: Record<string, string> = {
+      chore_completed: '✅',
+      chore_approved: '⭐',
+      chore_rejected: '❌',
+      bonus_claimed: '🎁',
+      bonus_approved: '🎉',
+      bonus_rejected: '❌',
+      payout: '💰',
+      adjustment: '🔧',
+      spend: '🛒',
+      purchase: '🛍️',
+    };
+    return map[eventType] || '📌';
+  }
+
+  function activityDescription(entry: ActivityEntry, childrenList: any[]): string {
+    const childName = childrenList.find((c) => c.id === entry.childId)?.displayName || 'A child';
+    switch (entry.eventType) {
+      case 'chore_completed': return `${childName} completed a chore`;
+      case 'chore_approved': return `${childName}'s chore was approved`;
+      case 'chore_rejected': return `${childName}'s chore was rejected`;
+      case 'bonus_claimed': return `${childName} claimed a bonus`;
+      case 'bonus_approved': return `${childName}'s bonus was approved (+${entry.amount ?? 0} coins)`;
+      case 'bonus_rejected': return `${childName}'s bonus was rejected`;
+      case 'payout': return `Payout — ${childName} received ${entry.amount ?? 0} coins`;
+      case 'adjustment': return `Balance adjustment for ${childName}: ${(entry.amount ?? 0) > 0 ? '+' : ''}${entry.amount ?? 0} coins`;
+      case 'spend': return `${childName} spent ${entry.amount ?? 0} coins`;
+      case 'purchase': return `${childName} made a purchase (${entry.amount ?? 0} coins)`;
+      default: return `${childName} — ${entry.eventType}`;
+    }
   }
 
   async function refreshWeekly() {
@@ -268,9 +367,11 @@ export default function ParentDashboard() {
             { label: 'Add child', ref: addChildRef },
             { label: 'Children', ref: childrenRef },
             { label: 'Chores', ref: choresRef },
+            { label: 'Bonuses', ref: bonusesRef },
             { label: 'Approvals', ref: approvalsRef },
             { label: 'Week Overview', ref: weekOverviewRef },
-            { label: 'Week Details', ref: weekDetailsRef }
+            { label: 'Week Details', ref: weekDetailsRef },
+            { label: 'Activity', ref: activityRef }
           ].map((it) => (
             <button
               key={it.label}
@@ -280,6 +381,12 @@ export default function ParentDashboard() {
               {it.label}
             </button>
           ))}
+          <button
+            className="btn btn-outline-secondary text-start mb-2 touch-target"
+            onClick={() => { nav('/settings'); setMenuOpen(false); }}
+          >
+            Settings
+          </button>
         </nav>
       </aside>
 
@@ -885,10 +992,368 @@ export default function ParentDashboard() {
               </div>
             </div>
           </div>
+          {/* Bonuses Section */}
+          <div className="col-12">
+            <div className="card" ref={bonusesRef}>
+              <div className="card-body">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h2 className="h5 mb-0">Bonuses</h2>
+                  {!showAddBonus && !editingBonus && (
+                    <button className="btn btn-outline-primary btn-sm" onClick={() => setShowAddBonus(true)}>+ Add Bonus</button>
+                  )}
+                </div>
+
+                {/* Add Bonus Form */}
+                {showAddBonus && (
+                  <form
+                    className="row g-2 mb-3 border rounded p-3"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!token || !selectedFamily) return;
+                      const form = e.currentTarget;
+                      const name = (form.querySelector('#bonus-name') as HTMLInputElement).value;
+                      const description = (form.querySelector('#bonus-desc') as HTMLInputElement).value;
+                      const value = parseInt((form.querySelector('#bonus-value') as HTMLInputElement).value || '0', 10);
+                      const claimType = (form.querySelector('input[name="bonus-claim-type"]:checked') as HTMLInputElement)?.value as 'one-time' | 'unlimited';
+                      const childIds: string[] = Array.from(form.querySelectorAll('input[name="bonus-child"]:checked')).map((i: any) => i.value);
+                      const payload = { name, description: description || undefined, value, claimType, childIds: childIds.length > 0 ? childIds : undefined, active: true };
+                      const r = await fetch(`/api/families/${selectedFamily.id}/bonuses`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify(payload),
+                      });
+                      if (r.ok) {
+                        push('success', 'Bonus created');
+                        setShowAddBonus(false);
+                        await refreshBonuses();
+                      } else {
+                        push('error', 'Failed to create bonus');
+                      }
+                    }}
+                  >
+                    <div className="col-12"><h3 className="h6 mb-2">New Bonus</h3></div>
+                    <div className="col-md-5">
+                      <label htmlFor="bonus-name" className="form-label">Name <span className="text-danger">*</span></label>
+                      <input id="bonus-name" className="form-control" required />
+                    </div>
+                    <div className="col-md-5">
+                      <label htmlFor="bonus-desc" className="form-label">Description</label>
+                      <input id="bonus-desc" className="form-control" placeholder="Optional" />
+                    </div>
+                    <div className="col-md-2">
+                      <label htmlFor="bonus-value" className="form-label">Coins <span className="text-danger">*</span></label>
+                      <input id="bonus-value" type="number" min="1" className="form-control" defaultValue={5} required />
+                    </div>
+                    <div className="col-12">
+                      <label className="form-label">Claim type</label>
+                      <div className="d-flex gap-3">
+                        <div className="form-check">
+                          <input className="form-check-input" type="radio" name="bonus-claim-type" id="bct-onetime" value="one-time" defaultChecked />
+                          <label className="form-check-label" htmlFor="bct-onetime">One-time</label>
+                        </div>
+                        <div className="form-check">
+                          <input className="form-check-input" type="radio" name="bonus-claim-type" id="bct-unlimited" value="unlimited" />
+                          <label className="form-check-label" htmlFor="bct-unlimited">Unlimited</label>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-12">
+                      <label className="form-label">Assign to (leave unchecked for all children)</label>
+                      <div className="d-flex flex-wrap gap-3">
+                        {children.map((c) => (
+                          <div className="form-check" key={c.id}>
+                            <input className="form-check-input" type="checkbox" name="bonus-child" id={`bonus-ch-${c.id}`} value={c.id} />
+                            <label className="form-check-label" htmlFor={`bonus-ch-${c.id}`}>{c.displayName}</label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="col-12 d-flex gap-2">
+                      <button className="btn btn-primary" type="submit">Save Bonus</button>
+                      <button className="btn btn-outline-secondary" type="button" onClick={() => setShowAddBonus(false)}>Cancel</button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Edit Bonus Form */}
+                {editingBonus && (
+                  <form
+                    className="row g-2 mb-3 border rounded p-3"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (!token || !editingBonus) return;
+                      const form = e.currentTarget;
+                      const name = (form.querySelector('#edit-bonus-name') as HTMLInputElement).value;
+                      const description = (form.querySelector('#edit-bonus-desc') as HTMLInputElement).value;
+                      const value = parseInt((form.querySelector('#edit-bonus-value') as HTMLInputElement).value || '0', 10);
+                      const claimType = (form.querySelector('input[name="edit-bonus-claim-type"]:checked') as HTMLInputElement)?.value as 'one-time' | 'unlimited';
+                      const childIds: string[] = Array.from(form.querySelectorAll('input[name="edit-bonus-child"]:checked')).map((i: any) => i.value);
+                      const payload = { name, description: description || undefined, value, claimType, childIds: childIds.length > 0 ? childIds : undefined };
+                      const r = await fetch(`/api/bonuses/${editingBonus.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify(payload),
+                      });
+                      if (r.ok) {
+                        push('success', 'Bonus updated');
+                        setEditingBonus(null);
+                        await refreshBonuses();
+                      } else {
+                        push('error', 'Failed to update bonus');
+                      }
+                    }}
+                  >
+                    <div className="col-12"><h3 className="h6 mb-2">Edit Bonus</h3></div>
+                    <div className="col-md-5">
+                      <label htmlFor="edit-bonus-name" className="form-label">Name</label>
+                      <input id="edit-bonus-name" className="form-control" defaultValue={editingBonus.name} required />
+                    </div>
+                    <div className="col-md-5">
+                      <label htmlFor="edit-bonus-desc" className="form-label">Description</label>
+                      <input id="edit-bonus-desc" className="form-control" defaultValue={editingBonus.description || ''} />
+                    </div>
+                    <div className="col-md-2">
+                      <label htmlFor="edit-bonus-value" className="form-label">Coins</label>
+                      <input id="edit-bonus-value" type="number" min="1" className="form-control" defaultValue={editingBonus.value} required />
+                    </div>
+                    <div className="col-12">
+                      <label className="form-label">Claim type</label>
+                      <div className="d-flex gap-3">
+                        <div className="form-check">
+                          <input className="form-check-input" type="radio" name="edit-bonus-claim-type" id="ebct-onetime" value="one-time" defaultChecked={editingBonus.claimType === 'one-time'} />
+                          <label className="form-check-label" htmlFor="ebct-onetime">One-time</label>
+                        </div>
+                        <div className="form-check">
+                          <input className="form-check-input" type="radio" name="edit-bonus-claim-type" id="ebct-unlimited" value="unlimited" defaultChecked={editingBonus.claimType === 'unlimited'} />
+                          <label className="form-check-label" htmlFor="ebct-unlimited">Unlimited</label>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="col-12">
+                      <label className="form-label">Assign to (leave unchecked for all children)</label>
+                      <div className="d-flex flex-wrap gap-3">
+                        {children.map((c) => (
+                          <div className="form-check" key={c.id}>
+                            <input className="form-check-input" type="checkbox" name="edit-bonus-child" id={`ebc-${c.id}`} value={c.id} defaultChecked={editingBonus.childIds?.includes(c.id)} />
+                            <label className="form-check-label" htmlFor={`ebc-${c.id}`}>{c.displayName}</label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="col-12 d-flex gap-2">
+                      <button className="btn btn-primary" type="submit">Save</button>
+                      <button className="btn btn-outline-secondary" type="button" onClick={() => setEditingBonus(null)}>Cancel</button>
+                    </div>
+                  </form>
+                )}
+
+                {bonuses.length === 0 && !showAddBonus && !editingBonus ? (
+                  <div className="text-muted">No bonuses yet. Add one to reward kids for extra effort!</div>
+                ) : (
+                  <>
+                    {/* Mobile cards */}
+                    <div className="d-block d-md-none">
+                      {bonuses.map((b) => (
+                        <div key={b.id} className="card mb-2 shadow-sm">
+                          <div className="card-body">
+                            <div className="d-flex justify-content-between align-items-start gap-2">
+                              <div className="flex-grow-1">
+                                <div className="fw-semibold">{b.name}</div>
+                                {b.description && <div className="text-muted small">{b.description}</div>}
+                                <div className="d-flex gap-2 mt-1 flex-wrap">
+                                  <span className="badge bg-light text-dark">+{b.value} coins</span>
+                                  <span className="badge bg-info text-dark">{b.claimType === 'one-time' ? 'One-time' : 'Unlimited'}</span>
+                                  {!b.active && <span className="badge bg-secondary">Inactive</span>}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="d-flex align-items-center gap-2 mt-2 flex-wrap">
+                              <div className="form-check form-switch m-0">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  id={`bonus-active-m-${b.id}`}
+                                  defaultChecked={b.active}
+                                  onChange={async (ev) => {
+                                    await fetch(`/api/bonuses/${b.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ active: ev.target.checked }) });
+                                    await refreshBonuses();
+                                  }}
+                                />
+                                <label className="form-check-label small" htmlFor={`bonus-active-m-${b.id}`}>Active</label>
+                              </div>
+                              <button className="btn btn-sm btn-outline-secondary" onClick={() => { setEditingBonus(b); setShowAddBonus(false); }}>Edit</button>
+                              <button className="btn btn-sm btn-outline-danger" onClick={async () => {
+                                if (!window.confirm('Delete this bonus?')) return;
+                                await fetch(`/api/bonuses/${b.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                                setBonuses((prev) => prev.filter((x) => x.id !== b.id));
+                              }}>Delete</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Desktop table */}
+                    <div className="d-none d-md-block table-responsive">
+                      <table className="table align-middle">
+                        <thead>
+                          <tr>
+                            <th scope="col">Name</th>
+                            <th scope="col">Value</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Assigned</th>
+                            <th scope="col" className="text-end">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bonuses.map((b) => (
+                            <tr key={b.id}>
+                              <td>
+                                <div className="fw-semibold">{b.name}</div>
+                                {b.description && <div className="small text-muted">{b.description}</div>}
+                              </td>
+                              <td><span className="badge bg-light text-dark">+{b.value}</span></td>
+                              <td><span className="badge bg-info text-dark">{b.claimType === 'one-time' ? 'One-time' : 'Unlimited'}</span></td>
+                              <td className="text-muted small">{b.childIds && b.childIds.length > 0 ? children.filter((c) => b.childIds!.includes(c.id)).map((c) => c.displayName).join(', ') : 'All children'}</td>
+                              <td className="text-end">
+                                <div className="form-check form-switch d-inline-block me-2">
+                                  <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    id={`bonus-active-${b.id}`}
+                                    defaultChecked={b.active}
+                                    onChange={async (ev) => {
+                                      await fetch(`/api/bonuses/${b.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ active: ev.target.checked }) });
+                                      await refreshBonuses();
+                                    }}
+                                  />
+                                  <label className="form-check-label small" htmlFor={`bonus-active-${b.id}`}>Active</label>
+                                </div>
+                                <button className="btn btn-sm btn-outline-secondary me-2" onClick={() => { setEditingBonus(b); setShowAddBonus(false); }}>Edit</button>
+                                <button className="btn btn-sm btn-outline-danger" onClick={async () => {
+                                  if (!window.confirm('Delete this bonus?')) return;
+                                  await fetch(`/api/bonuses/${b.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                                  setBonuses((prev) => prev.filter((x) => x.id !== b.id));
+                                }}>Delete</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="col-12">
             <div className="card" ref={approvalsRef}>
               <div className="card-body">
                 <h2 className="h5">Approvals</h2>
+                {/* Approvals tabs: Chores | Bonuses */}
+                <ul className="nav nav-tabs mb-3">
+                  <li className="nav-item">
+                    <button
+                      className={`nav-link ${approvalsTab === 'chores' ? 'active' : ''}`}
+                      onClick={() => setApprovalsTab('chores')}
+                    >
+                      Chores
+                      {approvals.length > 0 && <span className="badge bg-warning text-dark ms-2">{approvals.length}</span>}
+                    </button>
+                  </li>
+                  <li className="nav-item">
+                    <button
+                      className={`nav-link ${approvalsTab === 'bonuses' ? 'active' : ''}`}
+                      onClick={() => setApprovalsTab('bonuses')}
+                    >
+                      Bonuses
+                      {bonusClaims.length > 0 && <span className="badge bg-warning text-dark ms-2">{bonusClaims.length}</span>}
+                    </button>
+                  </li>
+                </ul>
+
+                {/* Bonus claims tab */}
+                {approvalsTab === 'bonuses' && (
+                  <>
+                    {bonusClaims.length === 0 ? (
+                      <div className="text-muted">No pending bonus claims.</div>
+                    ) : (
+                      <div className="table-responsive">
+                        <table className="table align-middle">
+                          <thead>
+                            <tr>
+                              <th scope="col">Child</th>
+                              <th scope="col">Bonus</th>
+                              <th scope="col">Value</th>
+                              <th scope="col">Note</th>
+                              <th scope="col" className="text-end">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bonusClaims.map((claim) => {
+                              const claimChild = children.find((c) => c.id === claim.childId);
+                              const bonus = bonuses.find((b) => b.id === claim.bonusId);
+                              return (
+                                <tr key={claim.id}>
+                                  <td>{claimChild?.displayName || claim.childId}</td>
+                                  <td>{bonus?.name || claim.bonusId}</td>
+                                  <td><span className="badge bg-light text-dark">+{bonus?.value ?? '?'}</span></td>
+                                  <td className="text-muted">{claim.note || <span className="text-muted">—</span>}</td>
+                                  <td className="text-end">
+                                    {rejectingClaimId === claim.id ? (
+                                      <div className="d-flex gap-2 justify-content-end flex-wrap">
+                                        <input
+                                          className="form-control form-control-sm"
+                                          style={{ maxWidth: 200 }}
+                                          placeholder="Rejection reason"
+                                          value={rejectReason}
+                                          onChange={(e) => setRejectReason(e.target.value)}
+                                          autoFocus
+                                        />
+                                        <button
+                                          className="btn btn-sm btn-danger"
+                                          onClick={async () => {
+                                            await fetch(`/api/bonuses/claims/${claim.id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ reason: rejectReason }) });
+                                            push('success', 'Bonus claim rejected');
+                                            setRejectingClaimId(null);
+                                            setRejectReason('');
+                                            await refreshBonusClaims();
+                                            await refreshActivity();
+                                          }}
+                                        >Confirm Reject</button>
+                                        <button className="btn btn-sm btn-outline-secondary" onClick={() => { setRejectingClaimId(null); setRejectReason(''); }}>Cancel</button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <button
+                                          className="btn btn-sm btn-success me-2"
+                                          onClick={async () => {
+                                            await fetch(`/api/bonuses/claims/${claim.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } });
+                                            push('success', 'Bonus claim approved');
+                                            await refreshBonusClaims();
+                                            await refreshActivity();
+                                          }}
+                                        >Approve</button>
+                                        <button
+                                          className="btn btn-sm btn-outline-danger"
+                                          onClick={() => { setRejectingClaimId(claim.id); setRejectReason(''); }}
+                                        >Reject</button>
+                                      </>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Chores approvals tab */}
+                {approvalsTab === 'chores' && (
+                  <>
                 {/* Approvals: actions above table; sticky action bar provided on mobile */}
                 {approvals.length === 0 ? (
                   <div className="text-muted">No pending approvals.</div>
@@ -980,9 +1445,40 @@ export default function ParentDashboard() {
                     </table>
                   </div>
                 )}
+                  </>
+                )}
               </div>
             </div>
           </div>
+
+          {/* Activity Feed */}
+          <div className="col-12">
+            <div className="card" ref={activityRef}>
+              <div className="card-body">
+                <h2 className="h5 mb-3">Recent Activity</h2>
+                {activityFeed.length === 0 ? (
+                  <div className="text-muted">
+                    <div className="fs-4 mb-1">📋</div>
+                    No activity yet. Activity will appear here as your kids complete chores and claim bonuses.
+                  </div>
+                ) : (
+                  <ul className="list-unstyled mb-0">
+                    {activityFeed.map((entry) => (
+                      <li key={entry.id} className="d-flex align-items-start gap-3 py-2 border-bottom">
+                        <span className="fs-5 flex-shrink-0" aria-hidden>{activityIcon(entry.eventType)}</span>
+                        <div className="flex-grow-1">
+                          <div className="fw-medium">{activityDescription(entry, children)}</div>
+                          {entry.note && <div className="small text-muted">{entry.note}</div>}
+                        </div>
+                        <span className="text-muted small flex-shrink-0">{formatRelativeTime(entry.createdAt)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="col-12">
             <div className="card" ref={weekOverviewRef}>
               <div className="card-body">

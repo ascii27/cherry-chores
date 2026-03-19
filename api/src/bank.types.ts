@@ -1,4 +1,4 @@
-export type LedgerType = 'payout' | 'adjustment' | 'spend' | 'reserve' | 'release';
+export type LedgerType = 'payout' | 'adjustment' | 'spend' | 'reserve' | 'release' | 'bonus';
 
 export interface LedgerEntry {
   id: string;
@@ -10,6 +10,8 @@ export interface LedgerEntry {
     familyId?: string;
     weekStart?: string; // YYYY-MM-DD (Sunday start)
     saverId?: string; // for reserve/release against a saver goal
+    bonusId?: string;
+    claimId?: string;
   };
   actor?: {
     role: 'parent' | 'child' | 'system';

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 // Bootstrap Icons (SVGs as URLs for avatars/patterns)
 // Vite resolves '?url' imports to asset URLs at build time
 // Emojis/Playful icons
@@ -39,8 +39,14 @@ export default function ChildDashboard() {
   const [savers, setSavers] = useState<any[]>([]);
   const [editing, setEditing] = useState<{ id: string; field: 'name' | 'target' | 'coins' } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [section, setSection] = useState<'home' | 'bank' | 'goals' | 'profile'>('home');
+  const [section, setSection] = useState<'home' | 'bank' | 'goals' | 'bonuses' | 'profile'>('home');
   const [cuteBg, setCuteBg] = useState(false);
+
+  // Bonus state
+  const [bonuses, setBonuses] = useState<any[]>([]);
+  const [myBonusClaims, setMyBonusClaims] = useState<any[]>([]);
+  const [claimingBonusId, setClaimingBonusId] = useState<string | null>(null);
+  const [claimNote, setClaimNote] = useState('');
 
   const avatarSrc = useMemo(() => {
     const u = child?.avatarUrl || null;
@@ -200,6 +206,14 @@ export default function ChildDashboard() {
           setBalance(b.balance);
           setLedger(b.entries || []);
         }
+        // Fetch bonuses
+        try {
+          const bonusToken = localStorage.getItem('childToken');
+          const rBonuses = await fetch(`/api/families/${data.familyId}/bonuses`, { headers: { Authorization: bonusToken ? `Bearer ${bonusToken}` : '' } });
+          setBonuses(rBonuses.ok ? await rBonuses.json() : []);
+          // Fetch child's own bonus claims by getting all and filtering, or use the bonus list metadata
+          // We'll track my claims via a dedicated state update after claiming
+        } catch { setBonuses([]); }
         try { setSelectedAvatarUrl(data.avatarUrl || null); } catch {}
         // Restore background pattern if present
         try {
@@ -264,6 +278,7 @@ export default function ChildDashboard() {
           <button className={`btn text-start mb-2 ${section === 'home' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('home'); setMenuOpen(false); }}>Home</button>
           <button className={`btn text-start mb-2 ${section === 'bank' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('bank'); setMenuOpen(false); }}>Bank Account</button>
           <button className={`btn text-start mb-2 ${section === 'goals' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('goals'); setMenuOpen(false); }}>Goals</button>
+          <button className={`btn text-start mb-2 ${section === 'bonuses' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('bonuses'); setMenuOpen(false); }}>Bonuses</button>
           <button className={`btn text-start ${section === 'profile' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('profile'); setMenuOpen(false); }}>Profile</button>
         </nav>
       </aside>
@@ -903,6 +918,124 @@ export default function ChildDashboard() {
                         </ul>
                       </div>
                     )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {section === 'bonuses' && (
+        <div className="row g-3 mt-1">
+          <div className="col-12">
+            <div className="card card--interactive h-100">
+              <div className="card-body">
+                <h2 className="h6 mb-3">🎁 Bonus Opportunities</h2>
+                {bonuses.filter((b) => b.active).length === 0 ? (
+                  <div className="text-muted">
+                    <div className="fs-4 mb-1">🎁</div>
+                    No bonus opportunities right now. Check back later!
+                  </div>
+                ) : (
+                  <div className="row g-3">
+                    {bonuses.filter((b) => b.active).map((bonus: any) => {
+                      const myPending = myBonusClaims.find((cl) => cl.bonusId === bonus.id && (cl.status === 'pending' || cl.status === 'approved'));
+                      const alreadyClaimed = bonus.claimType === 'one-time' && !!myPending;
+                      return (
+                        <div key={bonus.id} className="col-12 col-md-6">
+                          <div className="card shadow-sm h-100">
+                            <div className="card-body">
+                              <div className="d-flex justify-content-between align-items-start gap-2">
+                                <div className="flex-grow-1">
+                                  <div className="fw-semibold">{bonus.name}</div>
+                                  {bonus.description && <div className="small text-muted">{bonus.description}</div>}
+                                </div>
+                                <span className="badge bg-warning text-dark flex-shrink-0">+{bonus.value} coins</span>
+                              </div>
+                              <div className="mt-2">
+                                <span className="badge bg-light text-dark small">{bonus.claimType === 'one-time' ? 'One-time bonus' : 'Unlimited claims'}</span>
+                              </div>
+                              {claimingBonusId === bonus.id ? (
+                                <div className="mt-3">
+                                  <label className="form-label small">Note (optional)</label>
+                                  <textarea
+                                    className="form-control form-control-sm mb-2"
+                                    rows={2}
+                                    placeholder="Tell your parent what you did..."
+                                    value={claimNote}
+                                    onChange={(e) => setClaimNote(e.target.value)}
+                                    autoFocus
+                                  />
+                                  <div className="d-flex gap-2">
+                                    <button
+                                      className="btn btn-primary btn-sm"
+                                      onClick={async () => {
+                                        const tok = localStorage.getItem('childToken');
+                                        const r = await fetch(`/api/bonuses/${bonus.id}/claim`, {
+                                          method: 'POST',
+                                          headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' },
+                                          body: JSON.stringify({ note: claimNote || undefined }),
+                                        });
+                                        if (r.ok) {
+                                          const claim = await r.json();
+                                          setMyBonusClaims((prev) => [claim, ...prev]);
+                                          setClaimingBonusId(null);
+                                          setClaimNote('');
+                                          push('success', 'Bonus claimed! Waiting for parent approval.');
+                                          // Refresh bonus list to update one-time status
+                                          const rBonuses = await fetch(`/api/families/${child?.familyId}/bonuses`, { headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
+                                          if (rBonuses.ok) setBonuses(await rBonuses.json());
+                                        } else {
+                                          try { const err = await r.json(); push('error', err?.error || 'Claim failed'); } catch { push('error', 'Claim failed'); }
+                                        }
+                                      }}
+                                    >Submit Claim</button>
+                                    <button className="btn btn-outline-secondary btn-sm" onClick={() => { setClaimingBonusId(null); setClaimNote(''); }}>Cancel</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="mt-3">
+                                  {alreadyClaimed ? (
+                                    <button className="btn btn-sm btn-outline-secondary" disabled>Already claimed</button>
+                                  ) : (
+                                    <button
+                                      className="btn btn-primary btn-sm"
+                                      onClick={() => { setClaimingBonusId(bonus.id); setClaimNote(''); }}
+                                    >Claim</button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {myBonusClaims.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="h6 mb-2">My Claims</h3>
+                    <ul className="list-group list-group-flush">
+                      {myBonusClaims.map((claim: any) => {
+                        const bonus = bonuses.find((b) => b.id === claim.bonusId);
+                        return (
+                          <li key={claim.id} className="list-group-item d-flex justify-content-between align-items-start gap-2 px-0">
+                            <div className="flex-grow-1">
+                              <div className="fw-semibold">{bonus?.name || 'Bonus'}</div>
+                              {claim.note && <div className="small text-muted">{claim.note}</div>}
+                              {claim.status === 'rejected' && claim.rejectionReason && (
+                                <div className="small text-danger">Reason: {claim.rejectionReason}</div>
+                              )}
+                            </div>
+                            {claim.status === 'pending' && <span className="badge bg-warning text-dark">Pending</span>}
+                            {claim.status === 'approved' && <span className="badge bg-success text-white">Approved</span>}
+                            {claim.status === 'rejected' && <span className="badge bg-danger text-white">Rejected</span>}
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
                 )}
               </div>

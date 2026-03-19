@@ -3,6 +3,8 @@ import { Chore, Completion } from './chores.types';
 import { LedgerEntry } from './bank.types';
 import { SaverItem } from './savers.types';
 import { UploadRecord, UploadScope } from './uploads.types';
+import { Bonus, BonusClaim } from './bonus.types';
+import { ActivityEntry } from './activity.types';
 import crypto from 'crypto';
 
 export interface UsersRepository {
@@ -290,4 +292,93 @@ export interface UploadsRepository {
   createUpload(rec: UploadRecord): Promise<UploadRecord>;
   listUploads(ownerRole: 'child'|'parent', ownerId: string, scope?: UploadScope): Promise<UploadRecord[]>;
   getUploadById(id: string): Promise<UploadRecord | undefined>;
+}
+
+export interface BonusRepository {
+  createBonus(bonus: Bonus): Promise<Bonus>;
+  updateBonus(bonus: Bonus): Promise<Bonus>;
+  deleteBonus(id: string): Promise<void>;
+  getBonusById(id: string): Promise<Bonus | undefined>;
+  listBonusesByFamily(familyId: string): Promise<Bonus[]>;
+  createClaim(claim: BonusClaim): Promise<BonusClaim>;
+  getClaimById(id: string): Promise<BonusClaim | undefined>;
+  listClaimsByBonus(bonusId: string): Promise<BonusClaim[]>;
+  listPendingClaimsByFamily(familyId: string): Promise<BonusClaim[]>;
+  hasChildClaimed(bonusId: string, childId: string): Promise<boolean>;
+  updateClaim(claim: BonusClaim): Promise<BonusClaim>;
+}
+
+export interface ActivityRepository {
+  addEntry(entry: ActivityEntry): Promise<ActivityEntry>;
+  listByFamily(familyId: string, opts?: { limit?: number; before?: string }): Promise<ActivityEntry[]>;
+}
+
+export class InMemoryActivityRepo implements ActivityRepository {
+  private entries: ActivityEntry[] = [];
+
+  async addEntry(entry: ActivityEntry): Promise<ActivityEntry> {
+    this.entries.push(entry);
+    return entry;
+  }
+
+  async listByFamily(familyId: string, opts?: { limit?: number; before?: string }): Promise<ActivityEntry[]> {
+    const limit = opts?.limit ?? 50;
+    const before = opts?.before;
+    let result = this.entries.filter((e) => e.familyId === familyId);
+    if (before) {
+      result = result.filter((e) => e.createdAt < before);
+    }
+    result.sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
+    return result.slice(0, limit);
+  }
+}
+
+export class InMemoryBonusRepo implements BonusRepository {
+  private bonuses = new Map<string, Bonus>();
+  private claims = new Map<string, BonusClaim>();
+
+  async createBonus(bonus: Bonus): Promise<Bonus> {
+    this.bonuses.set(bonus.id, bonus);
+    return bonus;
+  }
+  async updateBonus(bonus: Bonus): Promise<Bonus> {
+    this.bonuses.set(bonus.id, bonus);
+    return bonus;
+  }
+  async deleteBonus(id: string): Promise<void> {
+    this.bonuses.delete(id);
+  }
+  async getBonusById(id: string): Promise<Bonus | undefined> {
+    return this.bonuses.get(id);
+  }
+  async listBonusesByFamily(familyId: string): Promise<Bonus[]> {
+    return Array.from(this.bonuses.values()).filter((b) => b.familyId === familyId);
+  }
+  async createClaim(claim: BonusClaim): Promise<BonusClaim> {
+    this.claims.set(claim.id, claim);
+    return claim;
+  }
+  async getClaimById(id: string): Promise<BonusClaim | undefined> {
+    return this.claims.get(id);
+  }
+  async listClaimsByBonus(bonusId: string): Promise<BonusClaim[]> {
+    return Array.from(this.claims.values()).filter((c) => c.bonusId === bonusId);
+  }
+  async listPendingClaimsByFamily(familyId: string): Promise<BonusClaim[]> {
+    const bonusIds = Array.from(this.bonuses.values())
+      .filter((b) => b.familyId === familyId)
+      .map((b) => b.id);
+    return Array.from(this.claims.values()).filter(
+      (c) => c.status === 'pending' && bonusIds.includes(c.bonusId)
+    );
+  }
+  async hasChildClaimed(bonusId: string, childId: string): Promise<boolean> {
+    return Array.from(this.claims.values()).some(
+      (c) => c.bonusId === bonusId && c.childId === childId
+    );
+  }
+  async updateClaim(claim: BonusClaim): Promise<BonusClaim> {
+    this.claims.set(claim.id, claim);
+    return claim;
+  }
 }
