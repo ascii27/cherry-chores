@@ -17,5 +17,6 @@ export interface GetObjectResult {
 export interface StorageProvider {
   presignPost(opts: { key: string; contentType: string; expiresIn?: number }): Promise<PresignPostResult>;
   getObject(key: string): Promise<GetObjectResult>;
+  deleteObject(key: string): Promise<void>;
   publicUrl(key: string): string;
 }

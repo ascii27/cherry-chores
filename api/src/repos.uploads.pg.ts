@@ -41,5 +41,12 @@ export class PgUploadsRepo {
     const row = r.rows[0];
     return { id: row.id, ownerRole: row.owner_role, ownerId: row.owner_id, scope: row.scope, key: row.s3_key, url: row.url, createdAt: row.created_at?.toISOString?.() || row.created_at };
   }
+
+  async deleteUpload(id: string, ownerRole: string, ownerId: string): Promise<UploadRecord | undefined> {
+    const rec = await this.getUploadById(id);
+    if (!rec || rec.ownerRole !== ownerRole || rec.ownerId !== ownerId) return undefined;
+    await this.pool.query('DELETE FROM uploads WHERE id=$1', [id]);
+    return rec;
+  }
 }
 

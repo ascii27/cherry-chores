@@ -49,6 +49,14 @@ export class LocalStorage implements StorageProvider {
     };
   }
 
+  async deleteObject(key: string): Promise<void> {
+    const fullPath = path.join(this.uploadDir, key);
+    const resolvedDir = path.resolve(this.uploadDir);
+    const resolvedPath = path.resolve(fullPath);
+    if (!resolvedPath.startsWith(resolvedDir + path.sep)) throw new Error('invalid key path');
+    fs.rmSync(resolvedPath, { force: true });
+  }
+
   publicUrl(key: string): string {
     return `/uploads/serve?key=${encodeURIComponent(key)}`;
   }

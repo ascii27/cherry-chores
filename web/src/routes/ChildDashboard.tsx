@@ -1105,13 +1105,28 @@ export default function ChildDashboard() {
                         </button>
                       ))}
                       {avatarUploads.map((a) => (
-                        <button key={a.id} type="button" className="btn btn-outline-secondary" onClick={() => {
-                          setSelectedAvatarId(a.id);
-                          
-                          setSelectedAvatarUrl(a.url);
-                        }}>
-                          <img src={serveImgUrl(a.url)} alt="uploaded avatar" style={{ width: 28, height: 28 }} />
-                        </button>
+                        <div key={a.id} className="position-relative d-inline-block">
+                          <button type="button" className="btn btn-outline-secondary" onClick={() => {
+                            setSelectedAvatarId(a.id);
+                            setSelectedAvatarUrl(a.url);
+                          }}>
+                            <img src={serveImgUrl(a.url)} alt="uploaded avatar" style={{ width: 28, height: 28 }} />
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-sm position-absolute top-0 end-0 p-0 lh-1"
+                            style={{ width: 16, height: 16, fontSize: 10, transform: 'translate(40%,-40%)', zIndex: 1 }}
+                            title="Delete"
+                            onClick={async () => {
+                              const tok = localStorage.getItem('childToken');
+                              const r = await fetch(`/uploads/${encodeURIComponent(a.id)}`, { method: 'DELETE', headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
+                              if (r.ok || r.status === 404) {
+                                setAvatarUploads((prev) => prev.filter((x) => x.id !== a.id));
+                                if (selectedAvatarId === a.id) { setSelectedAvatarId(null); setSelectedAvatarUrl(null); }
+                              } else { try { push('error', 'Delete failed'); } catch {} }
+                            }}
+                          >×</button>
+                        </div>
                       ))}
                       <div className="d-flex align-items-center gap-2">
                         <input type="file" accept="image/*" className="form-control" style={{ maxWidth: 260 }} onChange={(ev) => {
@@ -1150,17 +1165,38 @@ export default function ChildDashboard() {
                           </button>
                         ))}
                         {patternUploads.map((patt) => (
-                          <button key={patt.id} type="button" className="btn btn-outline-secondary" onClick={() => {
-                            if (child?.id) {
-                              localStorage.setItem(`child_pattern_id_${child.id}`, patt.id);
-                              localStorage.setItem(`child_pattern_${child.id}`, patt.url);
-                            }
-                            document.documentElement.style.setProperty('--pattern-image', `url("${patt.url}")`);
-                            document.body.classList.add('cute-bg-on');
-                            setCuteBg(true);
-                          }}>
-                            <img src={serveImgUrl(patt.url)} alt="uploaded pattern" style={{ width: 28, height: 28 }} />
-                          </button>
+                          <div key={patt.id} className="position-relative d-inline-block">
+                            <button type="button" className="btn btn-outline-secondary" onClick={() => {
+                              if (child?.id) {
+                                localStorage.setItem(`child_pattern_id_${child.id}`, patt.id);
+                                localStorage.setItem(`child_pattern_${child.id}`, patt.url);
+                              }
+                              document.documentElement.style.setProperty('--pattern-image', `url("${patt.url}")`);
+                              document.body.classList.add('cute-bg-on');
+                              setCuteBg(true);
+                            }}>
+                              <img src={serveImgUrl(patt.url)} alt="uploaded pattern" style={{ width: 28, height: 28 }} />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-danger btn-sm position-absolute top-0 end-0 p-0 lh-1"
+                              style={{ width: 16, height: 16, fontSize: 10, transform: 'translate(40%,-40%)', zIndex: 1 }}
+                              title="Delete"
+                              onClick={async () => {
+                                const tok = localStorage.getItem('childToken');
+                                const r = await fetch(`/uploads/${encodeURIComponent(patt.id)}`, { method: 'DELETE', headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
+                                if (r.ok || r.status === 404) {
+                                  setPatternUploads((prev) => prev.filter((x) => x.id !== patt.id));
+                                  if (child?.id) {
+                                    if (localStorage.getItem(`child_pattern_id_${child.id}`) === patt.id) {
+                                      localStorage.removeItem(`child_pattern_id_${child.id}`);
+                                      localStorage.removeItem(`child_pattern_${child.id}`);
+                                    }
+                                  }
+                                } else { try { push('error', 'Delete failed'); } catch {} }
+                              }}
+                            >×</button>
+                          </div>
                         ))}
                         <div className="d-flex align-items-center gap-2">
                           <input
