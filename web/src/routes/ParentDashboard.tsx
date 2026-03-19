@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import '../styles/app-theme.css';
 import { useToast } from '../components/Toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TopBar from '../components/TopBar';
@@ -54,6 +55,11 @@ export default function ParentDashboard() {
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([]);
   const bonusesRef = useRef<HTMLDivElement | null>(null);
   const activityRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    document.body.classList.add('arcade-body');
+    return () => document.body.classList.remove('arcade-body');
+  }, []);
 
   useEffect(() => {
     const t = hashToken || localStorage.getItem('parentToken');
@@ -336,7 +342,7 @@ export default function ParentDashboard() {
   }
 
   return (
-    <>
+    <div className="arcade-app">
       <TopBar
         name={me?.name || me?.email || 'Parent'}
         avatar={null}
@@ -1704,6 +1710,6 @@ export default function ParentDashboard() {
           <button className="btn btn-outline-secondary touch-target" style={{ minWidth: 120 }} onClick={() => childrenRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Add Coins</button>
         </div>
       </div>
-    </>
+    </div>
   );
 }

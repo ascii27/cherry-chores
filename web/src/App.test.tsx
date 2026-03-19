@@ -7,7 +7,7 @@ describe('Landing page', () => {
     render(<App />);
     // Open parent dialog and check Google sign-in button exists
     fireEvent.click(screen.getByRole('button', { name: /parent sign in/i }));
-    expect(screen.getByRole('button', { name: /parent sign in with google/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sign in with google/i })).toBeInTheDocument();
     // Close and open child dialog, then check child sign-in form exists
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
     fireEvent.click(screen.getByRole('button', { name: /child sign in/i }));

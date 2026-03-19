@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import { useToast } from '../components/Toast';
+import '../styles/app-theme.css';
 
 const TIMEZONES = [
   'America/New_York',
@@ -47,6 +48,11 @@ export default function Settings() {
   const [newTokenLabel, setNewTokenLabel] = useState('');
   const [newTokenValue, setNewTokenValue] = useState<string | null>(null);
   const [creatingToken, setCreatingToken] = useState(false);
+
+  useEffect(() => {
+    document.body.classList.add('arcade-body');
+    return () => document.body.classList.remove('arcade-body');
+  }, []);
 
   useEffect(() => {
     const t = localStorage.getItem('parentToken');
@@ -220,7 +226,7 @@ export default function Settings() {
   }
 
   return (
-    <>
+    <div className="arcade-app">
       <TopBar
         name={me?.name || me?.email || 'Parent'}
         avatar={null}
@@ -456,6 +462,6 @@ export default function Settings() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

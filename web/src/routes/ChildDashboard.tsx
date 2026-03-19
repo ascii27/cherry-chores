@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import '../styles/app-theme.css';
 // Bootstrap Icons (SVGs as URLs for avatars/patterns)
 // Vite resolves '?url' imports to asset URLs at build time
 // Emojis/Playful icons
@@ -256,8 +257,13 @@ export default function ChildDashboard() {
     };
   }, [nav]);
 
+  useEffect(() => {
+    document.body.classList.add('arcade-body');
+    return () => document.body.classList.remove('arcade-body');
+  }, []);
+
   return (
-    <React.Fragment>
+    <div className="arcade-app">
       <TopBar
         name={child?.displayName || 'Welcome'}
         avatar={avatarSrc}
@@ -1323,6 +1329,6 @@ export default function ChildDashboard() {
 
       
       </div>
-    </React.Fragment>
+    </div>
   );
 }

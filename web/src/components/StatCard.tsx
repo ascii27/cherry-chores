@@ -2,7 +2,7 @@ import React from 'react';
 
 export default function StatCard({ icon, label, value, accent }: { icon?: string; label: string; value: React.ReactNode; accent?: string | null }) {
   return (
-    <div className="stat-card d-flex align-items-center justify-content-between">
+    <div className="stat-card app-stat-card d-flex align-items-center justify-content-between">
       <div>
         <div className="label">{label}</div>
         <div className="value">{value}</div>
