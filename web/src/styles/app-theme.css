@@ -1,0 +1,786 @@
+/* =========================================================
+   Cherry Chores — App Theme (Parent & Child Dashboards)
+   Scoped under .arcade-app — matches landing page aesthetic
+   Dark Navy · Cherry Red · Gold · Fredoka + Nunito
+   ========================================================= */
+
+/* ── Body background when app is active ── */
+.arcade-body {
+  background: #0A0720 !important;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Noise grain on body */
+.arcade-body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+}
+
+/* Background blobs for depth */
+.arcade-body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(800px 600px at -5% 10%, rgba(232, 41, 76, 0.1) 0%, transparent 60%),
+    radial-gradient(600px 500px at 105% 20%, rgba(61, 31, 143, 0.12) 0%, transparent 60%),
+    radial-gradient(500px 400px at 50% 100%, rgba(255, 184, 0, 0.06) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Root wrapper ── */
+.arcade-app {
+  /* Token overrides */
+  --bg: #0A0720;
+  --surface: #14102E;
+  --surface-2: #1E1547;
+  --text: rgba(255, 255, 255, 0.92);
+  --text-muted: rgba(255, 255, 255, 0.5);
+  --primary: #E8294C;
+  --primary-light: rgba(232, 41, 76, 0.15);
+  --primary-light-2: rgba(232, 41, 76, 0.25);
+  --primary-2: #FF4D6D;
+  --success: #22D06A;
+  --warning: #FFB800;
+  --danger: #FF5757;
+  --border: rgba(255, 255, 255, 0.09);
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --shadow-s1: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-s2: 0 4px 20px rgba(0, 0, 0, 0.35);
+  --shadow-s3: 0 8px 40px rgba(0, 0, 0, 0.5);
+  --accent: #E8294C;
+
+  font-family: 'Nunito', system-ui, sans-serif;
+  color: rgba(255, 255, 255, 0.92);
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}
+
+/* ── Typography ── */
+.arcade-app h1,
+.arcade-app h2,
+.arcade-app h3,
+.arcade-app h4,
+.arcade-app .h1,
+.arcade-app .h2,
+.arcade-app .h3,
+.arcade-app .h4,
+.arcade-app .h5,
+.arcade-app .h6 {
+  font-family: 'Fredoka', sans-serif;
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 600;
+}
+
+.arcade-app .text-muted,
+.arcade-app .form-text {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.arcade-app .fw-semibold,
+.arcade-app .fw-medium {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.arcade-app a {
+  color: #FF4D6D;
+}
+
+/* ── TopBar ── */
+.arcade-app .cc-topbar {
+  background: rgba(20, 16, 46, 0.85) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  /* Cherry gradient strip at very top */
+  border-top: 3px solid transparent !important;
+  background-clip: padding-box;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+/* Accent strip via pseudo overlay */
+.arcade-app .cc-topbar::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #E8294C 0%, #FFB800 50%, #5A2FD4 100%);
+  pointer-events: none;
+}
+
+.arcade-app .cc-topbar .fw-semibold,
+.arcade-app .cc-topbar a,
+.arcade-app .cc-topbar span,
+.arcade-app .cc-topbar button {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.arcade-app .cc-topbar .btn-link {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.arcade-app .cc-topbar .btn-outline-secondary {
+  color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+  padding: 4px 12px;
+}
+.arcade-app .cc-topbar .btn-outline-secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+/* Brand in topbar */
+.arcade-app .cc-topbar .brand {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 22px;
+  color: #fff;
+}
+
+/* ── Sidebar / Drawer ── */
+.arcade-app aside {
+  background: #0D0A24 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.07) !important;
+  box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Sidebar header */
+.arcade-app aside .fw-semibold {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Sidebar nav buttons */
+.arcade-app aside .btn-outline-secondary {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.65);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 14px;
+  transition: background 150ms, color 150ms, border-color 150ms;
+}
+.arcade-app aside .btn-outline-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Active sidebar button */
+.arcade-app aside .btn-primary {
+  background: linear-gradient(135deg, #E8294C 0%, #FF4D6D 100%) !important;
+  border: none !important;
+  color: #fff !important;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 10px 14px;
+  box-shadow: 0 4px 14px rgba(232, 41, 76, 0.35);
+}
+
+/* Sidebar close button */
+.arcade-app aside .btn-sm.btn-outline-secondary {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* Sidebar overlay */
+.arcade-app + div[role="button"],
+.arcade-body > div[style*="rgba(0,0,0,0.25)"] {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ── Cards ── */
+.arcade-app .card,
+.arcade-app .cc-card {
+  background: #14102E !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35) !important;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.arcade-app .card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 20px 20px 0 0;
+  pointer-events: none;
+}
+.arcade-app .card { position: relative; overflow: hidden; }
+
+.arcade-app .card:hover {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.arcade-app .card-body {
+  position: relative;
+  z-index: 1;
+}
+
+.arcade-app .card-header {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: 'Fredoka', sans-serif;
+}
+
+/* Shadow-sm override */
+.arcade-app .shadow-sm {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ── Stat Cards ── */
+.arcade-app .stat-card {
+  background: #14102E !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35) !important;
+  padding: 18px 20px !important;
+  color: rgba(255, 255, 255, 0.92);
+  position: relative;
+  overflow: hidden;
+}
+.arcade-app .stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #E8294C, #FFB800);
+  opacity: 0.6;
+}
+
+.arcade-app .stat-card .label {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.arcade-app .stat-card .value {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.arcade-app .app-stat-card .icon {
+  font-size: 28px;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(232, 41, 76, 0.15);
+  border-radius: 14px;
+  box-shadow: 0 0 16px rgba(232, 41, 76, 0.2);
+  flex-shrink: 0;
+}
+
+/* ── Progress Bars ── */
+.arcade-app .progress-round {
+  background: rgba(255, 255, 255, 0.08) !important;
+  height: 10px;
+}
+.arcade-app .progress-round > span {
+  background: linear-gradient(90deg, #E8294C 0%, #FFB800 100%) !important;
+  box-shadow: 0 0 8px rgba(232, 41, 76, 0.4);
+}
+
+/* ── Week Calendar ── */
+.arcade-app .wk-card { background: transparent; padding: 0; }
+.arcade-app .wk-head h2 {
+  font-family: 'Fredoka', sans-serif;
+  color: #fff;
+  font-size: 20px;
+}
+.arcade-app .wk-meta { color: rgba(255, 255, 255, 0.5); }
+.arcade-app .wk-meta .chip {
+  background: rgba(232, 41, 76, 0.15);
+  color: #FF4D6D;
+  border: 1px solid rgba(232, 41, 76, 0.25);
+}
+.arcade-app .wk-progress {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+.arcade-app .wk-progress > span {
+  background: linear-gradient(90deg, #E8294C, #FFB800);
+}
+.arcade-app .wk-grid {
+  border-color: rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.arcade-app .wk-col { border-right-color: rgba(255, 255, 255, 0.05); }
+.arcade-app .wk-col-head {
+  background: #1E1547;
+  padding: 12px 10px;
+}
+.arcade-app .wk-day { color: rgba(255, 255, 255, 0.5); font-size: 11px; }
+.arcade-app .wk-daydate { color: rgba(255, 255, 255, 0.4); }
+.arcade-app .wk-cell { background: #14102E; min-height: 120px; }
+.arcade-app .wk-cell:hover { background: #1A1440; }
+.arcade-app .wk-cell.is-selected {
+  background: rgba(232, 41, 76, 0.08);
+  outline-color: #E8294C;
+}
+.arcade-app .wk-task .name { color: rgba(255, 255, 255, 0.85); font-size: 12px; }
+.arcade-app .wk-task .name:hover { color: #FF4D6D; }
+.arcade-app .wk-box {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.arcade-app .wk-box.ok {
+  background: rgba(34, 208, 106, 0.15);
+  color: #22D06A;
+  border-color: #22D06A;
+}
+.arcade-app .wk-box.miss {
+  background: rgba(255, 87, 87, 0.15);
+  color: #FF5757;
+  border-color: #FF5757;
+}
+.arcade-app .wk-badge.done {
+  background: rgba(34, 208, 106, 0.15);
+  color: #22D06A;
+}
+.arcade-app .wk-badge.missed {
+  background: rgba(255, 87, 87, 0.15);
+  color: #FF5757;
+}
+.arcade-app .wk-badge.upcoming {
+  background: rgba(232, 41, 76, 0.15);
+  color: #FF4D6D;
+}
+
+/* Week calendar table highlight for today */
+.arcade-app .table-primary,
+.arcade-app .table-primary td,
+.arcade-app .table-primary th {
+  background: rgba(232, 41, 76, 0.12) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  --bs-table-bg: rgba(232, 41, 76, 0.12);
+  --bs-table-accent-bg: rgba(232, 41, 76, 0.12);
+  --bs-table-color: rgba(255, 255, 255, 0.9);
+}
+
+/* Mobile accordion calendar */
+.arcade-app .wk-daycard {
+  background: #14102E;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.arcade-app .wk-dow { color: rgba(255, 255, 255, 0.5); }
+.arcade-app .wk-date-sm { color: rgba(255, 255, 255, 0.4); }
+.arcade-app .wk-dayhdr { color: rgba(255, 255, 255, 0.9); }
+.arcade-app .wk-chev { stroke: rgba(255, 255, 255, 0.4); }
+.arcade-app .wk-panel { border-top-color: rgba(255, 255, 255, 0.06); }
+.arcade-app .wk-pv {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.6);
+}
+.arcade-app .wk-pv.done {
+  background: rgba(34, 208, 106, 0.12);
+  color: #22D06A;
+}
+.arcade-app .wk-task-row .name { color: rgba(255, 255, 255, 0.85); }
+.arcade-app .wk-badge.coins {
+  background: rgba(255, 184, 0, 0.15);
+  color: #FFB800;
+}
+.arcade-app .wk-badge.progress {
+  background: rgba(34, 208, 106, 0.15);
+  color: #22D06A;
+}
+
+/* ── Buttons ── */
+/* Primary — cherry gradient */
+.arcade-app .btn-primary {
+  background: linear-gradient(135deg, #E8294C 0%, #FF4D6D 100%) !important;
+  border: none !important;
+  color: #fff !important;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(232, 41, 76, 0.4) !important;
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: transparent;
+  --bs-btn-color: #fff;
+  --bs-btn-hover-color: #fff;
+}
+.arcade-app .btn-primary:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 6px 20px rgba(232, 41, 76, 0.5) !important;
+}
+.arcade-app .btn-primary:disabled {
+  opacity: 0.5;
+  filter: none;
+}
+
+/* Success — green */
+.arcade-app .btn-success {
+  background: linear-gradient(135deg, #22D06A 0%, #16A34A 100%) !important;
+  border: none !important;
+  color: #fff !important;
+  font-weight: 700;
+  box-shadow: 0 3px 12px rgba(34, 208, 106, 0.35) !important;
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: transparent;
+  --bs-btn-color: #fff;
+}
+.arcade-app .btn-success:hover {
+  filter: brightness(1.08);
+}
+
+/* Danger */
+.arcade-app .btn-danger {
+  background: linear-gradient(135deg, #FF5757 0%, #DC2626 100%) !important;
+  border: none !important;
+  color: #fff !important;
+  font-weight: 700;
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: transparent;
+  --bs-btn-color: #fff;
+}
+
+/* Outline variants */
+.arcade-app .btn-outline-primary {
+  color: #FF4D6D !important;
+  border-color: rgba(232, 41, 76, 0.4) !important;
+  background: rgba(232, 41, 76, 0.07) !important;
+  font-weight: 600;
+}
+.arcade-app .btn-outline-primary:hover {
+  background: rgba(232, 41, 76, 0.15) !important;
+  border-color: #E8294C !important;
+  color: #fff !important;
+}
+
+.arcade-app .btn-outline-secondary {
+  color: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  font-weight: 600;
+}
+.arcade-app .btn-outline-secondary:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.arcade-app .btn-outline-danger {
+  color: #FF5757 !important;
+  border-color: rgba(255, 87, 87, 0.35) !important;
+  background: rgba(255, 87, 87, 0.07) !important;
+  font-weight: 600;
+}
+.arcade-app .btn-outline-danger:hover {
+  background: rgba(255, 87, 87, 0.15) !important;
+  color: #fff !important;
+}
+
+.arcade-app .btn-link {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+.arcade-app .btn-link:hover {
+  color: #fff !important;
+}
+
+/* ── Badges ── */
+.arcade-app .badge {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.arcade-app .badge.bg-light,
+.arcade-app .badge.bg-secondary { background: rgba(255,255,255,0.1) !important; color: rgba(255,255,255,0.7) !important; }
+.arcade-app .badge.bg-primary    { background: rgba(232,41,76,0.2) !important; color: #FF4D6D !important; border: 1px solid rgba(232,41,76,0.3); }
+.arcade-app .badge.bg-success    { background: rgba(34,208,106,0.15) !important; color: #22D06A !important; border: 1px solid rgba(34,208,106,0.25); }
+.arcade-app .badge.bg-warning    { background: rgba(255,184,0,0.15) !important; color: #FFB800 !important; border: 1px solid rgba(255,184,0,0.25); }
+.arcade-app .badge.bg-danger     { background: rgba(255,87,87,0.15) !important; color: #FF5757 !important; border: 1px solid rgba(255,87,87,0.25); }
+.arcade-app .badge.bg-info       { background: rgba(56,189,248,0.15) !important; color: #38BDF8 !important; border: 1px solid rgba(56,189,248,0.25); }
+.arcade-app .badge.text-dark     { color: rgba(255,255,255,0.85) !important; }
+.arcade-app .badge.text-bg-warning { background: rgba(255,184,0,0.15) !important; color: #FFB800 !important; }
+
+/* ── Chips ── */
+.arcade-app .cc-chip--pending { color: #FFB800; background: rgba(255,184,0,0.12); }
+.arcade-app .cc-chip--done    { color: #22D06A; background: rgba(34,208,106,0.12); }
+.arcade-app .cc-chip--info    { color: #38BDF8; background: rgba(56,189,248,0.12); }
+
+/* ── Tables ── */
+.arcade-app .table {
+  color: rgba(255, 255, 255, 0.85);
+  --bs-table-color: rgba(255, 255, 255, 0.85);
+  --bs-table-bg: transparent;
+  --bs-table-striped-bg: rgba(255, 255, 255, 0.025);
+  --bs-table-hover-bg: rgba(255, 255, 255, 0.04);
+  --bs-table-border-color: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+.arcade-app .table thead th {
+  background: #1E1547;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  padding: 12px 14px;
+}
+.arcade-app .table td,
+.arcade-app .table th {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+  padding: 12px 14px;
+  vertical-align: middle;
+}
+.arcade-app .table > :not(caption) > * > * {
+  background-color: transparent;
+  color: rgba(255, 255, 255, 0.85);
+}
+.arcade-app .table-responsive {
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+/* ── Forms ── */
+.arcade-app .form-control,
+.arcade-app .form-select {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 12px !important;
+  font-family: 'Nunito', sans-serif;
+}
+.arcade-app .form-control::placeholder {
+  color: rgba(255, 255, 255, 0.3) !important;
+}
+.arcade-app .form-control:focus,
+.arcade-app .form-select:focus {
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: #E8294C !important;
+  box-shadow: 0 0 0 3px rgba(232, 41, 76, 0.2) !important;
+  color: #fff !important;
+}
+.arcade-app .form-select option {
+  background: #14102E;
+  color: rgba(255, 255, 255, 0.9);
+}
+.arcade-app .form-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.arcade-app .form-check-input {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.arcade-app .form-check-input:checked {
+  background-color: #E8294C;
+  border-color: #E8294C;
+}
+.arcade-app .form-check-label {
+  color: rgba(255, 255, 255, 0.75);
+}
+.arcade-app .form-control-sm {
+  border-radius: 10px !important;
+  font-size: 14px;
+}
+
+/* ── Nav Tabs ── */
+.arcade-app .nav-tabs {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.arcade-app .nav-tabs .nav-link {
+  color: rgba(255, 255, 255, 0.5);
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 10px 16px;
+  transition: color 150ms, border-color 150ms;
+}
+.arcade-app .nav-tabs .nav-link:hover {
+  color: rgba(255, 255, 255, 0.8);
+  border-bottom-color: rgba(255, 255, 255, 0.2);
+  background: transparent;
+}
+.arcade-app .nav-tabs .nav-link.active {
+  color: #FF4D6D;
+  border-bottom-color: #E8294C;
+  background: transparent;
+}
+.arcade-app .nav-tabs .nav-link .badge {
+  margin-left: 6px;
+}
+
+/* ── Alert ── */
+.arcade-app .alert-warning {
+  background: rgba(255, 184, 0, 0.1) !important;
+  border: 1px solid rgba(255, 184, 0, 0.25) !important;
+  color: #FFB800 !important;
+  border-radius: 12px;
+}
+.arcade-app .alert-warning code {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ── List Group ── */
+.arcade-app .list-group-item,
+.arcade-app .list-group-flush .list-group-item {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ── Border utilities ── */
+.arcade-app .border,
+.arcade-app .border-bottom,
+.arcade-app .border-top {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+.arcade-app .border-danger {
+  border-color: rgba(255, 87, 87, 0.4) !important;
+}
+
+/* ── Toast ── */
+.arcade-body .cc-toast {
+  background: #1E1547 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4) !important;
+}
+.arcade-body .cc-toast--success { border-left-color: #22D06A !important; }
+.arcade-body .cc-toast--error   { border-left-color: #FF5757 !important; }
+.arcade-body .cc-toast--info    { border-left-color: #E8294C !important; }
+
+/* ── Sticky mobile footer ── */
+.arcade-app .mobile-payout-bar,
+.arcade-app [style*="rgba(255,255,255,0.95)"] {
+  background: rgba(10, 7, 32, 0.92) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+/* ── Section headings inside cards ── */
+.arcade-app .card-body > h2,
+.arcade-app .card-body > h3,
+.arcade-app .card-body .h5,
+.arcade-app .card-body .h6 {
+  font-family: 'Fredoka', sans-serif;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* ── Small text ── */
+.arcade-app .small,
+.arcade-app small {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Code ── */
+.arcade-app code {
+  background: rgba(255, 255, 255, 0.08);
+  color: #FF4D6D;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 13px;
+}
+
+/* ── Avatar placeholder ── */
+.arcade-app [style*="var(--primary-light)"] {
+  background: rgba(232, 41, 76, 0.2) !important;
+}
+
+/* ── Switch / toggle ── */
+.arcade-app .form-check-input[type="checkbox"].form-check-input {
+  width: 2.5em;
+  height: 1.3em;
+}
+
+/* ── Container base ── */
+.arcade-app .container {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Text colors ── */
+.arcade-app .text-danger  { color: #FF5757 !important; }
+.arcade-app .text-success { color: #22D06A !important; }
+.arcade-app .text-warning { color: #FFB800 !important; }
+.arcade-app .text-primary { color: #FF4D6D !important; }
+.arcade-app .text-info    { color: #38BDF8 !important; }
+
+/* ── Interactive card ── */
+.arcade-app .card--interactive:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45) !important;
+}
+
+/* ── Coin component ── */
+.arcade-app .coin-pop { filter: drop-shadow(0 0 6px rgba(255, 184, 0, 0.6)); }
+
+/* ── Approval reject reason input ── */
+.arcade-app input[placeholder="Reason (optional)"] {
+  max-width: 200px;
+}
+
+/* ── Cute background pattern (child) — visible on dark bg ── */
+.arcade-body.cute-bg-on::before {
+  opacity: 0.12 !important;
+}
+
+/* ── Settings back button ── */
+.arcade-app .btn-sm.btn-outline-secondary {
+  font-size: 13px;
+  padding: 6px 14px;
+}
+
+/* ── Token creation card ── */
+.arcade-app .card[style*="var(--primary-light)"] {
+  background: rgba(232, 41, 76, 0.08) !important;
+  border-color: rgba(232, 41, 76, 0.2) !important;
+}
+
+/* ── Mobile responsive overrides ── */
+@media (max-width: 639px) {
+  .arcade-app .wk-daycard {
+    background: #14102E;
+    border-color: rgba(255, 255, 255, 0.07);
+  }
+}
+
+/* ── Focus rings ── */
+.arcade-app .btn:focus-visible,
+.arcade-app .form-control:focus,
+.arcade-app .form-select:focus {
+  outline: 2px solid rgba(232, 41, 76, 0.5);
+  outline-offset: 2px;
+}
+
+/* ── Celebration overlay (keep z-index above everything) ── */
+.arcade-app .celebration-wrap {
+  z-index: 9999;
+}
