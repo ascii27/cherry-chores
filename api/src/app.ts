@@ -31,6 +31,7 @@ import { InMemoryBonusRepo, InMemoryActivityRepo } from './repositories';
 import { PgBonusRepo } from './repos.bonus.pg';
 import { PgActivityRepo } from './repos.activity.pg';
 import { activityRoutes } from './routes/activity';
+import { approvalsRoutes } from './routes/approvals';
 
 export function createApp(deps?: { useDb?: boolean }) {
   const app = express();
@@ -100,6 +101,7 @@ export function createApp(deps?: { useDb?: boolean }) {
     app.use(saversRoutes({ savers: saversRepo, users: repos, families: repos, bank: bankRepo }));
     app.use('/api', bonusRoutes({ bonus: bonusRepo, users: repos, families: repos, bank: bankRepo, savers: saversRepo }));
     app.use('/api', activityRoutes({ activity: activityRepo, families: repos }));
+    app.use('/api', approvalsRoutes({ chores: choresRepo, bonus: bonusRepo, bank: bankRepo, users: repos, families: repos, savers: saversRepo, activity: activityRepo }));
     const uploadsRepo = new (require('./repos.uploads.pg').PgUploadsRepo)(pool);
     uploadsRepo.init().catch(() => {});
     app.use(childrenRoutes({ users: repos, families: repos, uploads: uploadsRepo }));
@@ -112,6 +114,7 @@ export function createApp(deps?: { useDb?: boolean }) {
     app.use(saversRoutes({ savers: repos as any, users: repos, families: repos, bank: repos as any }));
     app.use('/api', bonusRoutes({ bonus: bonusRepo, users: repos, families: repos, bank: repos as any, savers: repos as any }));
     app.use('/api', activityRoutes({ activity: activityRepo, families: repos }));
+    app.use('/api', approvalsRoutes({ chores: repos as any, bonus: bonusRepo, bank: repos as any, users: repos, families: repos, savers: repos as any, activity: activityRepo }));
     app.use(childrenRoutes({ users: repos, families: repos }));
   }
 
