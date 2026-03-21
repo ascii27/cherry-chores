@@ -21,6 +21,8 @@ export default function ParentDashboard() {
   const [chores, setChores] = useState<any[]>([]);
   const [approvals, setApprovals] = useState<any[]>([]);
   const [editingChore, setEditingChore] = useState<any | null>(null);
+  const [addRecurrence, setAddRecurrence] = useState('daily');
+  const [editRecurrence, setEditRecurrence] = useState('daily');
   const [bulk, setBulk] = useState<{ [id: string]: boolean }>({});
   const [weeklyByChild, setWeeklyByChild] = useState<Record<string, any>>({});
   const [balances, setBalances] = useState<Record<string, { available: number; reserved: number }>>({});
@@ -735,7 +737,8 @@ export default function ParentDashboard() {
                     const name = (e.currentTarget.querySelector('#ch-name') as HTMLInputElement).value;
                     const valueStr = (e.currentTarget.querySelector('#ch-value') as HTMLInputElement).value;
                     const recurrence = (e.currentTarget.querySelector('#ch-recurrence') as HTMLSelectElement).value;
-                    const dueDayStr = (e.currentTarget.querySelector('#ch-dueDay') as HTMLSelectElement).value;
+                    const dueDayStr = (e.currentTarget.querySelector('#ch-dueDay') as HTMLSelectElement)?.value;
+                    const dueDaysChecked: number[] = Array.from(e.currentTarget.querySelectorAll('input[name="ch-customDay"]:checked')).map((i: any) => parseInt(i.value, 10));
                     const requiresApproval = (e.currentTarget.querySelector('#ch-req') as HTMLInputElement).checked;
                     const assignedIds: string[] = Array.from(e.currentTarget.querySelectorAll('input[name="assignChild"]:checked')).map((i: any) => i.value);
                     const payload = {
@@ -744,6 +747,7 @@ export default function ParentDashboard() {
                       value: parseFloat(valueStr || '0'),
                       recurrence,
                       dueDay: ['weekly','biweekly-odd','biweekly-even'].includes(recurrence) ? parseInt(dueDayStr || '0', 10) : undefined,
+                      dueDays: recurrence === 'custom-days' ? dueDaysChecked : undefined,
                       requiresApproval,
                       assignedChildIds: assignedIds,
                       active: true
@@ -769,20 +773,18 @@ export default function ParentDashboard() {
                   </div>
                   <div className="col-md-3">
                     <label htmlFor="ch-recurrence" className="form-label">Recurrence</label>
-                    <select id="ch-recurrence" className="form-select" defaultValue="daily" onChange={(ev) => {
-                      const sel = (ev.target as HTMLSelectElement).value;
-                      const dd = document.getElementById('ch-dueDay') as HTMLSelectElement;
-                      if (dd) dd.disabled = !['weekly','biweekly-odd','biweekly-even'].includes(sel);
-                    }}>
+                    <select id="ch-recurrence" className="form-select" value={addRecurrence} onChange={(ev) => setAddRecurrence(ev.target.value)}>
                       <option value="daily">Daily</option>
                       <option value="weekly">Weekly</option>
                       <option value="biweekly-odd">Bi-weekly (1st &amp; 3rd)</option>
                       <option value="biweekly-even">Bi-weekly (2nd &amp; 4th)</option>
+                      <option value="custom-days">Days of the week</option>
                     </select>
                   </div>
+                  {['weekly','biweekly-odd','biweekly-even'].includes(addRecurrence) && (
                   <div className="col-md-3">
                     <label htmlFor="ch-dueDay" className="form-label">Due Day</label>
-                    <select id="ch-dueDay" className="form-select" defaultValue="0" disabled>
+                    <select id="ch-dueDay" className="form-select" defaultValue="0">
                       <option value="0">Sunday</option>
                       <option value="1">Monday</option>
                       <option value="2">Tuesday</option>
@@ -792,6 +794,20 @@ export default function ParentDashboard() {
                       <option value="6">Saturday</option>
                     </select>
                   </div>
+                  )}
+                  {addRecurrence === 'custom-days' && (
+                  <div className="col-12">
+                    <label className="form-label">Days of the week</label>
+                    <div className="d-flex flex-wrap gap-3">
+                      {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, i) => (
+                        <div className="form-check" key={i}>
+                          <input className="form-check-input" type="checkbox" name="ch-customDay" id={`ch-day-${i}`} value={i} />
+                          <label className="form-check-label" htmlFor={`ch-day-${i}`}>{day}</label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  )}
                   <div className="col-12">
                     <div className="form-check form-switch">
                       <input id="ch-req" type="checkbox" className="form-check-input" />
@@ -822,7 +838,8 @@ export default function ParentDashboard() {
                       const name = (e.currentTarget.querySelector('#edit-name') as HTMLInputElement).value;
                       const valueStr = (e.currentTarget.querySelector('#edit-value') as HTMLInputElement).value;
                       const recurrence = (e.currentTarget.querySelector('#edit-recurrence') as HTMLSelectElement).value;
-                      const dueDayStr = (e.currentTarget.querySelector('#edit-dueDay') as HTMLSelectElement).value;
+                      const dueDayStr = (e.currentTarget.querySelector('#edit-dueDay') as HTMLSelectElement)?.value;
+                      const dueDaysChecked: number[] = Array.from(e.currentTarget.querySelectorAll('input[name="edit-customDay"]:checked')).map((i: any) => parseInt(i.value, 10));
                       const requiresApproval = (e.currentTarget.querySelector('#edit-req') as HTMLInputElement).checked;
                       const assignedIds: string[] = Array.from(e.currentTarget.querySelectorAll('input[name="editAssignChild"]:checked')).map((i: any) => i.value);
                       const payload: any = {
@@ -830,6 +847,7 @@ export default function ParentDashboard() {
                         value: parseFloat(valueStr || '0'),
                         recurrence,
                         dueDay: ['weekly','biweekly-odd','biweekly-even'].includes(recurrence) ? parseInt(dueDayStr || '0', 10) : undefined,
+                        dueDays: recurrence === 'custom-days' ? dueDaysChecked : undefined,
                         requiresApproval,
                         assignedChildIds: assignedIds
                       };
@@ -856,20 +874,18 @@ export default function ParentDashboard() {
                     </div>
                     <div className="col-md-3">
                       <label htmlFor="edit-recurrence" className="form-label">Recurrence</label>
-                      <select id="edit-recurrence" className="form-select" defaultValue={editingChore?.recurrence || 'daily'} onChange={(ev) => {
-                        const sel = (ev.target as HTMLSelectElement).value;
-                        const dd = document.getElementById('edit-dueDay') as HTMLSelectElement;
-                        if (dd) dd.disabled = !['weekly','biweekly-odd','biweekly-even'].includes(sel);
-                      }}>
+                      <select id="edit-recurrence" className="form-select" value={editRecurrence} onChange={(ev) => setEditRecurrence(ev.target.value)}>
                         <option value="daily">Daily</option>
                         <option value="weekly">Weekly</option>
                         <option value="biweekly-odd">Bi-weekly (1st &amp; 3rd)</option>
                         <option value="biweekly-even">Bi-weekly (2nd &amp; 4th)</option>
+                        <option value="custom-days">Days of the week</option>
                       </select>
                     </div>
+                    {['weekly','biweekly-odd','biweekly-even'].includes(editRecurrence) && (
                     <div className="col-md-3">
                       <label htmlFor="edit-dueDay" className="form-label">Due Day</label>
-                      <select id="edit-dueDay" className="form-select" defaultValue={String(editingChore?.dueDay ?? 0)} disabled={!['weekly','biweekly-odd','biweekly-even'].includes(editingChore?.recurrence || '')}>
+                      <select id="edit-dueDay" className="form-select" defaultValue={String(editingChore?.dueDay ?? 0)}>
                         <option value="0">Sunday</option>
                         <option value="1">Monday</option>
                         <option value="2">Tuesday</option>
@@ -879,6 +895,20 @@ export default function ParentDashboard() {
                         <option value="6">Saturday</option>
                       </select>
                     </div>
+                    )}
+                    {editRecurrence === 'custom-days' && (
+                    <div className="col-12">
+                      <label className="form-label">Days of the week</label>
+                      <div className="d-flex flex-wrap gap-3">
+                        {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((day, i) => (
+                          <div className="form-check" key={i}>
+                            <input className="form-check-input" type="checkbox" name="edit-customDay" id={`edit-day-${i}`} value={i} defaultChecked={editingChore?.dueDays?.includes(i)} />
+                            <label className="form-check-label" htmlFor={`edit-day-${i}`}>{day}</label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    )}
                     <div className="col-12">
                       <div className="form-check form-switch">
                         <input id="edit-req" type="checkbox" className="form-check-input" defaultChecked={!!editingChore?.requiresApproval} />
@@ -922,6 +952,7 @@ export default function ParentDashboard() {
                                 h.recurrence === 'weekly' ? `Weekly (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` :
                                 h.recurrence === 'biweekly-odd' ? `Bi-weekly 1st/3rd (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` :
                                 h.recurrence === 'biweekly-even' ? `Bi-weekly 2nd/4th (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` :
+                                h.recurrence === 'custom-days' ? (h.dueDays?.map((d: number) => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ') || 'Custom days') :
                                 'Daily'
                               }</div>
                               <div className="text-muted small mt-1">Assigned: <span className="text-anywhere">{assigned}</span></div>
@@ -943,7 +974,7 @@ export default function ParentDashboard() {
                                   />
                                   <label className="form-check-label small" htmlFor={`active-m-${h.id}`}>Active</label>
                                 </div>
-                                <button className="btn btn-sm btn-outline-secondary" type="button" onClick={() => setEditingChore(h)}>Edit</button>
+                                <button className="btn btn-sm btn-outline-secondary" type="button" onClick={() => { setEditingChore(h); setEditRecurrence(h.recurrence || 'daily'); }}>Edit</button>
                                 <button className="btn btn-sm btn-outline-danger" type="button" onClick={async () => {
                                   if (!window.confirm('Delete this chore?')) return;
                                   await fetch(`/chores/${h.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
@@ -976,6 +1007,7 @@ export default function ParentDashboard() {
                               h.recurrence === 'weekly' ? `Weekly (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` :
                               h.recurrence === 'biweekly-odd' ? `Bi-weekly 1st/3rd (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` :
                               h.recurrence === 'biweekly-even' ? `Bi-weekly 2nd/4th (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` :
+                              h.recurrence === 'custom-days' ? (h.dueDays?.map((d: number) => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]).join(', ') || 'Custom days') :
                               'Daily'
                             }</td>
                             <td>{h.value}</td>
@@ -1001,7 +1033,7 @@ export default function ParentDashboard() {
                               <button
                                 className="btn btn-sm btn-outline-secondary me-2"
                                 type="button"
-                                onClick={() => setEditingChore(h)}
+                                onClick={() => { setEditingChore(h); setEditRecurrence(h.recurrence || 'daily'); }}
                               >
                                 Edit
                               </button>

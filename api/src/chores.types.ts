@@ -1,4 +1,4 @@
-export type Recurrence = 'daily' | 'weekly' | 'biweekly-odd' | 'biweekly-even';
+export type Recurrence = 'daily' | 'weekly' | 'biweekly-odd' | 'biweekly-even' | 'custom-days';
 
 export interface Chore {
   id: string;
@@ -7,7 +7,8 @@ export interface Chore {
   description?: string;
   value: number;
   recurrence: Recurrence;
-  dueDay?: number; // 0-6 for weekly / biweekly
+  dueDay?: number;   // 0-6 for weekly / biweekly
+  dueDays?: number[]; // 0-6 array for custom-days
   requiresApproval: boolean;
   active: boolean;
   assignedChildIds: string[];

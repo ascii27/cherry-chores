@@ -34,6 +34,7 @@ export class PgChoresRepo implements ChoresRepository {
     // Migrations — safe to run repeatedly
     await this.pool.query(`ALTER TABLE chores ALTER COLUMN value TYPE NUMERIC(10,2)`).catch(() => {});
     await this.pool.query(`ALTER TABLE chores ADD COLUMN IF NOT EXISTS emoji TEXT`);
+    await this.pool.query(`ALTER TABLE chores ADD COLUMN IF NOT EXISTS due_days TEXT`);
   }
 
   private rowToChore(row: any, assignedChildIds: string[]): Chore {
@@ -45,6 +46,7 @@ export class PgChoresRepo implements ChoresRepository {
       value: parseFloat(row.value),
       recurrence: row.recurrence,
       dueDay: row.due_day ?? undefined,
+      dueDays: row.due_days ? JSON.parse(row.due_days) : undefined,
       requiresApproval: row.requires_approval,
       active: row.active,
       assignedChildIds,
@@ -54,8 +56,8 @@ export class PgChoresRepo implements ChoresRepository {
 
   async createChore(chore: Chore): Promise<Chore> {
     await this.pool.query(
-      'INSERT INTO chores(id,family_id,name,description,value,recurrence,due_day,requires_approval,active,emoji) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-      [chore.id, chore.familyId, chore.name, chore.description ?? null, chore.value, chore.recurrence, chore.dueDay ?? null, chore.requiresApproval, chore.active, chore.emoji ?? null]
+      'INSERT INTO chores(id,family_id,name,description,value,recurrence,due_day,requires_approval,active,emoji,due_days) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+      [chore.id, chore.familyId, chore.name, chore.description ?? null, chore.value, chore.recurrence, chore.dueDay ?? null, chore.requiresApproval, chore.active, chore.emoji ?? null, chore.dueDays ? JSON.stringify(chore.dueDays) : null]
     );
     for (const cid of chore.assignedChildIds) {
       await this.pool.query('INSERT INTO chore_assignments(chore_id, child_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [chore.id, cid]);
@@ -64,8 +66,8 @@ export class PgChoresRepo implements ChoresRepository {
   }
   async updateChore(chore: Chore): Promise<Chore> {
     await this.pool.query(
-      'UPDATE chores SET name=$1, description=$2, value=$3, recurrence=$4, due_day=$5, requires_approval=$6, active=$7, emoji=$8 WHERE id=$9',
-      [chore.name, chore.description ?? null, chore.value, chore.recurrence, chore.dueDay ?? null, chore.requiresApproval, chore.active, chore.emoji ?? null, chore.id]
+      'UPDATE chores SET name=$1, description=$2, value=$3, recurrence=$4, due_day=$5, requires_approval=$6, active=$7, emoji=$8, due_days=$9 WHERE id=$10',
+      [chore.name, chore.description ?? null, chore.value, chore.recurrence, chore.dueDay ?? null, chore.requiresApproval, chore.active, chore.emoji ?? null, chore.dueDays ? JSON.stringify(chore.dueDays) : null, chore.id]
     );
     await this.pool.query('DELETE FROM chore_assignments WHERE chore_id=$1', [chore.id]);
     for (const cid of chore.assignedChildIds) {

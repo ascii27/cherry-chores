@@ -47,6 +47,7 @@ function isChoreActiveOnDate(c: Chore, d: Date): boolean {
     const isOdd = occurrence % 2 === 1;
     return c.recurrence === 'biweekly-odd' ? isOdd : !isOdd;
   }
+  if (c.recurrence === 'custom-days') return !!(c.dueDays?.includes(dow));
   return false;
 }
 
@@ -73,7 +74,7 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
 
   // Parent creates chore
   router.post('/chores', requireRole('parent'), async (req: Request, res) => {
-    const { familyId, name, description, value, recurrence, dueDay, requiresApproval, assignedChildIds, active } = req.body || {};
+    const { familyId, name, description, value, recurrence, dueDay, dueDays, requiresApproval, assignedChildIds, active } = req.body || {};
     if (!familyId || !name || typeof value !== 'number' || !recurrence) return res.status(400).json({ error: 'missing fields' });
     const fam = await families.getFamilyById(familyId);
     if (!fam) return res.status(404).json({ error: 'family not found' });
@@ -87,6 +88,7 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
       value,
       recurrence,
       dueDay,
+      dueDays: Array.isArray(dueDays) ? dueDays : undefined,
       requiresApproval: !!requiresApproval,
       active: active !== false,
       assignedChildIds: Array.isArray(assignedChildIds) ? assignedChildIds : [],
@@ -104,7 +106,7 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
     if (!existing) return res.status(404).json({ error: 'not found' });
     const fam = await families.getFamilyById(existing.familyId);
     if (!fam || !fam.parentIds.includes((req as AuthedRequest).user!.id)) return res.status(403).json({ error: 'forbidden' });
-    const { name, description, value, recurrence, dueDay, requiresApproval, active, assignedChildIds } = req.body || {};
+    const { name, description, value, recurrence, dueDay, dueDays, requiresApproval, active, assignedChildIds } = req.body || {};
     const updated: Chore = {
       ...existing,
       name: name ?? existing.name,
@@ -112,6 +114,7 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
       value: typeof value === 'number' ? value : existing.value,
       recurrence: recurrence ?? existing.recurrence,
       dueDay: typeof dueDay === 'number' ? dueDay : existing.dueDay,
+      dueDays: Array.isArray(dueDays) ? dueDays : existing.dueDays,
       requiresApproval: typeof requiresApproval === 'boolean' ? requiresApproval : existing.requiresApproval,
       active: typeof active === 'boolean' ? active : existing.active,
       assignedChildIds: Array.isArray(assignedChildIds) ? assignedChildIds : existing.assignedChildIds
@@ -174,7 +177,7 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
         status: statusFor(c.id, today)
       }));
     } else {
-      items = assigned.filter((c) => c.recurrence === 'daily' || c.dueDay != null).map((c) => ({
+      items = assigned.filter((c) => c.recurrence === 'daily' || c.dueDay != null || c.recurrence === 'custom-days').map((c) => ({
         id: c.id,
         name: c.name,
         description: c.description,
