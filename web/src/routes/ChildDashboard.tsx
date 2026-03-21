@@ -41,8 +41,10 @@ export default function ChildDashboard() {
   const { push } = useToast();
   const [savers, setSavers] = useState<any[]>([]);
   const [editing, setEditing] = useState<{ id: string; field: 'name' | 'target' | 'coins' } | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [section, setSection] = useState<'home' | 'bank' | 'goals' | 'bonuses' | 'profile'>('home');
+  const [section, setSection] = useState<'home' | 'shop' | 'bank' | 'profile'>('home');
+  const [catalog, setCatalog] = useState<any[]>([]);
+  const [purchasing, setPurchasing] = useState<string | null>(null); // item id being confirmed
+  const [buyConfirmItem, setBuyConfirmItem] = useState<any | null>(null);
   const [cuteBg, setCuteBg] = useState(false);
 
   // Bonus state
@@ -225,9 +227,12 @@ export default function ChildDashboard() {
           const bonusToken = localStorage.getItem('childToken');
           const rBonuses = await fetch(`/api/families/${data.familyId}/bonuses`, { headers: { Authorization: bonusToken ? `Bearer ${bonusToken}` : '' } });
           setBonuses(rBonuses.ok ? await rBonuses.json() : []);
-          // Fetch child's own bonus claims by getting all and filtering, or use the bonus list metadata
-          // We'll track my claims via a dedicated state update after claiming
         } catch { setBonuses([]); }
+        try {
+          const tok2 = localStorage.getItem('childToken');
+          const rCatalog = await fetch(`/api/families/${data.familyId}/catalog`, { headers: { Authorization: tok2 ? `Bearer ${tok2}` : '' } });
+          setCatalog(rCatalog.ok ? await rCatalog.json() : []);
+        } catch { setCatalog([]); }
         try { setSelectedAvatarUrl(data.avatarUrl || null); } catch {}
         // Restore background pattern if present
         try {
@@ -272,89 +277,126 @@ export default function ChildDashboard() {
         accent={child?.themeColor || null}
         onNameClick={() => setSection('profile')}
         onAvatarClick={() => setSection('profile')}
-        onMenuToggle={() => setMenuOpen(true)}
         onLogout={() => { try { document.cookie = 'auth=; Path=/; Max-Age=0'; } catch {}; localStorage.removeItem('childToken'); nav('/'); }}
       />
       <Celebration trigger={celebrate} />
       <CoinBurst trigger={coinBurst} />
-      {/* Sidebar overlay and panel */}
-      {menuOpen ? (
-        <div
-          role="button"
-          aria-label="Close menu"
-          onClick={() => setMenuOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 1030 }}
-        />
-      ) : null}
-      <aside
-        aria-label="Navigation"
-        style={{ position: 'fixed', top: 0, bottom: 0, left: 0, width: 260, background: 'var(--surface)', borderRight: '1px solid var(--border)', transform: menuOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 150ms ease', zIndex: 1040, padding: '16px' }}
-      >
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <div className="fw-semibold">Menu</div>
-          <button className="btn btn-sm btn-outline-secondary" onClick={() => setMenuOpen(false)} aria-label="Close menu">Close</button>
+      {/* Buy confirmation modal */}
+      {buyConfirmItem && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 20, padding: 28, maxWidth: 360, width: '100%', textAlign: 'center' }}>
+            {buyConfirmItem.imageUrl && (
+              <img src={buyConfirmItem.imageUrl} alt={buyConfirmItem.name} style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 12, marginBottom: 16 }} />
+            )}
+            <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>{buyConfirmItem.name}</div>
+            <div style={{ color: 'var(--text-muted)', marginBottom: 16 }}>
+              Buy for <strong style={{ color: '#F59E0B' }}>{buyConfirmItem.priceCoins} 🪙</strong>?<br />
+              You have <strong>{balance?.available ?? 0} 🪙</strong>
+            </div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                className="btn btn-outline-secondary"
+                style={{ flex: 1, height: 48 }}
+                onClick={() => setBuyConfirmItem(null)}
+              >Cancel</button>
+              <button
+                className="btn btn-warning"
+                style={{ flex: 1, height: 48, fontWeight: 700 }}
+                disabled={purchasing === buyConfirmItem.id}
+                onClick={async () => {
+                  const item = buyConfirmItem;
+                  setPurchasing(item.id);
+                  const tok = localStorage.getItem('childToken');
+                  try {
+                    const r = await fetch(`/api/catalog/${item.id}/buy`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' },
+                    });
+                    if (r.ok) {
+                      const data = await r.json();
+                      setBalance(data.balance.balance ?? data.balance);
+                      setBuyConfirmItem(null);
+                      setCoinBurst((n) => n + 1);
+                      push('success', `Purchased! Tell a parent to deliver it 🎉`);
+                      // Refresh balance/ledger
+                      const cid = child?.id;
+                      if (cid) {
+                        const rb = await fetch(`/bank/${cid}`);
+                        if (rb.ok) { const b = await rb.json(); setBalance(b.balance); setLedger(b.entries || []); }
+                      }
+                    } else {
+                      const err = await r.json().catch(() => ({}));
+                      push('error', err?.error || 'Purchase failed');
+                    }
+                  } catch { push('error', 'Purchase failed'); }
+                  finally { setPurchasing(null); }
+                }}
+              >Buy Now! 🛍️</button>
+            </div>
+          </div>
         </div>
-        <nav className="nav flex-column">
-          <button className={`btn text-start mb-2 ${section === 'home' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('home'); setMenuOpen(false); }}>🏠 Home</button>
-          <button className={`btn text-start mb-2 ${section === 'bank' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('bank'); setMenuOpen(false); }}>💰 Treasure Chest</button>
-          <button className={`btn text-start mb-2 ${section === 'goals' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('goals'); setMenuOpen(false); }}>🎯 Wish List</button>
-          <button className={`btn text-start mb-2 ${section === 'bonuses' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('bonuses'); setMenuOpen(false); }}>⭐ Bonus Quests</button>
-          <button className={`btn text-start ${section === 'profile' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('profile'); setMenuOpen(false); }}>🎮 Profile</button>
-        </nav>
-      </aside>
+      )}
       <div className="container py-4">
         {section === 'home' && (
           <React.Fragment>
-            {/* ── Goal Hero Card ── */}
+            {/* ── Shop Hero Card ── */}
             {(() => {
-              const activeGoal = savers.find((s) => s.isGoal && !s.completed) ?? null;
-              if (!activeGoal) {
-                return (
-                  <div className="goal-hero-empty">
-                    <strong>No active goal yet 🎯</strong>
-                    Set a goal in your Wish List to start saving!
-                  </div>
-                );
-              }
-              const saved = activeGoal.reserved || 0;
-              const target = activeGoal.target || 1;
-              const pct = Math.min(100, Math.round((saved / target) * 100));
-              const coinsToGo = Math.max(0, target - saved);
+              const avail = balance?.available ?? 0;
               const todayEarnable = today
                 .filter((t: any) => !t.status || t.status === 'due' || t.status === 'planned' || t.status === 'missed')
                 .reduce((s: number, t: any) => s + (t.value || 0), 0);
-              const isComplete = pct >= 100;
+              const affordable = catalog.filter((i) => i.active && avail >= i.priceCoins);
+              const cheapest = catalog.filter((i) => i.active).sort((a, b) => a.priceCoins - b.priceCoins)[0] ?? null;
+              if (catalog.length === 0) {
+                return (
+                  <div className="goal-hero-empty">
+                    <strong>Complete quests to earn coins! ⚔️</strong>
+                    {todayEarnable > 0 && <div>You can earn {todayEarnable} 🪙 today!</div>}
+                  </div>
+                );
+              }
+              if (affordable.length > 0) {
+                const item = affordable[0];
+                return (
+                  <div className="goal-hero goal-hero-complete">
+                    <div className="goal-hero-inner">
+                      <div className="goal-hero-img">
+                        {item.imageUrl ? <img src={item.imageUrl} alt={item.name} /> : '🛍️'}
+                      </div>
+                      <div className="goal-hero-info">
+                        <div className="goal-hero-label">You can buy something!</div>
+                        <div className="goal-hero-name">{item.name}</div>
+                        <div className="goal-hero-meta"><span>{item.priceCoins} 🪙</span></div>
+                        <button className="quest-done-btn mt-1" style={{ fontSize: 14, padding: '6px 14px' }} onClick={() => setSection('shop')}>Go to Shop 🛍️</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              // Cheapest item as goal
+              const saved = avail;
+              const target = cheapest.priceCoins || 1;
+              const pct = Math.min(100, Math.round((saved / target) * 100));
+              const coinsToGo = Math.max(0, target - saved);
               return (
-                <div className={`goal-hero${isComplete ? ' goal-hero-complete' : ''}`}>
+                <div className="goal-hero">
                   <div className="goal-hero-inner">
                     <div className="goal-hero-img">
-                      {activeGoal.imageUrl
-                        ? <img src={activeGoal.imageUrl} alt={activeGoal.name} />
-                        : '🎯'}
+                      {cheapest.imageUrl ? <img src={cheapest.imageUrl} alt={cheapest.name} /> : '🛍️'}
                     </div>
                     <div className="goal-hero-info">
                       <div className="goal-hero-label">Saving for</div>
-                      <div className="goal-hero-name">{activeGoal.name}</div>
+                      <div className="goal-hero-name">{cheapest.name}</div>
                       <div className="goal-hero-bar-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${pct}% saved`}>
                         <div className="goal-hero-bar-fill" style={{ width: `${pct}%` }} />
                       </div>
-                      {isComplete ? (
-                        <div className="goal-hero-meta">
-                          <span>🎉 Goal reached! Ask a parent to approve your payout.</span>
-                        </div>
-                      ) : (
-                        <>
-                          <div className="goal-hero-meta">
-                            <span><strong>{saved}</strong> / {target} coins saved</span>
-                            <span>·</span>
-                            <span><strong>{coinsToGo}</strong> to go</span>
-                          </div>
-                          {todayEarnable > 0 && (
-                            <div className="goal-hero-earn">
-                              ✨ Complete today's quests to earn {todayEarnable} coins!
-                            </div>
-                          )}
-                        </>
+                      <div className="goal-hero-meta">
+                        <span><strong>{saved}</strong> / {target} coins</span>
+                        <span>·</span>
+                        <span><strong>{coinsToGo}</strong> to go</span>
+                      </div>
+                      {todayEarnable > 0 && (
+                        <div className="goal-hero-earn">✨ Earn {todayEarnable} 🪙 today!</div>
                       )}
                     </div>
                   </div>
@@ -620,509 +662,138 @@ export default function ChildDashboard() {
           </div>
         </div>
       </div>
+            {/* ── Inline Bonus Quests ── */}
+            {bonuses.filter((b) => b.active).length > 0 && (
+              <div className="bonus-quests-section mt-3">
+                <h3 className="h6 mb-2">⭐ Bonus Quests</h3>
+                {bonuses.filter((b) => b.active).map((bonus: any) => {
+                  const myPending = myBonusClaims.find((cl) => cl.bonusId === bonus.id && (cl.status === 'pending' || cl.status === 'approved'));
+                  const alreadyClaimed = bonus.claimType === 'one-time' && !!myPending;
+                  return (
+                    <div key={bonus.id} className="bonus-quest-card">
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600 }}>{bonus.name}</div>
+                        {bonus.description && <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{bonus.description}</div>}
+                      </div>
+                      <span className="quest-coins"><GoldCoin size={16} />{bonus.value}</span>
+                      {claimingBonusId === bonus.id ? (
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <input
+                            className="form-control form-control-sm"
+                            style={{ width: 160 }}
+                            placeholder="What did you do?"
+                            value={claimNote}
+                            onChange={(e) => setClaimNote(e.target.value)}
+                            autoFocus
+                          />
+                          <button className="btn btn-sm btn-primary" onClick={async () => {
+                            const tok = localStorage.getItem('childToken');
+                            const r = await fetch(`/api/bonuses/${bonus.id}/claim`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ note: claimNote || undefined }) });
+                            if (r.ok) {
+                              const claim = await r.json();
+                              setMyBonusClaims((prev) => [claim, ...prev]);
+                              setClaimingBonusId(null); setClaimNote('');
+                              push('success', 'Bonus claimed! Waiting for parent approval.');
+                              const rBonuses = await fetch(`/api/families/${child?.familyId}/bonuses`, { headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
+                              if (rBonuses.ok) setBonuses(await rBonuses.json());
+                            } else { push('error', 'Claim failed'); }
+                          }}>Submit</button>
+                          <button className="btn btn-sm btn-outline-secondary" onClick={() => { setClaimingBonusId(null); setClaimNote(''); }}>✕</button>
+                        </div>
+                      ) : alreadyClaimed ? (
+                        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Claimed ✓</span>
+                      ) : (
+                        <button className="quest-done-btn" style={{ fontSize: 13, padding: '6px 14px' }} onClick={() => { setClaimingBonusId(bonus.id); setClaimNote(''); }}>Claim</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </React.Fragment>
         )}
 
+      {/* Section: Shop */}
+      {section === 'shop' && (
+        <div className="mt-2">
+          <h2 className="h5 mb-3">🛍️ Shop</h2>
+          {catalog.filter((i) => i.active).length === 0 ? (
+            <div className="goal-hero-empty">
+              <strong>The shop is empty right now!</strong>
+              Ask your parent to add some items 🛍️
+            </div>
+          ) : (
+            <div className="shop-grid">
+              {catalog.filter((i) => i.active).map((item: any) => {
+                const avail = balance?.available ?? 0;
+                const canAfford = avail >= item.priceCoins;
+                const coinsNeeded = item.priceCoins - avail;
+                return (
+                  <div key={item.id} className="shop-card">
+                    {item.imageUrl ? (
+                      <img src={item.imageUrl} alt={item.name} className="shop-card-img" />
+                    ) : (
+                      <div className="shop-card-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, background: 'var(--surface-2)' }}>🛍️</div>
+                    )}
+                    <div className="shop-card-body">
+                      <div className="shop-card-name">{item.name}</div>
+                      {item.description && <div className="shop-card-desc">{item.description}</div>}
+                      <div className="shop-card-price">
+                        <GoldCoin size={18} /> {item.priceCoins}
+                      </div>
+                      {canAfford ? (
+                        <button
+                          className="shop-buy-btn"
+                          onClick={() => setBuyConfirmItem(item)}
+                        >Buy Now! 🛍️</button>
+                      ) : (
+                        <div>
+                          <div className="shop-progress-track">
+                            <div className="shop-progress-fill" style={{ width: `${Math.min(100, Math.round(((balance?.available ?? 0) / item.priceCoins) * 100))}%` }} />
+                          </div>
+                          <div className="shop-progress-label">Need {coinsNeeded} more 🪙</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Section: Bank Account */}
       {section === 'bank' && (
-      <div className="row g-3 mt-1">
-        <div className="col-12">
-          <div className="card card--interactive h-100">
-            <div className="card-body">
-              <h2 className="h6">💰 Treasure Chest</h2>
-              <div className="mb-2 d-flex flex-wrap gap-3 align-items-center">
-                <div><span className="text-muted me-1">Total:</span><span className="badge bg-light text-dark">{(balance?.available ?? 0) + (balance?.reserved ?? 0)}</span></div>
-                <div><span className="text-muted me-1">Available:</span><span className="badge bg-success-subtle text-dark">{balance?.available ?? 0}</span></div>
-                <div><span className="text-muted me-1">Allocated:</span><span className="badge bg-warning-subtle text-dark">{balance?.reserved ?? 0}</span></div>
-              </div>
-              {savers.filter((s) => (s.reserved || 0) > 0).length > 0 ? (
-                <div className="mb-3">
-                  <div className="small text-muted mb-1">Allocated to goals</div>
-                  <ul className="list-unstyled small mb-0">
-                    {savers.filter((s) => (s.reserved || 0) > 0).map((s) => (
-                      <li key={`alloc-${s.id}`}>{s.name}: <span className="text-muted">{s.reserved}</span></li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-              <form className="d-flex gap-2" onSubmit={(e) => e.preventDefault()}>
-                <input id="spend-amt" type="number" min={1} className="form-control" placeholder="Spend amount" />
-                <button className="btn btn-outline-primary" onClick={async () => {
-                    const cid = child?.id;
-                    if (!cid) return;
-                    const token = localStorage.getItem('childToken');
-                    const amt = parseInt((document.getElementById('spend-amt') as HTMLInputElement).value || '0', 10);
-                    if (!amt) return;
-                    const res = await fetch(`/bank/${cid}/spend`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
-                      body: JSON.stringify({ amount: amt, note: 'spend' })
-                    });
-                    if (res.ok) {
-                      push('success', `Spent ${amt}`);
-                      const rb = await fetch(`/bank/${cid}`);
-                      if (rb.ok) {
-                        const b = await rb.json();
-                        setBalance(b.balance);
-                        setLedger(b.entries || []);
-                        (document.getElementById('spend-amt') as HTMLInputElement).value = '';
-                      }
-                    } else {
-                      try {
-                        const err = await res.json();
-                        push('error', err?.error || 'Spend failed');
-                      } catch {
-                        push('error', 'Spend failed');
-                      }
-                    }
-                  }}>Spend</button>
-              </form>
-              {/* Manual allocation to goals */}
-              {savers.filter((s) => s.isGoal).length > 0 ? (
-                <div className="mt-3">
-                  <div className="small text-muted mb-1">Allocate to a goal</div>
-                  <div className="d-flex gap-2">
-                    <select id="alloc-saver" className="form-select">
-                      {savers.filter((s) => s.isGoal).map((s) => (
-                        <option key={`opt-${s.id}`} value={s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                    <input id="alloc-amt" type="number" min={1} className="form-control" placeholder="Coins" />
-                    <button className="btn btn-outline-warning" onClick={async () => {
-                      const cid = child?.id; if (!cid) return;
-                      const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
-                      const saverId = (document.getElementById('alloc-saver') as HTMLSelectElement).value;
-                      const amt = parseInt((document.getElementById('alloc-amt') as HTMLInputElement).value || '0', 10);
-                      if (!saverId || !amt) return;
-                      const r = await fetch(`/bank/${cid}/allocate`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ saverId, amount: amt }) });
-                      if (r.ok) {
-                        push('success', 'Allocated');
-                        (document.getElementById('alloc-amt') as HTMLInputElement).value = '';
-                        const [rb, rs] = await Promise.all([
-                          fetch(`/bank/${cid}`),
-                          fetch(`/children/${cid}/savers`, { headers: { Authorization: tok ? `Bearer ${tok}` : '' } })
-                        ]);
-                        if (rb.ok) {
-                          const b = await rb.json();
-                          setBalance(b.balance);
-                          setLedger(b.entries || []);
-                        }
-                        setSavers(rs.ok ? await rs.json() : []);
-                      } else {
-                        try { const err = await r.json(); push('error', err?.error || 'Allocation failed'); } catch { push('error', 'Allocation failed'); }
-                      }
-                    }}>Allocate</button>
-                  </div>
-                </div>
-              ) : null}
-              <hr />
-              <div className="small text-muted mb-1">Recent activity</div>
-              {ledger.length === 0 ? (
-                <div className="text-muted small">No activity yet.</div>
-              ) : (
-                <ul className="list-unstyled small mb-0">
-                  {ledger.slice(0, 5).map((e) => {
-                    const when = e.createdAt ? new Date(e.createdAt).toLocaleString() : '';
-                    const whoName = e.actor?.name || e.actor?.email || '';
-                    const role = e.actor?.role ? ` (${e.actor.role})` : '';
-                    const label = e.type === 'payout' ? 'Payout' : e.type === 'spend' ? 'Spend' : 'Adjust';
-                    return (
-                      <li key={e.id}>
-                        <span className={e.amount >= 0 ? 'text-success' : 'text-danger'}>{e.amount >= 0 ? '+' : ''}{e.amount}</span>
-                        {' '}• {label}
-                        {(whoName || role) ? <React.Fragment> • <span className="text-muted">{whoName}{role}</span></React.Fragment> : null}
-                        {when ? <React.Fragment> • <span className="text-muted">{when}</span></React.Fragment> : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
+        <div className="mt-2">
+          <div className="treasure-chest-hero">
+            <div className="treasure-chest-icon">💰</div>
+            <div className="treasure-chest-amount">{balance?.available ?? 0}</div>
+            <div className="treasure-chest-label">coins available</div>
           </div>
-        </div>
-      </div>
-      )}
-
-      {section === 'goals' && (
-        <div className="row g-3 mt-1">
-          <div className="col-12">
-            <div className="card card--interactive h-100">
-              <div className="card-body">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <h2 className="h6 mb-0">🎯 Wish List</h2>
-                  <button
-                    className="btn btn-sm btn-outline-primary"
-                    onClick={async () => {
-                      const cid = child?.id; if (!cid) return;
-                      const token = localStorage.getItem('childToken');
-                      const r = await fetch(`/children/${cid}/savers`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }, body: JSON.stringify({ name: 'New item', target: 1 }) });
-                      if (r.ok) { const created = await r.json(); setSavers((prev) => [created, ...prev]); setEditing({ id: created.id, field: 'name' }); push('success', 'Item added'); }
-                    }}
-                  >Add</button>
-                </div>
-                <div className="text-muted">{savers.length === 0 ? 'No saver items yet.' : `${savers.filter((x) => !x.completed).length} active, ${savers.filter((x) => x.completed).length} achieved.`}</div>
-                {savers.length > 0 && (
-                  <div className="mt-3">
-                    <div className="mb-2 fw-semibold">Active goals</div>
-                    {savers.filter((s) => s.isGoal && !s.completed).length === 0 ? (
-                      <div className="text-muted small">No active goals.</div>
-                    ) : (
-                      <ul className="list-group list-group-flush">
-                        {savers.filter((s) => s.isGoal && !s.completed).map((s) => {
-                          const saved = s.reserved || 0;
-                          const target = s.target || 0;
-                          const weeklyTotal = weekData?.totalPlanned || 0;
-                          const coinsPerWeek = weeklyTotal > 0 ? Math.round((s.allocation || 0) * weeklyTotal / 100) : 0;
-                          const pct = target > 0 ? Math.min(100, Math.round((saved / target) * 100)) : 0;
-                          return (
-                            <li key={s.id} className="list-group-item">
-                              <div className="d-flex justify-content-between align-items-center gap-3">
-                                <div className="d-flex align-items-center gap-3">
-                                  <div style={{ width: 48, height: 48, borderRadius: 6, overflow: 'hidden', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {s.imageUrl ? (
-                                      <img src={s.imageUrl} alt="goal" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                      <span className="text-muted" aria-hidden>🖼️</span>
-                                    )}
-                                  </div>
-                                  <div className="d-flex flex-column">
-                                    <label className="btn btn-sm btn-outline-secondary mb-0" style={{ width: 'fit-content' }}>
-                                      {s.imageUrl ? 'Change picture' : 'Add picture'}
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        style={{ display: 'none' }}
-                                        onChange={async (ev) => {
-                                          const f = (ev.target as HTMLInputElement).files?.[0] || null;
-                                          if (!f) return;
-                                          try {
-                                            const { url } = await uploadToS3('goals', f);
-                                            const tok = localStorage.getItem('childToken');
-                                            const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ imageUrl: url }) });
-                                            if (r.ok) {
-                                              const updated = await r.json();
-                                              setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
-                                              push('success', 'Picture updated');
-                                            } else {
-                                              push('error', 'Update failed');
-                                            }
-                                          } catch {
-                                            push('error', 'Upload failed');
-                                          } finally {
-                                            (ev.target as HTMLInputElement).value = '';
-                                          }
-                                        }}
-                                      />
-                                    </label>
-                                  </div>
-                                </div>
-                                <div className="flex-grow-1">
-                                  {editing?.id === s.id && editing.field === 'name' ? (
-                                    <input
-                                      className="form-control form-control-sm"
-                                      style={{ maxWidth: 420 }}
-                                      defaultValue={s.name || ''}
-                                      autoFocus
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
-                                        if (e.key === 'Escape') setEditing(null);
-                                      }}
-                                      onBlur={async (e) => {
-                                        const name = e.currentTarget.value.trim() || 'Untitled';
-                                        if (name === s.name) { setEditing(null); return; }
-                                        try {
-                                          const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
-                                          const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ name }) });
-                                          if (r.ok) {
-                                            const updated = await r.json(); dbg('save:success', updated);
-                                            setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
-                                            push('success', 'Renamed');
-                                          } else {
-                                            push('error', 'Rename failed');
-                                          }
-                                        } catch {
-                                          push('error', 'Rename failed');
-                                        } finally {
-                                          setEditing(null);
-                                        }
-                                      }}
-                                    />
-                                  ) : (
-                                    <div
-                                      role="button"
-                                      className="fw-semibold"
-                                      onClick={() => setEditing({ id: s.id, field: 'name' })}
-                                      title="Click to rename"
-                                    >
-                                      {s.name || 'Untitled'}
-                                    </div>
-                                  )}
-                                  <div className="small text-muted">Saved {saved} / {target}</div>
-                                  <div className="mt-1"><ProgressBar value={pct} /></div>
-                                </div>
-                                <div className="d-flex align-items-center gap-3 ms-auto">
-                                  {/* Target inline edit, right-justified */}
-                                  <div>
-                                    {editing?.id === s.id && editing.field === 'target' ? (
-                                      <input
-                                        type="number"
-                                        min={1}
-                                        className="form-control form-control-sm text-end"
-                                        style={{ width: 120 }}
-                                        defaultValue={String(target || 1)}
-                                        autoFocus
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur();
-                                          if (e.key === 'Escape') setEditing(null);
-                                        }}
-                                        onBlur={async (e) => {
-                                          const val = parseInt((e.currentTarget.value || '0'), 10);
-                                          const nextTarget = Number.isFinite(val) && val > 0 ? val : target;
-                                          if (nextTarget === target) { setEditing(null); return; }
-                                          try {
-                                            const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
-                                            const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ target: nextTarget }) });
-                                            if (r.ok) {
-                                              const updated = await r.json(); dbg('save:success', updated);
-                                              setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
-                                              push('success', 'Target updated');
-                                            } else {
-                                              push('error', 'Update failed');
-                                            }
-                                          } catch {
-                                            push('error', 'Update failed');
-                                          } finally {
-                                            setEditing(null);
-                                          }
-                                        }}
-                                      />
-                                    ) : (
-                                      <div
-                                        role="button"
-                                        className="text-muted"
-                                        title="Click to edit target"
-                                        onClick={() => setEditing({ id: s.id, field: 'target' })}
-                                      >
-                                        Target: <span className="fw-semibold">{target}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {/* Weekly allocation in coins per week (behaves like target) */}
-                                  <div>
-                                    {editing?.id === s.id && editing.field === 'coins' ? (
-                                      <input
-                                        id={`wk-${s.id}`}
-                                        type="number"
-                                        min={0}
-                                        className="form-control form-control-sm text-end"
-                                        style={{ width: 120 }}
-                                        defaultValue={String(coinsPerWeek)}
-                                        autoFocus
-                                        onKeyDown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); if (e.key === 'Escape') setEditing(null); }}
-                                        onBlur={async (e) => {
-                                          const val = parseInt((e.currentTarget.value || '0'), 10);
-                                          const wk = Number.isFinite(val) && val >= 0 ? val : coinsPerWeek;
-                                          if (wk === coinsPerWeek || weeklyTotal <= 0) { setEditing(null); return; }
-                                          let pct = Math.round((wk / weeklyTotal) * 100);
-                                          pct = Math.max(0, Math.min(100, pct));
-                                          try {
-                                            const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
-                                            const r = await fetch(`/savers/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' }, body: JSON.stringify({ allocation: pct }) });
-                                            if (r.ok) {
-                                              const updated = await r.json(); dbg('save:success', updated);
-                                              setSavers((prev) => prev.map((x) => x.id === s.id ? updated : x));
-                                              push('success', 'Weekly allocation updated');
-                                            } else {
-                                              push('error', 'Allocation failed');
-                                            }
-                                          } catch {
-                                            push('error', 'Allocation failed');
-                                          } finally {
-                                            setEditing(null);
-                                          }
-                                        }}
-                                      />
-                                    ) : (
-                                      <div
-                                        role="button"
-                                        className="text-muted text-end"
-                                        title="Click to edit coins per week"
-                                        onClick={() => setEditing({ id: s.id, field: 'coins' })}
-                                        style={{ width: 120 }}
-                                      >
-                                        coins/wk: <span className="fw-semibold">{coinsPerWeek}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {/* Delete */}
-                                  <button
-                                    className="btn btn-sm btn-outline-danger"
-                                    onClick={async () => {
-                                      if (!confirm('Delete this item? Reserved coins (if any) will be released.')) return;
-                                      try {
-                                        const tok = localStorage.getItem('childToken'); dbg('upload:auth', { hasToken: !!tok });
-                                        const r = await fetch(`/savers/${s.id}`, { method: 'DELETE', headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
-                                        if (r.ok) {
-                                          setSavers((prev) => prev.filter((x) => x.id !== s.id));
-                                          push('success', 'Deleted');
-                                        } else {
-                                          push('error', 'Delete failed');
-                                        }
-                                      } catch {
-                                        push('error', 'Delete failed');
-                                      }
-                                    }}
-                                  >Delete</button>
-                                </div>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    )}
-
-                    {savers.some((s) => s.completed) && (
-                      <div className="mt-4">
-                        <div className="mb-2 fw-semibold">Achieved</div>
-                        <ul className="list-group list-group-flush">
-                          {savers.filter((s) => s.completed).map((s) => (
-                            <li key={s.id} className="list-group-item">
-                              <div className="d-flex justify-content-between align-items-start gap-3">
-                                <div className="flex-grow-1">
-                                  <div className="fw-semibold">{s.name || 'Untitled'}</div>
-                                  <div className="small text-muted">Target {s.target}</div>
-                                </div>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+          <h3 className="h6 mt-4 mb-2">Recent Activity</h3>
+          {ledger.length === 0 ? (
+            <div className="text-muted small">No activity yet.</div>
+          ) : (
+            <div className="ledger-list">
+              {ledger.slice(0, 10).map((e) => {
+                const when = e.createdAt ? new Date(e.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+                const label = e.note || (e.type === 'payout' ? 'Payout' : e.type === 'spend' ? 'Spend' : 'Bonus');
+                return (
+                  <div key={e.id} className="ledger-item">
+                    <span className={`ledger-amount ${e.amount >= 0 ? 'positive' : 'negative'}`}>
+                      {e.amount >= 0 ? '+' : ''}{e.amount}
+                    </span>
+                    <span className="ledger-label">{label}</span>
+                    <span className="ledger-date">{when}</span>
                   </div>
-                )}
-              </div>
+                );
+              })}
             </div>
-          </div>
+          )}
         </div>
       )}
 
-      {section === 'bonuses' && (
-        <div className="row g-3 mt-1">
-          <div className="col-12">
-            <div className="card card--interactive h-100">
-              <div className="card-body">
-                <h2 className="h6 mb-3">🎁 Bonus Opportunities</h2>
-                {bonuses.filter((b) => b.active).length === 0 ? (
-                  <div className="text-muted">
-                    <div className="fs-4 mb-1">🎁</div>
-                    No bonus opportunities right now. Check back later!
-                  </div>
-                ) : (
-                  <div className="row g-3">
-                    {bonuses.filter((b) => b.active).map((bonus: any) => {
-                      const myPending = myBonusClaims.find((cl) => cl.bonusId === bonus.id && (cl.status === 'pending' || cl.status === 'approved'));
-                      const alreadyClaimed = bonus.claimType === 'one-time' && !!myPending;
-                      return (
-                        <div key={bonus.id} className="col-12 col-md-6">
-                          <div className="card shadow-sm h-100">
-                            <div className="card-body">
-                              <div className="d-flex justify-content-between align-items-start gap-2">
-                                <div className="flex-grow-1">
-                                  <div className="fw-semibold">{bonus.name}</div>
-                                  {bonus.description && <div className="small text-muted">{bonus.description}</div>}
-                                </div>
-                                <span className="badge bg-warning text-dark flex-shrink-0">+{bonus.value} coins</span>
-                              </div>
-                              <div className="mt-2">
-                                <span className="badge bg-light text-dark small">{bonus.claimType === 'one-time' ? 'One-time bonus' : 'Unlimited claims'}</span>
-                              </div>
-                              {claimingBonusId === bonus.id ? (
-                                <div className="mt-3">
-                                  <label className="form-label small">Note (optional)</label>
-                                  <textarea
-                                    className="form-control form-control-sm mb-2"
-                                    rows={2}
-                                    placeholder="Tell your parent what you did..."
-                                    value={claimNote}
-                                    onChange={(e) => setClaimNote(e.target.value)}
-                                    autoFocus
-                                  />
-                                  <div className="d-flex gap-2">
-                                    <button
-                                      className="btn btn-primary btn-sm"
-                                      onClick={async () => {
-                                        const tok = localStorage.getItem('childToken');
-                                        const r = await fetch(`/api/bonuses/${bonus.id}/claim`, {
-                                          method: 'POST',
-                                          headers: { 'Content-Type': 'application/json', Authorization: tok ? `Bearer ${tok}` : '' },
-                                          body: JSON.stringify({ note: claimNote || undefined }),
-                                        });
-                                        if (r.ok) {
-                                          const claim = await r.json();
-                                          setMyBonusClaims((prev) => [claim, ...prev]);
-                                          setClaimingBonusId(null);
-                                          setClaimNote('');
-                                          push('success', 'Bonus claimed! Waiting for parent approval.');
-                                          // Refresh bonus list to update one-time status
-                                          const rBonuses = await fetch(`/api/families/${child?.familyId}/bonuses`, { headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
-                                          if (rBonuses.ok) setBonuses(await rBonuses.json());
-                                        } else {
-                                          try { const err = await r.json(); push('error', err?.error || 'Claim failed'); } catch { push('error', 'Claim failed'); }
-                                        }
-                                      }}
-                                    >Submit Claim</button>
-                                    <button className="btn btn-outline-secondary btn-sm" onClick={() => { setClaimingBonusId(null); setClaimNote(''); }}>Cancel</button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="mt-3">
-                                  {alreadyClaimed ? (
-                                    <button className="btn btn-sm btn-outline-secondary" disabled>Already claimed</button>
-                                  ) : (
-                                    <button
-                                      className="btn btn-primary btn-sm"
-                                      onClick={() => { setClaimingBonusId(bonus.id); setClaimNote(''); }}
-                                    >Claim</button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {myBonusClaims.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="h6 mb-2">My Claims</h3>
-                    <ul className="list-group list-group-flush">
-                      {myBonusClaims.map((claim: any) => {
-                        const bonus = bonuses.find((b) => b.id === claim.bonusId);
-                        return (
-                          <li key={claim.id} className="list-group-item d-flex justify-content-between align-items-start gap-2 px-0">
-                            <div className="flex-grow-1">
-                              <div className="fw-semibold">{bonus?.name || 'Bonus'}</div>
-                              {claim.note && <div className="small text-muted">{claim.note}</div>}
-                              {claim.status === 'rejected' && claim.rejectionReason && (
-                                <div className="small text-danger">Reason: {claim.rejectionReason}</div>
-                              )}
-                            </div>
-                            {claim.status === 'pending' && <span className="badge bg-warning text-dark">Pending</span>}
-                            {claim.status === 'approved' && <span className="badge bg-success text-white">Approved</span>}
-                            {claim.status === 'rejected' && <span className="badge bg-danger text-white">Rejected</span>}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {section === 'profile' && (
         <div className="row g-3 mt-1">
@@ -1390,8 +1061,27 @@ export default function ChildDashboard() {
         </div>
       )}
 
-      
       </div>
+
+      {/* Bottom Tab Navigation */}
+      <nav className="kid-bottom-nav" aria-label="Main navigation">
+        <button className={`kid-tab${section === 'home' ? ' active' : ''}`} onClick={() => setSection('home')}>
+          <span className="kid-tab-icon">⚔️</span>
+          <span className="kid-tab-label">Quests</span>
+        </button>
+        <button className={`kid-tab${section === 'shop' ? ' active' : ''}`} onClick={() => setSection('shop')}>
+          <span className="kid-tab-icon">🛍️</span>
+          <span className="kid-tab-label">Shop</span>
+        </button>
+        <button className={`kid-tab${section === 'bank' ? ' active' : ''}`} onClick={() => setSection('bank')}>
+          <span className="kid-tab-icon">💰</span>
+          <span className="kid-tab-label">Coins</span>
+        </button>
+        <button className={`kid-tab${section === 'profile' ? ' active' : ''}`} onClick={() => setSection('profile')}>
+          <span className="kid-tab-icon">🎮</span>
+          <span className="kid-tab-label">Me</span>
+        </button>
+      </nav>
     </div>
   );
 }

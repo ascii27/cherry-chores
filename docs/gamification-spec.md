@@ -1,14 +1,14 @@
 # Cherry Chores — Child Dashboard Gamification Spec
 
-**Status:** In development
-**Last updated:** 2026-03-20
+**Status:** ✅ P0 Complete · P1 Planned
+**Last updated:** 2026-03-21
 **Feedback source:** Kids' user testing (March 2026)
 
 ---
 
 ## Problem Statement
 
-Kids reported the design looks great but the main experience doesn't feel like a game and it's not easy to see what they need to do to reach their goals. The current dashboard is a task manager — chores and goals live in separate sections with no visible connection between them.
+Kids reported the design looks great but the main experience doesn't feel like a game and it's not easy to see what they need to do to reach their goals. The current dashboard was a task manager — chores and goals lived in separate sections with no visible connection between them.
 
 ---
 
@@ -28,21 +28,13 @@ Kids reported the design looks great but the main experience doesn't feel like a
 
 ---
 
-## P0 — Ship This Sprint
+## P0 — ✅ Shipped
 
-### 1. Goal Hero Card
+### 1. Goal Hero Card ✅
 
 The home screen opens with the child's active goal as the hero element. This is the emotional anchor — the reason they're doing chores.
 
-**Layout (top of home section, full width):**
-```
-┌──────────────────────────────────────────────┐
-│  🎯  [Goal Image]   Saving for: New Nintendo  │
-│                     ██████████░░░  64 / 100   │
-│                     36 coins to go            │
-│                     Today you can earn 7 🪙   │
-└──────────────────────────────────────────────┘
-```
+In v2 (kid-ux-v2) this was updated to a **Shop Hero Card** — showing affordable catalog items the child can buy, rather than savers. See `kid-ux-v2-spec.md`.
 
 **Logic:**
 - `activeGoal` = first non-completed `isGoal` saver
@@ -52,45 +44,28 @@ The home screen opens with the child's active goal as the hero element. This is 
 - If no active goal: show a friendly prompt "Add a goal to start saving!"
 - If goal is 100% complete: show a celebration state "Goal reached! 🎉 Ask a parent to approve your payout."
 
-**Design tokens:**
-- Card background: `--surface-2` with accent-colored left border
-- Progress bar: accent color fill with gold shimmer animation
-- Goal image: 56×56px rounded square; falls back to 🎯 emoji
+### 2. Coin Burst Animation on Chore Completion ✅
 
----
+When a child marks a chore as Done, coins burst from the button in a fan arc.
 
-### 2. Coin Burst Animation on Chore Completion
+**Implementation:**
+- `CoinBurst` component in `web/src/components/CoinBurst.tsx`
+- 8 coin SVGs, CSS custom properties `--cb-angle`, `--cb-dist`, `--cb-delay`
+- 700ms animation, fixed position at bottom 30% center
+- Triggered by `coinBurst` state counter increment in `ChildDashboard`
+- Respects `prefers-reduced-motion`: animation skipped
 
-When a child marks a chore as Done, coins burst from the button in a fan arc, then the goal progress bar animates forward.
-
-**Behavior:**
-- 8 coin SVGs spawn at the "Done" button position
-- Each flies outward in a random arc (CSS custom properties `--angle`, `--dist`)
-- Scale up → translate → fade out over 700ms
-- After burst: goal progress bar re-renders with new value (smooth CSS transition)
-- `Celebration` component fires as before (emoji overlay)
-- Respects `prefers-reduced-motion`: skip coins, skip celebration
-
-**Component:** `CoinBurst` — triggered by incrementing a `coinBurst` state counter
-
----
-
-### 3. Quest Language
-
-Pure copy changes. No backend impact.
+### 3. Quest Language ✅
 
 | Before | After |
 |---|---|
 | Chores | Quests |
-| Today | Today's Quests |
+| Today | Today's Quests ⚔️ |
 | No chores for today | No quests today — enjoy your day! |
 | Done | ✓ Done |
-| Bank Account | Treasure Chest |
+| Bank Account | Treasure Chest / Coins |
 | Goals | Wish List |
-| Bonuses | Bonus Quests |
-| Add | + New Goal |
-
-Sidebar nav labels updated to match.
+| Bonuses | Bonus Quests ⭐ |
 
 ---
 
@@ -141,12 +116,10 @@ Sidebar nav labels updated to match.
 
 ## Acceptance Criteria
 
-- [ ] Goal hero card appears at top of home section when an active goal exists
-- [ ] Goal hero card shows accurate progress (coins saved / target)
-- [ ] "Today you can earn X coins" reflects sum of incomplete chores
-- [ ] Completing a chore triggers coin burst animation
-- [ ] Goal progress bar visually updates after chore completion
-- [ ] All sidebar + section labels use quest language
-- [ ] No regressions on existing chore complete/uncomplete flow
-- [ ] All animations disabled under `prefers-reduced-motion`
-- [ ] Tests pass
+- [x] Goal hero card appears at top of home section
+- [x] Goal hero card shows accurate progress
+- [x] Completing a chore triggers coin burst animation
+- [x] All labels use quest language
+- [x] No regressions on existing chore complete/uncomplete flow
+- [x] All animations disabled under `prefers-reduced-motion`
+- [x] Tests pass

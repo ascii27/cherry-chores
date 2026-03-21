@@ -1039,3 +1039,212 @@
     animation: none;
   }
 }
+
+/* ── Bottom Tab Navigation ── */
+.kid-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: stretch;
+  z-index: 1000;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.kid-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  min-width: 60px;
+  min-height: 44px;
+  padding: 0;
+  transition: color 150ms;
+}
+.kid-tab.active {
+  color: var(--accent);
+}
+.kid-tab-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.kid-tab-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+/* Push content above bottom nav */
+.arcade-app .container {
+  padding-bottom: 80px;
+}
+
+/* ── Shop Grid ── */
+.shop-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 480px) {
+  .shop-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.shop-card {
+  background: var(--surface-2);
+  border-radius: var(--radius-lg, 16px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.shop-card-img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  height: 160px;
+}
+.shop-card-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+.shop-card-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+.shop-card-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.shop-card-price {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  font-size: 18px;
+  color: #F59E0B;
+  margin: 4px 0;
+}
+.shop-buy-btn {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  background: linear-gradient(135deg, #F59E0B, #EF4444);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(245,158,11,0.4);
+  transition: transform 80ms, box-shadow 150ms;
+}
+.shop-buy-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 20px rgba(245,158,11,0.6);
+}
+.shop-buy-btn:active {
+  transform: scale(0.98);
+}
+.shop-progress-track {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 4px 0;
+}
+.shop-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px;
+  transition: width 300ms ease;
+}
+.shop-progress-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ── Inline Bonus Quests ── */
+.bonus-quests-section h3 {
+  font-size: 15px;
+  font-weight: 700;
+}
+.bonus-quest-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  min-height: 56px;
+}
+
+/* ── Treasure Chest Hero ── */
+.treasure-chest-hero {
+  text-align: center;
+  padding: 32px 16px 24px;
+  background: var(--surface-2);
+  border-radius: var(--radius-lg, 16px);
+  margin-bottom: 8px;
+}
+.treasure-chest-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+.treasure-chest-amount {
+  font-size: 56px;
+  font-weight: 800;
+  color: #F59E0B;
+  line-height: 1;
+  font-family: 'Fredoka One', var(--font-primary, sans-serif);
+}
+.treasure-chest-label {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ── Ledger List ── */
+.ledger-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ledger-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-radius: 10px;
+}
+.ledger-amount {
+  font-weight: 700;
+  font-size: 16px;
+  min-width: 52px;
+}
+.ledger-amount.positive { color: #22C55E; }
+.ledger-amount.negative { color: #EF4444; }
+.ledger-label {
+  flex: 1;
+  font-size: 14px;
+}
+.ledger-date {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
