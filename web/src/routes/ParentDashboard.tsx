@@ -68,6 +68,12 @@ export default function ParentDashboard() {
   const [catalogAddImage, setCatalogAddImage] = useState('');
   const [catalogAddPrice, setCatalogAddPrice] = useState('');
   const [catalogSaving, setCatalogSaving] = useState(false);
+  const [catalogManualOpen, setCatalogManualOpen] = useState(false);
+  const [catalogManualName, setCatalogManualName] = useState('');
+  const [catalogManualDesc, setCatalogManualDesc] = useState('');
+  const [catalogManualImage, setCatalogManualImage] = useState('');
+  const [catalogManualUrl, setCatalogManualUrl] = useState('');
+  const [catalogManualPrice, setCatalogManualPrice] = useState('');
 
   const doPreviewFetch = async (urlOverride?: string) => {
     const url = (urlOverride ?? catalogPreviewUrl).trim();
@@ -1399,10 +1405,78 @@ export default function ParentDashboard() {
                   )}
                 </div>
 
+                {/* Manual Add Form */}
+                <div className="mb-4">
+                  <button
+                    className="btn btn-outline-secondary btn-sm mb-2"
+                    onClick={() => setCatalogManualOpen((o) => !o)}
+                  >
+                    {catalogManualOpen ? '✕ Cancel Manual Add' : '✏️ Add Manually'}
+                  </button>
+                  {catalogManualOpen && (
+                    <div className="card bg-light">
+                      <div className="card-body">
+                        <div className="row g-2">
+                          <div className="col-12 col-md-6">
+                            <label className="form-label small mb-1">Name *</label>
+                            <input className="form-control form-control-sm" placeholder="e.g. LEGO Star Wars Set" value={catalogManualName} onChange={(e) => setCatalogManualName(e.target.value)} />
+                          </div>
+                          <div className="col-6 col-md-3">
+                            <label className="form-label small mb-1">Price (coins) *</label>
+                            <input type="number" min={1} className="form-control form-control-sm" value={catalogManualPrice} onChange={(e) => setCatalogManualPrice(e.target.value)} />
+                          </div>
+                          <div className="col-12">
+                            <label className="form-label small mb-1">Description</label>
+                            <textarea className="form-control form-control-sm" rows={2} value={catalogManualDesc} onChange={(e) => setCatalogManualDesc(e.target.value)} />
+                          </div>
+                          <div className="col-12 col-md-6">
+                            <label className="form-label small mb-1">Image URL</label>
+                            <input className="form-control form-control-sm" placeholder="https://..." value={catalogManualImage} onChange={(e) => setCatalogManualImage(e.target.value)} />
+                          </div>
+                          <div className="col-12 col-md-6">
+                            <label className="form-label small mb-1">Product Link (optional)</label>
+                            <input className="form-control form-control-sm" placeholder="https://..." value={catalogManualUrl} onChange={(e) => setCatalogManualUrl(e.target.value)} />
+                          </div>
+                        </div>
+                        <div className="d-flex gap-2 mt-3">
+                          <button
+                            className="btn btn-primary btn-sm"
+                            disabled={!catalogManualName || !catalogManualPrice || catalogSaving}
+                            onClick={async () => {
+                              setCatalogSaving(true);
+                              try {
+                                const r = await fetch(`/api/families/${selectedFamily?.id}/catalog`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                  body: JSON.stringify({
+                                    name: catalogManualName,
+                                    description: catalogManualDesc || undefined,
+                                    imageUrl: catalogManualImage || undefined,
+                                    sourceUrl: catalogManualUrl || undefined,
+                                    priceCoins: parseInt(catalogManualPrice, 10),
+                                  }),
+                                });
+                                if (r.ok) {
+                                  const created = await r.json();
+                                  setCatalogItems((prev) => [created, ...prev]);
+                                  setCatalogManualOpen(false);
+                                  setCatalogManualName(''); setCatalogManualDesc(''); setCatalogManualImage(''); setCatalogManualUrl(''); setCatalogManualPrice('');
+                                } else { const e = await r.json().catch(() => ({})); alert(e?.error || 'Save failed'); }
+                              } catch { alert('Save failed'); }
+                              finally { setCatalogSaving(false); }
+                            }}
+                          >{catalogSaving ? 'Saving...' : 'Save to Catalog'}</button>
+                          <button className="btn btn-outline-secondary btn-sm" onClick={() => setCatalogManualOpen(false)}>Cancel</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Catalog Items List */}
                 <h3 className="h6 mb-2">Items ({catalogItems.length})</h3>
                 {catalogItems.length === 0 ? (
-                  <div className="text-muted small">No items yet. Add one via URL above.</div>
+                  <div className="text-muted small">No items yet. Add one via URL above or manually.</div>
                 ) : (
                   <div className="table-responsive">
                     <table className="table table-sm align-middle">
@@ -1424,7 +1498,11 @@ export default function ParentDashboard() {
                               ) : <span style={{ fontSize: 24 }}>🛍️</span>}
                             </td>
                             <td>
-                              <div className="fw-semibold">{item.name}</div>
+                              <div className="fw-semibold">
+                                {item.sourceUrl
+                                  ? <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">{item.name}</a>
+                                  : item.name}
+                              </div>
                               {item.description && <div className="small text-muted">{item.description}</div>}
                             </td>
                             <td><span className="badge bg-warning text-dark">{item.priceCoins} 🪙</span></td>
