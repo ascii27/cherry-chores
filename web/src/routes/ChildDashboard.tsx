@@ -744,6 +744,9 @@ export default function ChildDashboard() {
                         <div className="shop-card-body">
                           <div className="shop-card-name">{saver.name}</div>
                           <div className="shop-card-price"><GoldCoin size={18} /> {saver.target}</div>
+                          {catalogItem?.sourceUrl && (
+                            <a href={catalogItem.sourceUrl} target="_blank" rel="noopener noreferrer" className="shop-card-link">🔗 View item</a>
+                          )}
                           {canAfford ? (
                             catalogItem ? (
                               <button className="shop-buy-btn" onClick={() => setBuyConfirmItem(catalogItem)}>Buy Now! 🛍️</button>
@@ -813,6 +816,9 @@ export default function ChildDashboard() {
                           <div className="shop-card-name">{item.name}</div>
                           {item.description && <div className="shop-card-desc">{item.description}</div>}
                           <div className="shop-card-price"><GoldCoin size={18} /> {item.priceCoins}</div>
+                          {item.sourceUrl && (
+                            <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer" className="shop-card-link">🔗 View item</a>
+                          )}
                           {canAfford ? (
                             <button className="shop-buy-btn" onClick={() => setBuyConfirmItem(item)}>Buy Now! 🛍️</button>
                           ) : existingSaver ? (
