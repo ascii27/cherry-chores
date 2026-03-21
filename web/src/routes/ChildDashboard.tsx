@@ -45,6 +45,7 @@ export default function ChildDashboard() {
   const [catalog, setCatalog] = useState<any[]>([]);
   const [purchasing, setPurchasing] = useState<string | null>(null); // item id being confirmed
   const [buyConfirmItem, setBuyConfirmItem] = useState<any | null>(null);
+  const [shopSearch, setShopSearch] = useState('');
   const [cuteBg, setCuteBg] = useState(false);
 
   // Bonus state
@@ -345,56 +346,56 @@ export default function ChildDashboard() {
               const todayEarnable = today
                 .filter((t: any) => !t.status || t.status === 'due' || t.status === 'planned' || t.status === 'missed')
                 .reduce((s: number, t: any) => s + (t.value || 0), 0);
-              const affordable = catalog.filter((i) => i.active && avail >= i.priceCoins);
-              const cheapest = catalog.filter((i) => i.active).sort((a, b) => a.priceCoins - b.priceCoins)[0] ?? null;
-              if (catalog.length === 0) {
+              const activeGoals = savers.filter((s) => s.isGoal && !s.completed);
+              // Find goal closest to being affordable (highest avail/target ratio)
+              const topGoal = activeGoals.sort((a, b) => (avail / b.target) - (avail / a.target))[0] ?? null;
+
+              if (activeGoals.length === 0) {
                 return (
                   <div className="goal-hero-empty">
-                    <strong>Complete quests to earn coins! ⚔️</strong>
+                    <strong>Pick something to save for! 🛍️</strong>
+                    <div>Go to the Shop tab and tap "Save for this" on any item.</div>
                     {todayEarnable > 0 && <div>You can earn {todayEarnable} 🪙 today!</div>}
                   </div>
                 );
               }
-              if (affordable.length > 0) {
-                const item = affordable[0];
+              if (avail >= topGoal.target) {
                 return (
                   <div className="goal-hero goal-hero-complete">
                     <div className="goal-hero-inner">
                       <div className="goal-hero-img">
-                        {item.imageUrl ? <img src={item.imageUrl} alt={item.name} /> : '🛍️'}
+                        {topGoal.imageUrl ? <img src={topGoal.imageUrl} alt={topGoal.name} /> : '🛍️'}
                       </div>
                       <div className="goal-hero-info">
-                        <div className="goal-hero-label">You can buy something!</div>
-                        <div className="goal-hero-name">{item.name}</div>
-                        <div className="goal-hero-meta"><span>{item.priceCoins} 🪙</span></div>
+                        <div className="goal-hero-label">You can buy it!</div>
+                        <div className="goal-hero-name">{topGoal.name}</div>
+                        <div className="goal-hero-meta"><span>{topGoal.target} 🪙</span></div>
                         <button className="quest-done-btn mt-1" style={{ fontSize: 14, padding: '6px 14px' }} onClick={() => setSection('shop')}>Go to Shop 🛍️</button>
                       </div>
                     </div>
                   </div>
                 );
               }
-              // Cheapest item as goal
-              const saved = avail;
-              const target = cheapest.priceCoins || 1;
-              const pct = Math.min(100, Math.round((saved / target) * 100));
-              const coinsToGo = Math.max(0, target - saved);
+              const pct = Math.min(100, Math.round((avail / topGoal.target) * 100));
+              const coinsToGo = Math.max(0, topGoal.target - avail);
               return (
                 <div className="goal-hero">
                   <div className="goal-hero-inner">
                     <div className="goal-hero-img">
-                      {cheapest.imageUrl ? <img src={cheapest.imageUrl} alt={cheapest.name} /> : '🛍️'}
+                      {topGoal.imageUrl ? <img src={topGoal.imageUrl} alt={topGoal.name} /> : '🛍️'}
                     </div>
                     <div className="goal-hero-info">
                       <div className="goal-hero-label">Saving for</div>
-                      <div className="goal-hero-name">{cheapest.name}</div>
+                      <div className="goal-hero-name">{topGoal.name}</div>
                       <div className="goal-hero-bar-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${pct}% saved`}>
                         <div className="goal-hero-bar-fill" style={{ width: `${pct}%` }} />
                       </div>
                       <div className="goal-hero-meta">
-                        <span><strong>{saved}</strong> / {target} coins</span>
+                        <span><strong>{avail}</strong> / {topGoal.target} coins</span>
                         <span>·</span>
                         <span><strong>{coinsToGo}</strong> to go</span>
                       </div>
+                      {activeGoals.length > 1 && <div className="goal-hero-earn">+{activeGoals.length - 1} more goal{activeGoals.length > 2 ? 's' : ''}</div>}
                       {todayEarnable > 0 && (
                         <div className="goal-hero-earn">✨ Earn {todayEarnable} 🪙 today!</div>
                       )}
@@ -717,48 +718,135 @@ export default function ChildDashboard() {
       {section === 'shop' && (
         <div className="mt-2">
           <h2 className="h5 mb-3">🛍️ Shop</h2>
+
+          {/* ── Saving For ── */}
+          {(() => {
+            const avail = balance?.available ?? 0;
+            const activeGoals = savers
+              .filter((s) => s.isGoal && !s.completed)
+              .sort((a, b) => (avail / b.target) - (avail / a.target)); // closest to affordable first
+            if (activeGoals.length === 0) return null;
+            return (
+              <div className="mb-4">
+                <h3 className="h6 mb-2">⭐ Saving For</h3>
+                <div className="shop-grid">
+                  {activeGoals.map((saver: any) => {
+                    const pct = Math.min(100, Math.round((avail / saver.target) * 100));
+                    const canAfford = avail >= saver.target;
+                    const catalogItem = catalog.find((c) => c.id === saver.catalogItemId);
+                    return (
+                      <div key={saver.id} className="shop-card shop-card--goal">
+                        {saver.imageUrl ? (
+                          <img src={saver.imageUrl} alt={saver.name} className="shop-card-img" />
+                        ) : (
+                          <div className="shop-card-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, background: 'var(--surface-2)' }}>⭐</div>
+                        )}
+                        <div className="shop-card-body">
+                          <div className="shop-card-name">{saver.name}</div>
+                          <div className="shop-card-price"><GoldCoin size={18} /> {saver.target}</div>
+                          {canAfford ? (
+                            catalogItem ? (
+                              <button className="shop-buy-btn" onClick={() => setBuyConfirmItem(catalogItem)}>Buy Now! 🛍️</button>
+                            ) : (
+                              <div className="shop-progress-label" style={{ color: 'var(--accent)' }}>✅ Ready to buy!</div>
+                            )
+                          ) : (
+                            <div>
+                              <div className="shop-progress-track">
+                                <div className="shop-progress-fill" style={{ width: `${pct}%` }} />
+                              </div>
+                              <div className="shop-progress-label">{pct}% saved · {Math.max(0, saver.target - avail)} to go 🪙</div>
+                            </div>
+                          )}
+                          <button
+                            className="btn btn-link btn-sm p-0 mt-1"
+                            style={{ fontSize: 11, color: 'var(--text-3)' }}
+                            onClick={async () => {
+                              const token = localStorage.getItem('childToken') ?? '';
+                              await fetch(`/savers/${saver.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                              setSavers((prev) => prev.filter((s) => s.id !== saver.id));
+                            }}
+                          >Remove goal</button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Browse Catalog ── */}
           {catalog.filter((i) => i.active).length === 0 ? (
             <div className="goal-hero-empty">
               <strong>The shop is empty right now!</strong>
               Ask your parent to add some items 🛍️
             </div>
           ) : (
-            <div className="shop-grid">
-              {catalog.filter((i) => i.active).map((item: any) => {
-                const avail = balance?.available ?? 0;
-                const canAfford = avail >= item.priceCoins;
-                const coinsNeeded = item.priceCoins - avail;
-                return (
-                  <div key={item.id} className="shop-card">
-                    {item.imageUrl ? (
-                      <img src={item.imageUrl} alt={item.name} className="shop-card-img" />
-                    ) : (
-                      <div className="shop-card-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, background: 'var(--surface-2)' }}>🛍️</div>
-                    )}
-                    <div className="shop-card-body">
-                      <div className="shop-card-name">{item.name}</div>
-                      {item.description && <div className="shop-card-desc">{item.description}</div>}
-                      <div className="shop-card-price">
-                        <GoldCoin size={18} /> {item.priceCoins}
-                      </div>
-                      {canAfford ? (
-                        <button
-                          className="shop-buy-btn"
-                          onClick={() => setBuyConfirmItem(item)}
-                        >Buy Now! 🛍️</button>
-                      ) : (
-                        <div>
-                          <div className="shop-progress-track">
-                            <div className="shop-progress-fill" style={{ width: `${Math.min(100, Math.round(((balance?.available ?? 0) / item.priceCoins) * 100))}%` }} />
-                          </div>
-                          <div className="shop-progress-label">Need {coinsNeeded} more 🪙</div>
+            <>
+              <div className="mb-3">
+                <input
+                  type="search"
+                  className="form-control"
+                  placeholder="🔍 Search items..."
+                  value={shopSearch}
+                  onChange={(e) => setShopSearch(e.target.value)}
+                />
+              </div>
+              <div className="shop-grid">
+                {catalog
+                  .filter((i) => i.active)
+                  .filter((i) => !shopSearch || i.name.toLowerCase().includes(shopSearch.toLowerCase()) || (i.description || '').toLowerCase().includes(shopSearch.toLowerCase()))
+                  .map((item: any) => {
+                    const avail = balance?.available ?? 0;
+                    const canAfford = avail >= item.priceCoins;
+                    const coinsNeeded = item.priceCoins - avail;
+                    const existingSaver = savers.find((s) => s.catalogItemId === item.id && s.isGoal && !s.completed);
+                    return (
+                      <div key={item.id} className="shop-card">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.name} className="shop-card-img" />
+                        ) : (
+                          <div className="shop-card-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 48, background: 'var(--surface-2)' }}>🛍️</div>
+                        )}
+                        <div className="shop-card-body">
+                          <div className="shop-card-name">{item.name}</div>
+                          {item.description && <div className="shop-card-desc">{item.description}</div>}
+                          <div className="shop-card-price"><GoldCoin size={18} /> {item.priceCoins}</div>
+                          {canAfford ? (
+                            <button className="shop-buy-btn" onClick={() => setBuyConfirmItem(item)}>Buy Now! 🛍️</button>
+                          ) : existingSaver ? (
+                            <div className="shop-progress-label" style={{ color: 'var(--accent)' }}>⭐ Saving for this</div>
+                          ) : (
+                            <div>
+                              <div className="shop-progress-track">
+                                <div className="shop-progress-fill" style={{ width: `${Math.min(100, Math.round((avail / item.priceCoins) * 100))}%` }} />
+                              </div>
+                              <div className="shop-progress-label">Need {coinsNeeded} more 🪙</div>
+                              <button
+                                className="btn btn-outline-primary btn-sm w-100 mt-2"
+                                style={{ fontSize: 12 }}
+                                onClick={async () => {
+                                  const token = localStorage.getItem('childToken') ?? '';
+                                  const r = await fetch(`/children/${child!.id}/savers`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                    body: JSON.stringify({ name: item.name, description: item.description, imageUrl: item.imageUrl, target: item.priceCoins, catalogItemId: item.id }),
+                                  });
+                                  if (r.ok) {
+                                    const saver = await r.json();
+                                    setSavers((prev) => [...prev, saver]);
+                                  }
+                                }}
+                              >⭐ Save for this</button>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </>
           )}
         </div>
       )}

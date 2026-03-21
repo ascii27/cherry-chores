@@ -24,42 +24,11 @@ export class PgSaversRepo implements SaversRepository {
     await this.pool.query(`
       ALTER TABLE savers ADD COLUMN IF NOT EXISTS completed BOOLEAN NOT NULL DEFAULT false;
       ALTER TABLE savers ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+      ALTER TABLE savers ADD COLUMN IF NOT EXISTS catalog_item_id TEXT;
     `);
   }
 
-  async createSaver(item: SaverItem): Promise<SaverItem> {
-    await this.pool.query(
-      'INSERT INTO savers(id,child_id,name,description,image_url,target,is_goal,allocation,completed,completed_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-      [item.id, item.childId, item.name, item.description ?? null, item.imageUrl ?? null, item.target, item.isGoal, item.allocation, item.completed ?? false, item.completedAt ?? null]
-    );
-    return item;
-  }
-  async listSaversByChild(childId: string): Promise<SaverItem[]> {
-    const r = await this.pool.query('SELECT * FROM savers WHERE child_id=$1 ORDER BY completed ASC, name', [childId]);
-    return r.rows.map((row: any) => ({
-      id: row.id,
-      childId: row.child_id,
-      name: row.name,
-      description: row.description ?? undefined,
-      imageUrl: row.image_url ?? undefined,
-      target: Number(row.target),
-      isGoal: row.is_goal,
-      allocation: Number(row.allocation),
-      completed: !!row.completed,
-      completedAt: row.completed_at ? (row.completed_at instanceof Date ? row.completed_at.toISOString() : new Date(row.completed_at).toISOString()) : undefined
-    }));
-  }
-  async updateSaver(item: SaverItem): Promise<SaverItem> {
-    await this.pool.query(
-      'UPDATE savers SET name=$1, description=$2, image_url=$3, target=$4, is_goal=$5, allocation=$6, completed=$7, completed_at=$8 WHERE id=$9',
-      [item.name, item.description ?? null, item.imageUrl ?? null, item.target, item.isGoal, item.allocation, !!item.completed, item.completedAt ?? null, item.id]
-    );
-    return item;
-  }
-  async getSaverById(id: string): Promise<SaverItem | undefined> {
-    const r = await this.pool.query('SELECT * FROM savers WHERE id=$1', [id]);
-    if (!r.rowCount) return undefined;
-    const row = r.rows[0];
+  private rowToSaver(row: any): SaverItem {
     return {
       id: row.id,
       childId: row.child_id,
@@ -70,8 +39,33 @@ export class PgSaversRepo implements SaversRepository {
       isGoal: row.is_goal,
       allocation: Number(row.allocation),
       completed: !!row.completed,
-      completedAt: row.completed_at ? (row.completed_at instanceof Date ? row.completed_at.toISOString() : new Date(row.completed_at).toISOString()) : undefined
+      completedAt: row.completed_at ? (row.completed_at instanceof Date ? row.completed_at.toISOString() : new Date(row.completed_at).toISOString()) : undefined,
+      catalogItemId: row.catalog_item_id ?? undefined,
     };
+  }
+
+  async createSaver(item: SaverItem): Promise<SaverItem> {
+    await this.pool.query(
+      'INSERT INTO savers(id,child_id,name,description,image_url,target,is_goal,allocation,completed,completed_at,catalog_item_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+      [item.id, item.childId, item.name, item.description ?? null, item.imageUrl ?? null, item.target, item.isGoal, item.allocation, item.completed ?? false, item.completedAt ?? null, item.catalogItemId ?? null]
+    );
+    return item;
+  }
+  async listSaversByChild(childId: string): Promise<SaverItem[]> {
+    const r = await this.pool.query('SELECT * FROM savers WHERE child_id=$1 ORDER BY completed ASC, name', [childId]);
+    return r.rows.map((row: any) => this.rowToSaver(row));
+  }
+  async updateSaver(item: SaverItem): Promise<SaverItem> {
+    await this.pool.query(
+      'UPDATE savers SET name=$1, description=$2, image_url=$3, target=$4, is_goal=$5, allocation=$6, completed=$7, completed_at=$8, catalog_item_id=$9 WHERE id=$10',
+      [item.name, item.description ?? null, item.imageUrl ?? null, item.target, item.isGoal, item.allocation, !!item.completed, item.completedAt ?? null, item.catalogItemId ?? null, item.id]
+    );
+    return item;
+  }
+  async getSaverById(id: string): Promise<SaverItem | undefined> {
+    const r = await this.pool.query('SELECT * FROM savers WHERE id=$1', [id]);
+    if (!r.rowCount) return undefined;
+    return this.rowToSaver(r.rows[0]);
   }
   async deleteSaver(id: string): Promise<void> {
     await this.pool.query('DELETE FROM savers WHERE id=$1', [id]);
