@@ -75,10 +75,12 @@ export function catalogRoutes(opts: {
     if (!url || typeof url !== 'string') return res.status(400).json({ error: 'url is required' });
 
     try {
+      console.log(`[catalog/preview] fetching URL: ${url}`);
       const html = await fetch(url, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CherryChores/1.0)' },
         signal: AbortSignal.timeout(8000),
       }).then((r) => r.text());
+      console.log(`[catalog/preview] fetched ${html.length} bytes from ${url}`);
 
       // Extract og meta tags
       const og = (prop: string) => {
@@ -96,20 +98,24 @@ export function catalogRoutes(opts: {
       const rawTitle = og('title') || tw('title') || titleTag || 'Item';
       const rawDescription = og('description') || tw('description') || '';
       const imageUrl = og('image') || tw('image') || undefined;
+      console.log(`[catalog/preview] parsed — title: "${rawTitle}", description: "${rawDescription?.slice(0, 80)}", image: ${imageUrl}`);
 
       // AI-generate a kid-friendly description
       let description = rawDescription;
       try {
+        console.log(`[catalog/preview] calling LLM (provider: ${llm.name}) for kid-friendly description`);
         description = await llm.generate(
           `Generate a fun, kid-friendly description (max 40 words) for this product: "${rawTitle}". Context: "${rawDescription}". Use simple language for a 10-year-old, enthusiastic tone. Reply with only the description text, no quotes.`,
           { maxTokens: 80, temperature: 0.7 },
         );
-      } catch {
-        // Fall back to raw description if AI fails
+        console.log(`[catalog/preview] LLM response: "${description}"`);
+      } catch (llmErr: any) {
+        console.error(`[catalog/preview] LLM failed, falling back to raw description:`, llmErr?.message || llmErr);
       }
 
       return res.json({ title: rawTitle, description, imageUrl, sourceUrl: url });
     } catch (err: any) {
+      console.error(`[catalog/preview] fetch error for ${url}:`, err?.message || err);
       return res.status(400).json({ error: `Could not fetch URL: ${err?.message || 'unknown error'}` });
     }
   });
