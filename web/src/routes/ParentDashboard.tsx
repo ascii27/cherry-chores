@@ -47,7 +47,7 @@ export default function ParentDashboard() {
   const [bonusClaims, setBonusClaims] = useState<BonusClaim[]>([]);
   const [showAddBonus, setShowAddBonus] = useState(false);
   const [editingBonus, setEditingBonus] = useState<Bonus | null>(null);
-  const [approvalsTab, setApprovalsTab] = useState<'chores' | 'bonuses'>('chores');
+  const [approvalsTab, setApprovalsTab] = useState<'chores' | 'bonuses' | 'shop'>('chores');
   const [rejectingClaimId, setRejectingClaimId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
@@ -55,6 +55,19 @@ export default function ParentDashboard() {
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([]);
   const bonusesRef = useRef<HTMLDivElement | null>(null);
   const activityRef = useRef<HTMLDivElement | null>(null);
+  const catalogRef = useRef<HTMLDivElement | null>(null);
+
+  // Catalog state
+  const [catalogItems, setCatalogItems] = useState<any[]>([]);
+  const [catalogPurchases, setCatalogPurchases] = useState<any[]>([]);
+  const [catalogPreviewUrl, setCatalogPreviewUrl] = useState('');
+  const [catalogPreview, setCatalogPreview] = useState<any | null>(null);
+  const [catalogPreviewLoading, setCatalogPreviewLoading] = useState(false);
+  const [catalogAddName, setCatalogAddName] = useState('');
+  const [catalogAddDesc, setCatalogAddDesc] = useState('');
+  const [catalogAddImage, setCatalogAddImage] = useState('');
+  const [catalogAddPrice, setCatalogAddPrice] = useState('');
+  const [catalogSaving, setCatalogSaving] = useState(false);
 
   useEffect(() => {
     document.body.classList.add('arcade-body');
@@ -123,6 +136,14 @@ export default function ParentDashboard() {
       .then((r) => (r.ok ? r.json() : { entries: [] }))
       .then((data) => setActivityFeed(data?.entries || []))
       .catch(() => setActivityFeed([]));
+    fetch(`/api/families/${selectedFamily.id}/catalog`, { headers: hdrs })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => setCatalogItems(list || []))
+      .catch(() => setCatalogItems([]));
+    fetch(`/api/families/${selectedFamily.id}/catalog/purchases`, { headers: hdrs })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list) => setCatalogPurchases(list || []))
+      .catch(() => setCatalogPurchases([]));
   }, [token, selectedFamily]);
 
   // Derive weekly/balances/savers when children list changes
@@ -374,6 +395,7 @@ export default function ParentDashboard() {
             { label: 'Children', ref: childrenRef },
             { label: 'Chores', ref: choresRef },
             { label: 'Bonuses', ref: bonusesRef },
+            { label: 'Shop Catalog', ref: catalogRef },
             { label: 'Approvals', ref: approvalsRef },
             { label: 'Week Overview', ref: weekOverviewRef },
             { label: 'Week Details', ref: weekDetailsRef },
@@ -1252,6 +1274,171 @@ export default function ParentDashboard() {
             </div>
           </div>
 
+          {/* Shop Catalog Section */}
+          <div className="col-12">
+            <div className="card" ref={catalogRef}>
+              <div className="card-body">
+                <h2 className="h5 mb-3">🛍️ Shop Catalog</h2>
+
+                {/* URL Preview Form */}
+                <div className="mb-4">
+                  <h3 className="h6 mb-2">Add via URL</h3>
+                  <div className="d-flex gap-2 mb-2">
+                    <input
+                      type="url"
+                      className="form-control"
+                      placeholder="Paste a product URL (Amazon, Target, etc.)"
+                      value={catalogPreviewUrl}
+                      onChange={(e) => setCatalogPreviewUrl(e.target.value)}
+                    />
+                    <button
+                      className="btn btn-outline-primary"
+                      disabled={!catalogPreviewUrl || catalogPreviewLoading}
+                      onClick={async () => {
+                        setCatalogPreviewLoading(true);
+                        setCatalogPreview(null);
+                        try {
+                          const r = await fetch(`/api/families/${selectedFamily?.id}/catalog/preview`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ url: catalogPreviewUrl }),
+                          });
+                          const data = await r.json();
+                          if (r.ok) {
+                            setCatalogPreview(data);
+                            setCatalogAddName(data.title || '');
+                            setCatalogAddDesc(data.description || '');
+                            setCatalogAddImage(data.imageUrl || '');
+                          } else {
+                            alert(data?.error || 'Preview failed');
+                          }
+                        } catch { alert('Preview failed'); }
+                        finally { setCatalogPreviewLoading(false); }
+                      }}
+                    >{catalogPreviewLoading ? '...' : 'Preview'}</button>
+                  </div>
+
+                  {catalogPreview && (
+                    <div className="card bg-light mb-3">
+                      <div className="card-body">
+                        <div className="d-flex gap-3 align-items-start">
+                          {catalogPreview.imageUrl && (
+                            <img src={catalogPreview.imageUrl} alt="preview" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
+                          )}
+                          <div className="flex-grow-1">
+                            <div className="mb-2">
+                              <label className="form-label small mb-1">Name</label>
+                              <input className="form-control form-control-sm" value={catalogAddName} onChange={(e) => setCatalogAddName(e.target.value)} />
+                            </div>
+                            <div className="mb-2">
+                              <label className="form-label small mb-1">Description (AI-generated)</label>
+                              <textarea className="form-control form-control-sm" rows={2} value={catalogAddDesc} onChange={(e) => setCatalogAddDesc(e.target.value)} />
+                            </div>
+                            <div className="mb-2">
+                              <label className="form-label small mb-1">Image URL</label>
+                              <input className="form-control form-control-sm" value={catalogAddImage} onChange={(e) => setCatalogAddImage(e.target.value)} />
+                            </div>
+                            <div className="mb-2">
+                              <label className="form-label small mb-1">Price (coins)</label>
+                              <input type="number" min={1} className="form-control form-control-sm" style={{ maxWidth: 120 }} value={catalogAddPrice} onChange={(e) => setCatalogAddPrice(e.target.value)} />
+                            </div>
+                            <div className="d-flex gap-2">
+                              <button
+                                className="btn btn-primary btn-sm"
+                                disabled={!catalogAddName || !catalogAddPrice || catalogSaving}
+                                onClick={async () => {
+                                  setCatalogSaving(true);
+                                  try {
+                                    const r = await fetch(`/api/families/${selectedFamily?.id}/catalog`, {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                      body: JSON.stringify({ name: catalogAddName, description: catalogAddDesc || undefined, imageUrl: catalogAddImage || undefined, priceCoins: parseInt(catalogAddPrice, 10), sourceUrl: catalogPreview.sourceUrl || undefined }),
+                                    });
+                                    if (r.ok) {
+                                      const created = await r.json();
+                                      setCatalogItems((prev) => [created, ...prev]);
+                                      setCatalogPreview(null); setCatalogPreviewUrl(''); setCatalogAddName(''); setCatalogAddDesc(''); setCatalogAddImage(''); setCatalogAddPrice('');
+                                    } else { const e = await r.json().catch(() => ({})); alert(e?.error || 'Save failed'); }
+                                  } catch { alert('Save failed'); }
+                                  finally { setCatalogSaving(false); }
+                                }}
+                              >{catalogSaving ? 'Saving...' : 'Save to Catalog'}</button>
+                              <button className="btn btn-outline-secondary btn-sm" onClick={() => { setCatalogPreview(null); setCatalogPreviewUrl(''); }}>Cancel</button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Catalog Items List */}
+                <h3 className="h6 mb-2">Items ({catalogItems.length})</h3>
+                {catalogItems.length === 0 ? (
+                  <div className="text-muted small">No items yet. Add one via URL above.</div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table table-sm align-middle">
+                      <thead>
+                        <tr>
+                          <th style={{ width: 52 }}></th>
+                          <th>Name</th>
+                          <th>Price</th>
+                          <th>Status</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {catalogItems.map((item: any) => (
+                          <tr key={item.id}>
+                            <td>
+                              {item.imageUrl ? (
+                                <img src={item.imageUrl} alt={item.name} style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 6 }} />
+                              ) : <span style={{ fontSize: 24 }}>🛍️</span>}
+                            </td>
+                            <td>
+                              <div className="fw-semibold">{item.name}</div>
+                              {item.description && <div className="small text-muted">{item.description}</div>}
+                            </td>
+                            <td><span className="badge bg-warning text-dark">{item.priceCoins} 🪙</span></td>
+                            <td>
+                              <div className="form-check form-switch mb-0">
+                                <input
+                                  className="form-check-input"
+                                  type="checkbox"
+                                  checked={item.active}
+                                  onChange={async () => {
+                                    const r = await fetch(`/api/catalog/${item.id}`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                      body: JSON.stringify({ active: !item.active }),
+                                    });
+                                    if (r.ok) setCatalogItems((prev) => prev.map((x) => x.id === item.id ? { ...x, active: !x.active } : x));
+                                  }}
+                                />
+                                <label className="form-check-label small">{item.active ? 'Active' : 'Hidden'}</label>
+                              </div>
+                            </td>
+                            <td>
+                              <button
+                                className="btn btn-sm btn-outline-danger"
+                                onClick={async () => {
+                                  if (!confirm(`Delete "${item.name}"?`)) return;
+                                  const r = await fetch(`/api/catalog/${item.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+                                  if (r.ok) setCatalogItems((prev) => prev.filter((x) => x.id !== item.id));
+                                }}
+                              >Delete</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="col-12">
             <div className="card" ref={approvalsRef}>
               <div className="card-body">
@@ -1276,7 +1463,69 @@ export default function ParentDashboard() {
                       {bonusClaims.length > 0 && <span className="badge bg-warning text-dark ms-2">{bonusClaims.length}</span>}
                     </button>
                   </li>
+                  <li className="nav-item">
+                    <button
+                      className={`nav-link ${approvalsTab === 'shop' ? 'active' : ''}`}
+                      onClick={() => setApprovalsTab('shop')}
+                    >
+                      Shop
+                      {catalogPurchases.filter((p: any) => p.status === 'pending_delivery').length > 0 && (
+                        <span className="badge bg-warning text-dark ms-2">{catalogPurchases.filter((p: any) => p.status === 'pending_delivery').length}</span>
+                      )}
+                    </button>
+                  </li>
                 </ul>
+
+                {/* Shop purchases tab */}
+                {approvalsTab === 'shop' && (
+                  <>
+                    {catalogPurchases.filter((p: any) => p.status === 'pending_delivery').length === 0 ? (
+                      <div className="text-muted">No pending deliveries.</div>
+                    ) : (
+                      <ul className="list-group list-group-flush">
+                        {catalogPurchases.filter((p: any) => p.status === 'pending_delivery').map((purchase: any) => (
+                          <li key={purchase.id} className="list-group-item d-flex justify-content-between align-items-center gap-2">
+                            <div className="flex-grow-1">
+                              <div className="fw-semibold">{purchase.itemName}</div>
+                              <div className="small text-muted">
+                                {purchase.childName || purchase.childId} · {purchase.priceCoins} 🪙 · {new Date(purchase.createdAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <button
+                              className="btn btn-sm btn-success"
+                              onClick={async () => {
+                                const r = await fetch(`/api/catalog/purchases/${purchase.id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                  body: JSON.stringify({ familyId: selectedFamily?.id }),
+                                });
+                                if (r.ok) {
+                                  setCatalogPurchases((prev) => prev.map((x) => x.id === purchase.id ? { ...x, status: 'delivered' } : x));
+                                }
+                              }}
+                            >Mark Delivered ✓</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {catalogPurchases.filter((p: any) => p.status === 'delivered').length > 0 && (
+                      <div className="mt-3">
+                        <div className="small text-muted mb-1">Recent deliveries</div>
+                        <ul className="list-group list-group-flush">
+                          {catalogPurchases.filter((p: any) => p.status === 'delivered').slice(0, 5).map((purchase: any) => (
+                            <li key={purchase.id} className="list-group-item d-flex justify-content-between align-items-center gap-2">
+                              <div className="flex-grow-1">
+                                <div className="fw-semibold">{purchase.itemName}</div>
+                                <div className="small text-muted">{purchase.childName || purchase.childId} · {purchase.priceCoins} 🪙</div>
+                              </div>
+                              <span className="badge bg-success">Delivered ✓</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </>
+                )}
 
                 {/* Bonus claims tab */}
                 {approvalsTab === 'bonuses' && (
