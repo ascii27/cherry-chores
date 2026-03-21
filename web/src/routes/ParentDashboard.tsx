@@ -69,6 +69,34 @@ export default function ParentDashboard() {
   const [catalogAddPrice, setCatalogAddPrice] = useState('');
   const [catalogSaving, setCatalogSaving] = useState(false);
 
+  const doPreviewFetch = async (urlOverride?: string) => {
+    const url = (urlOverride ?? catalogPreviewUrl).trim();
+    if (!url) return;
+    if (urlOverride) setCatalogPreviewUrl(urlOverride);
+    setCatalogPreviewLoading(true);
+    setCatalogPreview(null);
+    try {
+      const r = await fetch(`/api/families/${selectedFamily?.id}/catalog/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url }),
+      });
+      const data = await r.json();
+      if (r.ok) {
+        setCatalogPreview(data);
+        setCatalogAddName(data.title || '');
+        setCatalogAddDesc(data.description || '');
+        setCatalogAddImage(data.imageUrl || '');
+      } else {
+        alert(data?.error || 'Preview failed');
+      }
+    } catch {
+      alert('Could not fetch URL. Check your connection and try again.');
+    } finally {
+      setCatalogPreviewLoading(false);
+    }
+  };
+
   useEffect(() => {
     document.body.classList.add('arcade-body');
     return () => document.body.classList.remove('arcade-body');
@@ -1285,37 +1313,36 @@ export default function ParentDashboard() {
                   <h3 className="h6 mb-2">Add via URL</h3>
                   <div className="d-flex gap-2 mb-2">
                     <input
-                      type="url"
+                      type="text"
                       className="form-control"
-                      placeholder="Paste a product URL (Amazon, Target, etc.)"
+                      placeholder="Paste a product URL and press Enter or click Fetch"
                       value={catalogPreviewUrl}
                       onChange={(e) => setCatalogPreviewUrl(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter' && catalogPreviewUrl && !catalogPreviewLoading) {
+                          e.preventDefault();
+                          (e.target as HTMLInputElement).blur();
+                          await doPreviewFetch();
+                        }
+                      }}
+                      onPaste={(e) => {
+                        // Auto-fetch a moment after paste
+                        const pasted = e.clipboardData.getData('text').trim();
+                        if (pasted.startsWith('http')) {
+                          setTimeout(() => doPreviewFetch(pasted), 100);
+                        }
+                      }}
                     />
                     <button
+                      type="button"
                       className="btn btn-outline-primary"
                       disabled={!catalogPreviewUrl || catalogPreviewLoading}
-                      onClick={async () => {
-                        setCatalogPreviewLoading(true);
-                        setCatalogPreview(null);
-                        try {
-                          const r = await fetch(`/api/families/${selectedFamily?.id}/catalog/preview`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                            body: JSON.stringify({ url: catalogPreviewUrl }),
-                          });
-                          const data = await r.json();
-                          if (r.ok) {
-                            setCatalogPreview(data);
-                            setCatalogAddName(data.title || '');
-                            setCatalogAddDesc(data.description || '');
-                            setCatalogAddImage(data.imageUrl || '');
-                          } else {
-                            alert(data?.error || 'Preview failed');
-                          }
-                        } catch { alert('Preview failed'); }
-                        finally { setCatalogPreviewLoading(false); }
-                      }}
-                    >{catalogPreviewLoading ? '...' : 'Preview'}</button>
+                      onClick={() => doPreviewFetch()}
+                    >
+                      {catalogPreviewLoading
+                        ? <span><span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Fetching…</span>
+                        : '🔍 Fetch'}
+                    </button>
                   </div>
 
                   {catalogPreview && (
