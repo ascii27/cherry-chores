@@ -8,8 +8,8 @@
 .arcade-body {
   background: #0A0720 !important;
   color: rgba(255, 255, 255, 0.92);
-  /* PWA-style: body is a fixed-size shell; content scrolls inside */
-  height: 100dvh;
+  height: 100vh;   /* fallback */
+  height: 100dvh;  /* dynamic viewport — shrinks on mobile when browser chrome shows */
   overflow: hidden;
 }
 
@@ -41,10 +41,10 @@
 /* When inside the kid view body shell, fill the shell as a flex column */
 .arcade-body .arcade-app {
   height: 100%;
+  min-height: 0; /* clear the 100vh min-height from base rule */
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-height: unset;
 }
 
 /* TopBar doesn't need sticky — it's the first item in a flex column */
@@ -54,13 +54,17 @@
   flex-shrink: 0;
 }
 
-/* Main content area: fills remaining space and scrolls */
+/* Main content area: fills remaining space and scrolls.
+   min-height: 0 is critical — without it, flex items default to
+   min-height: auto (= content height) and can't shrink, pushing
+   the nav off-screen. flex-basis: 0 lets flex-grow distribute
+   all available space cleanly. */
 .arcade-body .arcade-app > .container {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  /* Use safe-area inset so content clears the home indicator on iOS */
   padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
 }
 
