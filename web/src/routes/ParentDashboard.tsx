@@ -33,14 +33,8 @@ export default function ParentDashboard() {
   const [weekDayIndex, setWeekDayIndex] = useState(0); // mobile pager for Week Overview
   const [detailsOpen, setDetailsOpen] = useState<Record<string, boolean>>({}); // mobile accordion for Week Details
   const hashToken = useMemo(() => new URLSearchParams(loc.hash.replace(/^#/, '')).get('token'), [loc.hash]);
-  const addChildRef = useRef<HTMLDivElement | null>(null);
-  const familyRef = useRef<HTMLDivElement | null>(null);
-  const childrenRef = useRef<HTMLDivElement | null>(null);
-  const choresRef = useRef<HTMLDivElement | null>(null);
-  const approvalsRef = useRef<HTMLDivElement | null>(null);
-  const weekOverviewRef = useRef<HTMLDivElement | null>(null);
-  const weekDetailsRef = useRef<HTMLDivElement | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [section, setSection] = useState<'today' | 'week' | 'children' | 'manage'>('today');
+  const mainContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Bonus state
   const [bonuses, setBonuses] = useState<Bonus[]>([]);
@@ -53,9 +47,6 @@ export default function ParentDashboard() {
 
   // Activity feed state
   const [activityFeed, setActivityFeed] = useState<ActivityEntry[]>([]);
-  const bonusesRef = useRef<HTMLDivElement | null>(null);
-  const activityRef = useRef<HTMLDivElement | null>(null);
-  const catalogRef = useRef<HTMLDivElement | null>(null);
 
   // Catalog state
   const [catalogItems, setCatalogItems] = useState<any[]>([]);
@@ -107,6 +98,8 @@ export default function ParentDashboard() {
     document.body.classList.add('arcade-body');
     return () => document.body.classList.remove('arcade-body');
   }, []);
+
+  useEffect(() => { mainContainerRef.current?.scrollTo(0, 0); }, [section]);
 
   useEffect(() => {
     const t = hashToken || localStorage.getItem('parentToken');
@@ -396,66 +389,20 @@ export default function ParentDashboard() {
     }
   }
 
+  const pendingCount =
+    approvals.filter((a) => a.status === 'pending').length +
+    bonusClaims.filter((b) => b.status === 'pending').length +
+    catalogPurchases.filter((p) => p.status === 'pending_delivery').length;
+
   return (
     <div className="arcade-app">
       <TopBar
         name={me?.name || me?.email || 'Parent'}
         avatar={null}
-        onMenuToggle={() => setMenuOpen(true)}
         onLogout={async () => { try { await fetch('/auth/logout', { method: 'POST' }); } catch {}; localStorage.removeItem('parentToken'); nav('/'); }}
       />
 
-      {/* Off-canvas drawer */}
-      {menuOpen ? (
-        <div
-          role="button"
-          aria-label="Close menu"
-          onClick={() => setMenuOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 1030 }}
-        />
-      ) : null}
-      <aside
-        aria-label="Navigation"
-        style={{ position: 'fixed', top: 0, bottom: 0, left: 0, width: 260, background: 'var(--surface)', borderRight: '1px solid var(--border)', transform: menuOpen ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform 150ms ease', zIndex: 1040, padding: '16px' }}
-      >
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <div className="fw-semibold">Menu</div>
-          <button className="btn btn-sm btn-outline-secondary" onClick={() => setMenuOpen(false)} aria-label="Close menu">Close</button>
-        </div>
-        <nav className="nav flex-column" aria-label="Sections">
-          {[
-            { label: 'Family', ref: familyRef },
-            { label: 'Add child', ref: addChildRef },
-            { label: 'Children', ref: childrenRef },
-            { label: 'Chores', ref: choresRef },
-            { label: 'Bonuses', ref: bonusesRef },
-            { label: 'Shop Catalog', ref: catalogRef },
-            { label: 'Approvals', ref: approvalsRef },
-            { label: 'Week Overview', ref: weekOverviewRef },
-            { label: 'Week Details', ref: weekDetailsRef },
-            { label: 'Activity', ref: activityRef }
-          ].map((it) => (
-            <button
-              key={it.label}
-              className="btn btn-outline-secondary text-start mb-2 touch-target"
-              onClick={() => { it.ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); setMenuOpen(false); }}
-            >
-              {it.label}
-            </button>
-          ))}
-          <button
-            className="btn btn-outline-secondary text-start mb-2 touch-target"
-            onClick={() => { nav('/settings'); setMenuOpen(false); }}
-          >
-            Settings
-          </button>
-        </nav>
-      </aside>
-
-      <div className="container py-4" style={{ paddingBottom: 120 }}>
-        <div className="d-flex align-items-center justify-content-between mb-3">
-          <h1 className="h3 mb-0">Parent Dashboard</h1>
-        </div>
+      <div className="container py-3" ref={mainContainerRef} style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom))' }}>
       {families.length === 0 ? (
         <div className="card">
           <div className="card-body">
@@ -476,9 +423,14 @@ export default function ParentDashboard() {
           </div>
         </div>
       ) : (
+        <>
+        {section === 'manage' && (
         <div className="row g-4">
+          <div className="col-12 d-flex justify-content-end">
+            <button className="btn btn-sm btn-outline-secondary" onClick={() => nav('/settings')}>⚙️ Settings</button>
+          </div>
           <div className="col-md-6">
-          <div className="card h-100" ref={familyRef}>
+          <div className="card h-100">
             <div className="card-body">
               <h2 className="h5">Family</h2>
               <p className="mb-1"><strong>Name:</strong> {selectedFamily?.name}</p>
@@ -531,7 +483,7 @@ export default function ParentDashboard() {
             </div>
           </div>
           <div className="col-md-6">
-            <div className="card h-100" ref={addChildRef}>
+            <div className="card h-100">
               <div className="card-body">
                 <h2 className="h5">Add child</h2>
                 <form className="row g-2" onSubmit={handleAddChild}>
@@ -611,8 +563,12 @@ export default function ParentDashboard() {
               </div>
             </div>
           </div>
+        </div>
+        )}
+        {section === 'children' && (
+        <div className="row g-4">
           <div className="col-12">
-            <div className="card" ref={childrenRef}>
+            <div className="card">
               <div className="card-body">
                 <h2 className="h5">Children</h2>
                 {/* Children: mobile cards (small) and table (md+) */}
@@ -762,8 +718,12 @@ export default function ParentDashboard() {
               </div>
             </div>
           </div>
+        </div>
+        )}
+        {section === 'manage' && (
+        <div className="row g-4">
           <div className="col-12">
-            <div className="card" ref={choresRef}>
+            <div className="card">
               <div className="card-body">
                 <h2 className="h5">Chores</h2>
                 {/* Chores form: single column on small; chips wrap */}
@@ -1056,7 +1016,7 @@ export default function ParentDashboard() {
           </div>
           {/* Bonuses Section */}
           <div className="col-12">
-            <div className="card" ref={bonusesRef}>
+            <div className="card" >
               <div className="card-body">
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <h2 className="h5 mb-0">Bonuses</h2>
@@ -1310,7 +1270,7 @@ export default function ParentDashboard() {
 
           {/* Shop Catalog Section */}
           <div className="col-12">
-            <div className="card" ref={catalogRef}>
+            <div className="card" >
               <div className="card-body">
                 <h2 className="h5 mb-3">🛍️ Shop Catalog</h2>
 
@@ -1543,9 +1503,12 @@ export default function ParentDashboard() {
               </div>
             </div>
           </div>
-
+        </div>
+        )}
+        {section === 'today' && (
+        <div className="row g-4">
           <div className="col-12">
-            <div className="card" ref={approvalsRef}>
+            <div className="card">
               <div className="card-body">
                 <h2 className="h5">Approvals</h2>
                 {/* Approvals tabs: Chores | Bonuses */}
@@ -1828,7 +1791,7 @@ export default function ParentDashboard() {
 
           {/* Activity Feed */}
           <div className="col-12">
-            <div className="card" ref={activityRef}>
+            <div className="card" >
               <div className="card-body">
                 <h2 className="h5 mb-3">Recent Activity</h2>
                 {activityFeed.length === 0 ? (
@@ -1853,9 +1816,12 @@ export default function ParentDashboard() {
               </div>
             </div>
           </div>
-
+        </div>
+        )}
+        {section === 'week' && (
+        <div className="row g-4">
           <div className="col-12">
-            <div className="card" ref={weekOverviewRef}>
+            <div className="card">
               <div className="card-body">
                 <h2 className="h5">Week Overview</h2>
                 {/* Week Overview: day pager on small; 7-col grid on md+ */}
@@ -1936,7 +1902,7 @@ export default function ParentDashboard() {
             </div>
           </div>
           <div className="col-12 mobile-bottom">
-            <div className="card" ref={weekDetailsRef}>
+            <div className="card" >
               <div className="card-body">
                 <h2 className="h5">Week Details</h2>
                 {children.length === 0 ? (
@@ -2055,15 +2021,37 @@ export default function ParentDashboard() {
             </div>
           </div>
         </div>
+        )}
+        </>
       )}
       </div>
-      {/* Sticky mobile actions: Approvals primary controls */}
-      <div className="d-md-none" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1040, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(6px)', borderTop: '1px solid var(--border)' }}>
-        <div className="container py-2 d-flex gap-2">
-          <button className="btn btn-primary w-100 touch-target" disabled={payoutBusy || !selectedFamily} onClick={runPayout}>{payoutBusy ? 'Paying…' : 'Run payout'}</button>
-          <button className="btn btn-outline-secondary touch-target" style={{ minWidth: 120 }} onClick={() => childrenRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Add Coins</button>
-        </div>
-      </div>
+
+      {/* Bottom tab navigation */}
+      <nav className="kid-bottom-nav" aria-label="Main navigation">
+        <button className={`kid-tab${section === 'today' ? ' active' : ''}`} onClick={() => setSection('today')}>
+          <span className="kid-tab-icon" style={{ position: 'relative', display: 'inline-block' }}>
+            📋
+            {pendingCount > 0 && (
+              <span style={{ position: 'absolute', top: -4, right: -8, background: '#EF4444', color: '#fff', borderRadius: '50%', fontSize: 9, minWidth: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, lineHeight: 1 }}>
+                {pendingCount > 9 ? '9+' : pendingCount}
+              </span>
+            )}
+          </span>
+          <span className="kid-tab-label">Today</span>
+        </button>
+        <button className={`kid-tab${section === 'week' ? ' active' : ''}`} onClick={() => setSection('week')}>
+          <span className="kid-tab-icon">📅</span>
+          <span className="kid-tab-label">Week</span>
+        </button>
+        <button className={`kid-tab${section === 'children' ? ' active' : ''}`} onClick={() => setSection('children')}>
+          <span className="kid-tab-icon">👦</span>
+          <span className="kid-tab-label">Children</span>
+        </button>
+        <button className={`kid-tab${section === 'manage' ? ' active' : ''}`} onClick={() => setSection('manage')}>
+          <span className="kid-tab-icon">⚙️</span>
+          <span className="kid-tab-label">Manage</span>
+        </button>
+      </nav>
     </div>
   );
 }
