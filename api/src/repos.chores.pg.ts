@@ -31,12 +31,31 @@ export class PgChoresRepo implements ChoresRepository {
         status TEXT NOT NULL
       );
     `);
+    // Migrations — safe to run repeatedly
+    await this.pool.query(`ALTER TABLE chores ALTER COLUMN value TYPE NUMERIC(10,2)`).catch(() => {});
+    await this.pool.query(`ALTER TABLE chores ADD COLUMN IF NOT EXISTS emoji TEXT`);
+  }
+
+  private rowToChore(row: any, assignedChildIds: string[]): Chore {
+    return {
+      id: row.id,
+      familyId: row.family_id,
+      name: row.name,
+      description: row.description ?? undefined,
+      value: parseFloat(row.value),
+      recurrence: row.recurrence,
+      dueDay: row.due_day ?? undefined,
+      requiresApproval: row.requires_approval,
+      active: row.active,
+      assignedChildIds,
+      emoji: row.emoji ?? undefined,
+    };
   }
 
   async createChore(chore: Chore): Promise<Chore> {
     await this.pool.query(
-      'INSERT INTO chores(id,family_id,name,description,value,recurrence,due_day,requires_approval,active) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-      [chore.id, chore.familyId, chore.name, chore.description ?? null, chore.value, chore.recurrence, chore.dueDay ?? null, chore.requiresApproval, chore.active]
+      'INSERT INTO chores(id,family_id,name,description,value,recurrence,due_day,requires_approval,active,emoji) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+      [chore.id, chore.familyId, chore.name, chore.description ?? null, chore.value, chore.recurrence, chore.dueDay ?? null, chore.requiresApproval, chore.active, chore.emoji ?? null]
     );
     for (const cid of chore.assignedChildIds) {
       await this.pool.query('INSERT INTO chore_assignments(chore_id, child_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [chore.id, cid]);
@@ -45,8 +64,8 @@ export class PgChoresRepo implements ChoresRepository {
   }
   async updateChore(chore: Chore): Promise<Chore> {
     await this.pool.query(
-      'UPDATE chores SET name=$1, description=$2, value=$3, recurrence=$4, due_day=$5, requires_approval=$6, active=$7 WHERE id=$8',
-      [chore.name, chore.description ?? null, chore.value, chore.recurrence, chore.dueDay ?? null, chore.requiresApproval, chore.active, chore.id]
+      'UPDATE chores SET name=$1, description=$2, value=$3, recurrence=$4, due_day=$5, requires_approval=$6, active=$7, emoji=$8 WHERE id=$9',
+      [chore.name, chore.description ?? null, chore.value, chore.recurrence, chore.dueDay ?? null, chore.requiresApproval, chore.active, chore.emoji ?? null, chore.id]
     );
     await this.pool.query('DELETE FROM chore_assignments WHERE chore_id=$1', [chore.id]);
     for (const cid of chore.assignedChildIds) {
@@ -61,23 +80,12 @@ export class PgChoresRepo implements ChoresRepository {
     const r = await this.pool.query('SELECT * FROM chores WHERE id=$1', [id]);
     if (!r.rowCount) return undefined;
     const a = await this.pool.query('SELECT child_id FROM chore_assignments WHERE chore_id=$1', [id]);
-    const row = r.rows[0];
-    return {
-      id: row.id,
-      familyId: row.family_id,
-      name: row.name,
-      description: row.description ?? undefined,
-      value: row.value,
-      recurrence: row.recurrence,
-      dueDay: row.due_day ?? undefined,
-      requiresApproval: row.requires_approval,
-      active: row.active,
-      assignedChildIds: a.rows.map((x: any) => x.child_id)
-    } as Chore;
+    return this.rowToChore(r.rows[0], a.rows.map((x: any) => x.child_id));
   }
   async listChoresByFamily(familyId: string): Promise<Chore[]> {
     const r = await this.pool.query('SELECT * FROM chores WHERE family_id=$1', [familyId]);
     const ids = r.rows.map((x: any) => x.id);
+    if (ids.length === 0) return [];
     const assigns = await this.pool.query('SELECT chore_id, child_id FROM chore_assignments WHERE chore_id = ANY($1)', [ids]);
     const map = new Map<string, string[]>();
     for (const row of assigns.rows) {
@@ -85,18 +93,7 @@ export class PgChoresRepo implements ChoresRepository {
       arr.push(row.child_id);
       map.set(row.chore_id, arr);
     }
-    return r.rows.map((row: any) => ({
-      id: row.id,
-      familyId: row.family_id,
-      name: row.name,
-      description: row.description ?? undefined,
-      value: row.value,
-      recurrence: row.recurrence,
-      dueDay: row.due_day ?? undefined,
-      requiresApproval: row.requires_approval,
-      active: row.active,
-      assignedChildIds: map.get(row.id) || []
-    }));
+    return r.rows.map((row: any) => this.rowToChore(row, map.get(row.id) || []));
   }
 
   async createCompletion(c: Completion): Promise<Completion> {
@@ -120,4 +117,3 @@ export class PgChoresRepo implements ChoresRepository {
     return r.rows.map((row: any) => ({ id: row.id, choreId: row.chore_id, childId: row.child_id, date: row.date, status: row.status }));
   }
 }
-

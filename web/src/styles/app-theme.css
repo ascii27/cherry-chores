@@ -1071,8 +1071,31 @@
   animation-delay: var(--cb-delay, 0ms);
 }
 
+@keyframes coin-rain-fall {
+  0% {
+    transform: translate(var(--cr-drift-start, 0px), -60px) rotate(0deg);
+    opacity: 1;
+  }
+  80% { opacity: 1; }
+  100% {
+    transform: translate(var(--cr-drift-end, 20px), 110vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.coin-rain-particle {
+  position: fixed;
+  top: 0;
+  left: var(--cr-x, 50%);
+  pointer-events: none;
+  animation: coin-rain-fall var(--cr-dur, 1800ms) ease-in both;
+  animation-delay: var(--cr-delay, 0ms);
+  z-index: 2100;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .coin-burst-particle {
+  .coin-burst-particle,
+  .coin-rain-particle {
     display: none;
   }
   .goal-hero-bar-fill::after {

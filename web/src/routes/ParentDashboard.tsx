@@ -741,9 +741,9 @@ export default function ParentDashboard() {
                     const payload = {
                       familyId: selectedFamily.id,
                       name,
-                      value: parseInt(valueStr || '0', 10),
+                      value: parseFloat(valueStr || '0'),
                       recurrence,
-                      dueDay: recurrence === 'weekly' ? parseInt(dueDayStr || '0', 10) : undefined,
+                      dueDay: ['weekly','biweekly-odd','biweekly-even'].includes(recurrence) ? parseInt(dueDayStr || '0', 10) : undefined,
                       requiresApproval,
                       assignedChildIds: assignedIds,
                       active: true
@@ -765,17 +765,19 @@ export default function ParentDashboard() {
                   </div>
                   <div className="col-md-2">
                     <label htmlFor="ch-value" className="form-label">Value</label>
-                    <input id="ch-value" type="number" min="0" className="form-control" defaultValue={1} required />
+                    <input id="ch-value" type="number" min="0" step="0.5" className="form-control" defaultValue={1} required />
                   </div>
                   <div className="col-md-3">
                     <label htmlFor="ch-recurrence" className="form-label">Recurrence</label>
                     <select id="ch-recurrence" className="form-select" defaultValue="daily" onChange={(ev) => {
                       const sel = (ev.target as HTMLSelectElement).value;
                       const dd = document.getElementById('ch-dueDay') as HTMLSelectElement;
-                      if (dd) dd.disabled = sel !== 'weekly';
+                      if (dd) dd.disabled = !['weekly','biweekly-odd','biweekly-even'].includes(sel);
                     }}>
                       <option value="daily">Daily</option>
                       <option value="weekly">Weekly</option>
+                      <option value="biweekly-odd">Bi-weekly (1st &amp; 3rd)</option>
+                      <option value="biweekly-even">Bi-weekly (2nd &amp; 4th)</option>
                     </select>
                   </div>
                   <div className="col-md-3">
@@ -825,9 +827,9 @@ export default function ParentDashboard() {
                       const assignedIds: string[] = Array.from(e.currentTarget.querySelectorAll('input[name="editAssignChild"]:checked')).map((i: any) => i.value);
                       const payload: any = {
                         name,
-                        value: parseInt(valueStr || '0', 10),
+                        value: parseFloat(valueStr || '0'),
                         recurrence,
-                        dueDay: recurrence === 'weekly' ? parseInt(dueDayStr || '0', 10) : undefined,
+                        dueDay: ['weekly','biweekly-odd','biweekly-even'].includes(recurrence) ? parseInt(dueDayStr || '0', 10) : undefined,
                         requiresApproval,
                         assignedChildIds: assignedIds
                       };
@@ -850,22 +852,24 @@ export default function ParentDashboard() {
                     </div>
                     <div className="col-md-2">
                       <label htmlFor="edit-value" className="form-label">Value</label>
-                      <input id="edit-value" type="number" min="0" className="form-control" defaultValue={editingChore?.value ?? 1} required />
+                      <input id="edit-value" type="number" min="0" step="0.5" className="form-control" defaultValue={editingChore?.value ?? 1} required />
                     </div>
                     <div className="col-md-3">
                       <label htmlFor="edit-recurrence" className="form-label">Recurrence</label>
                       <select id="edit-recurrence" className="form-select" defaultValue={editingChore?.recurrence || 'daily'} onChange={(ev) => {
                         const sel = (ev.target as HTMLSelectElement).value;
                         const dd = document.getElementById('edit-dueDay') as HTMLSelectElement;
-                        if (dd) dd.disabled = sel !== 'weekly';
+                        if (dd) dd.disabled = !['weekly','biweekly-odd','biweekly-even'].includes(sel);
                       }}>
                         <option value="daily">Daily</option>
                         <option value="weekly">Weekly</option>
+                        <option value="biweekly-odd">Bi-weekly (1st &amp; 3rd)</option>
+                        <option value="biweekly-even">Bi-weekly (2nd &amp; 4th)</option>
                       </select>
                     </div>
                     <div className="col-md-3">
                       <label htmlFor="edit-dueDay" className="form-label">Due Day</label>
-                      <select id="edit-dueDay" className="form-select" defaultValue={String(editingChore?.dueDay ?? 0)} disabled={editingChore?.recurrence !== 'weekly'}>
+                      <select id="edit-dueDay" className="form-select" defaultValue={String(editingChore?.dueDay ?? 0)} disabled={!['weekly','biweekly-odd','biweekly-even'].includes(editingChore?.recurrence || '')}>
                         <option value="0">Sunday</option>
                         <option value="1">Monday</option>
                         <option value="2">Tuesday</option>
@@ -914,7 +918,12 @@ export default function ParentDashboard() {
                                 <div className="fw-semibold text-anywhere">{h.name}</div>
                                 <span className="badge bg-light text-dark">+{h.value}</span>
                               </div>
-                              <div className="text-muted small mt-1">{h.recurrence === 'weekly' ? `Weekly (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` : 'Daily'}</div>
+                              <div className="text-muted small mt-1">{
+                                h.recurrence === 'weekly' ? `Weekly (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` :
+                                h.recurrence === 'biweekly-odd' ? `Bi-weekly 1st/3rd (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` :
+                                h.recurrence === 'biweekly-even' ? `Bi-weekly 2nd/4th (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` :
+                                'Daily'
+                              }</div>
                               <div className="text-muted small mt-1">Assigned: <span className="text-anywhere">{assigned}</span></div>
                               <div className="d-flex align-items-center gap-2 mt-2">
                                 <div className="form-check form-switch m-0">
@@ -963,7 +972,12 @@ export default function ParentDashboard() {
                         {chores.map((h) => (
                           <tr key={h.id}>
                             <td>{h.name}</td>
-                            <td className="text-muted">{h.recurrence === 'weekly' ? `Weekly (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` : 'Daily'}</td>
+                            <td className="text-muted">{
+                              h.recurrence === 'weekly' ? `Weekly (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` :
+                              h.recurrence === 'biweekly-odd' ? `Bi-weekly 1st/3rd (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` :
+                              h.recurrence === 'biweekly-even' ? `Bi-weekly 2nd/4th (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][h.dueDay ?? 0]})` :
+                              'Daily'
+                            }</td>
                             <td>{h.value}</td>
                             <td className="text-muted">{children.filter((c) => h.assignedChildIds?.includes(c.id)).map((c) => c.displayName).join(', ') || '-'}</td>
                             <td className="text-end">

@@ -3,6 +3,7 @@ import { AuthedRequest, requireRole } from '../middleware/auth';
 import { ActivityRepository, ChoresRepository, FamiliesRepository, UsersRepository } from '../repositories';
 import { Chore, Completion } from '../chores.types';
 import { emitActivity } from '../activity';
+import { llm } from '../llm';
 
 function todayStr(): string {
   const d = new Date();
@@ -10,6 +11,60 @@ function todayStr(): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${dd}`;
+}
+
+// Emoji fallback table — used when LLM is unavailable
+const CHORE_EMOJI_MAP: Record<string, string> = {
+  dishes: '🍽️', dishwasher: '🍽️', wash: '🧼', clean: '🧹',
+  vacuum: '🧹', sweep: '🧹', mop: '🪣', laundry: '👕', fold: '👕',
+  trash: '🗑️', garbage: '🗑️', recycle: '♻️', bathroom: '🚿',
+  toilet: '🚽', shower: '🚿', bedroom: '🛏️', bed: '🛏️',
+  homework: '📚', study: '📚', read: '📖', feed: '🐾',
+  pet: '🐾', dog: '🐕', cat: '🐈', water: '💧', plant: '🌱',
+  garden: '🌻', cook: '🍳', dinner: '🍽️', lunch: '🥪',
+  breakfast: '🥞', grocery: '🛒', shopping: '🛒', table: '🪑',
+  floor: '🧹', window: '🪟', car: '🚗', snow: '❄️', lawn: '🌿',
+  tidy: '🧹', organize: '📦', sort: '📦', wipe: '🧻', dust: '🧹',
+};
+
+function fallbackEmoji(name: string): string {
+  const lower = name.toLowerCase();
+  for (const [keyword, emoji] of Object.entries(CHORE_EMOJI_MAP)) {
+    if (lower.includes(keyword)) return emoji;
+  }
+  return '⭐';
+}
+
+/** Returns true if chore c is due on date d */
+function isChoreActiveOnDate(c: Chore, d: Date): boolean {
+  const dow = d.getDay();
+  if (c.recurrence === 'daily') return true;
+  if (c.recurrence === 'weekly') return c.dueDay === dow;
+  if (c.recurrence === 'biweekly-odd' || c.recurrence === 'biweekly-even') {
+    if (c.dueDay !== dow) return false;
+    // Which occurrence of this weekday within the month? (1-based)
+    const occurrence = Math.ceil(d.getDate() / 7);
+    const isOdd = occurrence % 2 === 1;
+    return c.recurrence === 'biweekly-odd' ? isOdd : !isOdd;
+  }
+  return false;
+}
+
+/** Fire-and-forget: assign an emoji to a newly created chore */
+async function assignEmoji(chore: Chore, choresRepo: ChoresRepository): Promise<void> {
+  try {
+    let emoji = fallbackEmoji(chore.name);
+    const raw = await llm.generate(
+      `Reply with exactly one emoji that best represents this household chore for a child: "${chore.name}". Reply with only the emoji character, nothing else.`,
+      { maxTokens: 10, temperature: 0.3 }
+    );
+    const clean = raw.trim();
+    // Accept if it looks like an emoji (short grapheme cluster)
+    if (clean.length > 0 && clean.length <= 8 && [...clean].length <= 3) emoji = clean;
+    await choresRepo.updateChore({ ...chore, emoji });
+  } catch (err) {
+    console.warn('[chores] emoji fetch failed:', (err as any)?.message || err);
+  }
 }
 
 export function choresRoutes(opts: { chores: ChoresRepository; families: FamiliesRepository; users: UsersRepository; activity?: ActivityRepository }) {
@@ -34,9 +89,12 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
       dueDay,
       requiresApproval: !!requiresApproval,
       active: active !== false,
-      assignedChildIds: Array.isArray(assignedChildIds) ? assignedChildIds : []
+      assignedChildIds: Array.isArray(assignedChildIds) ? assignedChildIds : [],
+      emoji: fallbackEmoji(name), // immediate fallback while LLM runs
     };
     await chores.createChore(chore);
+    // Fire-and-forget LLM emoji — don't block the response
+    assignEmoji(chore, chores);
     return res.status(201).json(chore);
   });
 
@@ -105,24 +163,26 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
     }
     let items: any[] = [];
     if (scope === 'today') {
-      items = assigned.filter((c) => (c.recurrence === 'daily') || (c.recurrence === 'weekly' && c.dueDay === dow)).map((c) => ({
+      items = assigned.filter((c) => isChoreActiveOnDate(c, now)).map((c) => ({
         id: c.id,
         name: c.name,
         description: c.description,
         value: c.value,
+        emoji: c.emoji,
         requiresApproval: c.requiresApproval,
         date: today,
         status: statusFor(c.id, today)
       }));
     } else {
-      items = assigned.filter((c) => c.recurrence === 'daily' || (c.recurrence === 'weekly' && c.dueDay! >= 0)).map((c) => ({
+      items = assigned.filter((c) => c.recurrence === 'daily' || c.dueDay != null).map((c) => ({
         id: c.id,
         name: c.name,
         description: c.description,
         value: c.value,
+        emoji: c.emoji,
         requiresApproval: c.requiresApproval,
-        dueDay: c.recurrence === 'weekly' ? c.dueDay : undefined,
-        status: c.recurrence === 'weekly' && c.dueDay === dow ? statusFor(c.id, today) : null
+        dueDay: c.recurrence !== 'daily' ? c.dueDay : undefined,
+        status: isChoreActiveOnDate(c, now) ? statusFor(c.id, today) : null
       }));
     }
     res.json(items);
@@ -149,8 +209,7 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
       const d = new Date(start);
       d.setDate(start.getDate() + i);
       const dateStr = fmt(d);
-      const dow = d.getDay();
-      const dueItems = assigned.filter((c) => c.recurrence === 'daily' || (c.recurrence === 'weekly' && c.dueDay === dow));
+      const dueItems = assigned.filter((c) => isChoreActiveOnDate(c, d));
       const items = dueItems.map((c) => {
         const comp = completions.find((x) => x.choreId === c.id && x.date === dateStr);
         const status = comp ? comp.status : (i < dowToday ? 'missed' : (i === dowToday ? 'due' : 'planned'));
@@ -161,7 +220,7 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
         const ch = dueItems.find((c) => c.id === x.choreId);
         return s + (ch?.value || 0);
       }, 0);
-      days.push({ date: dateStr, dow, items, plannedValue, approvedValue });
+      days.push({ date: dateStr, dow: d.getDay(), items, plannedValue, approvedValue });
     }
     const totalPlanned = days.reduce((s, d) => s + d.plannedValue, 0);
     const totalApproved = days.reduce((s, d) => s + d.approvedValue, 0);
@@ -196,12 +255,9 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
     const { childId, date } = req.body || {};
     if (!childId) return res.status(400).json({ error: 'missing childId' });
     const compDate = typeof date === 'string' && /\d{4}-\d{2}-\d{2}/.test(date) ? date : todayStr();
-    // naive: need completions in range and matching today
-    // We could add a lookup by chore+child+date but for MVP we'll scan today's range
     const comps = await chores.listCompletionsForChildInRange(childId, compDate, compDate);
     const comp = comps.find((x) => x.choreId === req.params.id && x.date === compDate);
     if (!comp) return res.status(404).json({ error: 'not found' });
-    // Allow reverting even if already approved (no ledger impact in Phase 2)
     await chores.deleteCompletion(comp.id);
     res.status(204).send();
   });
@@ -218,8 +274,6 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
 
   router.post('/approvals/:id/approve', requireRole('parent'), async (req: Request, res) => {
     const { id } = req.params;
-    // naive approve: delete and recreate approved, but better to update; for simplicity here, delete and insert
-    // Find existing via family scan
     const { familyId } = req.body || {};
     if (!familyId) return res.status(400).json({ error: 'missing familyId' });
     const fam = await families.getFamilyById(familyId);
