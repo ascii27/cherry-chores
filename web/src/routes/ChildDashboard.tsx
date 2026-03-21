@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import '../styles/app-theme.css';
+import { playCoinSound } from '../coinSound';
 // Bootstrap Icons (SVGs as URLs for avatars/patterns)
 // Vite resolves '?url' imports to asset URLs at build time
 // Emojis/Playful icons
@@ -439,7 +440,10 @@ export default function ChildDashboard() {
                     return (
                     <div key={t.id} className="quest-item">
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="quest-name">{t.name}</div>
+                        <div className="quest-name">
+                          {t.emoji && <span style={{ marginRight: 6, fontSize: '1.2em' }}>{t.emoji}</span>}
+                          {t.name}
+                        </div>
                         {t.description && <div className="quest-desc">{t.description}</div>}
                       </div>
                       <div className="quest-coins" aria-label={`${t.value || 0} coins`}>
@@ -496,6 +500,7 @@ export default function ChildDashboard() {
                               setSavers(rs.ok ? await rs.json() : []);
                               setCelebrate((n) => n + 1);
                               setCoinBurst((n) => n + 1);
+                              playCoinSound();
                             }}
                           >
                             ✓ Done

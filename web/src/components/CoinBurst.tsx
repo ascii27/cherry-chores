@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import GoldCoin from './GoldCoin';
 
-const COIN_COUNT = 8;
+const COIN_COUNT = 30;
 
 interface CoinParticle {
   id: number;
-  angle: number;   // degrees
-  dist: number;    // px
+  x: number;       // vw %
+  driftStart: number; // px
+  driftEnd: number;   // px
   delay: number;   // ms
+  dur: number;     // ms
 }
 
 function randomBetween(a: number, b: number) {
@@ -28,45 +30,38 @@ export default function CoinBurst({ trigger }: { trigger: number }) {
   useEffect(() => {
     if (reduced || trigger === 0) return;
     const next: CoinParticle[] = Array.from({ length: COIN_COUNT }, (_, i) => ({
-      id: trigger * 100 + i,
-      angle: randomBetween(-150, -30), // fan upward (negative = up in CSS)
-      dist: randomBetween(60, 140),
-      delay: randomBetween(0, 80),
+      id: trigger * 1000 + i,
+      x: randomBetween(5, 95),
+      driftStart: randomBetween(-30, 30),
+      driftEnd: randomBetween(-60, 60),
+      delay: randomBetween(0, 900),
+      dur: randomBetween(1400, 2100),
     }));
     setParticles(next);
-    const t = setTimeout(() => setParticles([]), 900);
+    const t = setTimeout(() => setParticles([]), 3200);
     return () => clearTimeout(t);
   }, [trigger, reduced]);
 
   if (particles.length === 0) return null;
 
   return (
-    <div
-      aria-hidden
-      style={{
-        position: 'fixed',
-        bottom: '30%',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        pointerEvents: 'none',
-        zIndex: 2100,
-        width: 0,
-        height: 0,
-      }}
-    >
+    <>
       {particles.map((p) => (
         <div
           key={p.id}
-          className="coin-burst-particle"
+          aria-hidden
+          className="coin-rain-particle"
           style={{
-            '--cb-angle': `${p.angle}deg`,
-            '--cb-dist': `${p.dist}px`,
-            '--cb-delay': `${p.delay}ms`,
+            '--cr-x': `${p.x}vw`,
+            '--cr-drift-start': `${p.driftStart}px`,
+            '--cr-drift-end': `${p.driftEnd}px`,
+            '--cr-delay': `${p.delay}ms`,
+            '--cr-dur': `${p.dur}ms`,
           } as React.CSSProperties}
         >
-          <GoldCoin size={20} />
+          <GoldCoin size={22} />
         </div>
       ))}
-    </div>
+    </>
   );
 }
