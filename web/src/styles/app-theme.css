@@ -8,6 +8,9 @@
 .arcade-body {
   background: #0A0720 !important;
   color: rgba(255, 255, 255, 0.92);
+  /* PWA-style: body is a fixed-size shell; content scrolls inside */
+  height: 100dvh;
+  overflow: hidden;
 }
 
 /* Noise grain on body */
@@ -35,6 +38,40 @@
 }
 
 /* ── Root wrapper ── */
+/* When inside the kid view body shell, fill the shell as a flex column */
+.arcade-body .arcade-app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: unset;
+}
+
+/* TopBar doesn't need sticky — it's the first item in a flex column */
+.arcade-body .cc-topbar {
+  position: relative !important;
+  top: auto;
+  flex-shrink: 0;
+}
+
+/* Main content area: fills remaining space and scrolls */
+.arcade-body .arcade-app > .container {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  /* Use safe-area inset so content clears the home indicator on iOS */
+  padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
+}
+
+/* Nav is now a natural flex item at the bottom — no longer fixed */
+.arcade-body .kid-bottom-nav {
+  position: relative;
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  height: calc(64px + env(safe-area-inset-bottom));
+}
+
 .arcade-app {
   /* Token overrides */
   --bg: #0A0720;
@@ -1042,10 +1079,6 @@
 
 /* ── Bottom Tab Navigation ── */
 .kid-bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
   height: 64px;
   background: var(--surface);
   border-top: 1px solid var(--border);
@@ -1083,7 +1116,7 @@
   font-weight: 600;
   letter-spacing: 0.02em;
 }
-/* Push content above bottom nav */
+/* Fallback padding for non-arcade-body contexts (overridden for kid view above) */
 .arcade-app .container {
   padding-bottom: 80px;
 }
