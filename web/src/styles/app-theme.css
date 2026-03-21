@@ -8,9 +8,7 @@
 .arcade-body {
   background: #0A0720 !important;
   color: rgba(255, 255, 255, 0.92);
-  height: 100vh;   /* fallback */
-  height: 100dvh;  /* dynamic viewport — shrinks on mobile when browser chrome shows */
-  overflow: hidden;
+  /* No height/overflow on body — the app div owns the viewport sizing */
 }
 
 /* Noise grain on body */
@@ -40,8 +38,9 @@
 /* ── Root wrapper ── */
 /* When inside the kid view body shell, fill the shell as a flex column */
 .arcade-body .arcade-app {
-  height: 100%;
-  min-height: 0; /* clear the 100vh min-height from base rule */
+  height: 100vh;   /* fallback */
+  height: 100dvh;  /* direct viewport height — bypasses #root height:auto chain */
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
