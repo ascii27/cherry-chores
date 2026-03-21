@@ -22,6 +22,7 @@ import { useToast } from '../components/Toast';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import Celebration from '../components/Celebration';
+import CoinBurst from '../components/CoinBurst';
 import StatCard from '../components/StatCard';
 import ProgressBar from '../components/ProgressBar';
 import Coin from '../components/Coin';
@@ -31,6 +32,7 @@ export default function ChildDashboard() {
   const nav = useNavigate();
   const [child, setChild] = useState<{ id: string; familyId: string; displayName?: string | null; avatarUrl?: string | null; themeColor?: string | null } | null>(null);
   const [celebrate, setCelebrate] = useState(0);
+  const [coinBurst, setCoinBurst] = useState(0);
   const [today, setToday] = useState<any[]>([]);
   const [weekData, setWeekData] = useState<{ days: any[]; totalPlanned: number; totalApproved: number; today: number } | null>(null);
   const [balance, setBalance] = useState<{ available: number; reserved: number } | null>(null);
@@ -274,6 +276,7 @@ export default function ChildDashboard() {
         onLogout={() => { try { document.cookie = 'auth=; Path=/; Max-Age=0'; } catch {}; localStorage.removeItem('childToken'); nav('/'); }}
       />
       <Celebration trigger={celebrate} />
+      <CoinBurst trigger={coinBurst} />
       {/* Sidebar overlay and panel */}
       {menuOpen ? (
         <div
@@ -292,16 +295,74 @@ export default function ChildDashboard() {
           <button className="btn btn-sm btn-outline-secondary" onClick={() => setMenuOpen(false)} aria-label="Close menu">Close</button>
         </div>
         <nav className="nav flex-column">
-          <button className={`btn text-start mb-2 ${section === 'home' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('home'); setMenuOpen(false); }}>Home</button>
-          <button className={`btn text-start mb-2 ${section === 'bank' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('bank'); setMenuOpen(false); }}>Bank Account</button>
-          <button className={`btn text-start mb-2 ${section === 'goals' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('goals'); setMenuOpen(false); }}>Goals</button>
-          <button className={`btn text-start mb-2 ${section === 'bonuses' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('bonuses'); setMenuOpen(false); }}>Bonuses</button>
-          <button className={`btn text-start ${section === 'profile' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('profile'); setMenuOpen(false); }}>Profile</button>
+          <button className={`btn text-start mb-2 ${section === 'home' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('home'); setMenuOpen(false); }}>🏠 Home</button>
+          <button className={`btn text-start mb-2 ${section === 'bank' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('bank'); setMenuOpen(false); }}>💰 Treasure Chest</button>
+          <button className={`btn text-start mb-2 ${section === 'goals' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('goals'); setMenuOpen(false); }}>🎯 Wish List</button>
+          <button className={`btn text-start mb-2 ${section === 'bonuses' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('bonuses'); setMenuOpen(false); }}>⭐ Bonus Quests</button>
+          <button className={`btn text-start ${section === 'profile' ? 'btn-primary' : 'btn-outline-secondary'}`} onClick={() => { setSection('profile'); setMenuOpen(false); }}>🎮 Profile</button>
         </nav>
       </aside>
       <div className="container py-4">
         {section === 'home' && (
           <React.Fragment>
+            {/* ── Goal Hero Card ── */}
+            {(() => {
+              const activeGoal = savers.find((s) => s.isGoal && !s.completed) ?? null;
+              if (!activeGoal) {
+                return (
+                  <div className="goal-hero-empty">
+                    <strong>No active goal yet 🎯</strong>
+                    Set a goal in your Wish List to start saving!
+                  </div>
+                );
+              }
+              const saved = activeGoal.reserved || 0;
+              const target = activeGoal.target || 1;
+              const pct = Math.min(100, Math.round((saved / target) * 100));
+              const coinsToGo = Math.max(0, target - saved);
+              const todayEarnable = today
+                .filter((t: any) => !t.status || t.status === 'due' || t.status === 'planned' || t.status === 'missed')
+                .reduce((s: number, t: any) => s + (t.value || 0), 0);
+              const isComplete = pct >= 100;
+              return (
+                <div className={`goal-hero${isComplete ? ' goal-hero-complete' : ''}`}>
+                  <div className="goal-hero-inner">
+                    <div className="goal-hero-img">
+                      {activeGoal.imageUrl
+                        ? <img src={activeGoal.imageUrl} alt={activeGoal.name} />
+                        : '🎯'}
+                    </div>
+                    <div className="goal-hero-info">
+                      <div className="goal-hero-label">Saving for</div>
+                      <div className="goal-hero-name">{activeGoal.name}</div>
+                      <div className="goal-hero-bar-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${pct}% saved`}>
+                        <div className="goal-hero-bar-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      {isComplete ? (
+                        <div className="goal-hero-meta">
+                          <span>🎉 Goal reached! Ask a parent to approve your payout.</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="goal-hero-meta">
+                            <span><strong>{saved}</strong> / {target} coins saved</span>
+                            <span>·</span>
+                            <span><strong>{coinsToGo}</strong> to go</span>
+                          </div>
+                          {todayEarnable > 0 && (
+                            <div className="goal-hero-earn">
+                              ✨ Complete today's quests to earn {todayEarnable} coins!
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Stat Cards ── */}
             <div className="row g-3 mb-2">
               {(() => {
                 const plannedCount = weekData ? weekData.days.reduce((s, d) => s + d.items.length, 0) : 0;
@@ -309,45 +370,42 @@ export default function ChildDashboard() {
                 const todayCount = (selectedDay != null && weekData) ? (weekData.days[selectedDay]?.items?.length || 0) : today.length;
                 return (
                   <>
-                    <div className="col-6 col-lg-3"><StatCard icon="📋" label={selectedDay != null && weekData ? new Date(weekData.days[selectedDay].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Today'} value={todayCount} /></div>
+                    <div className="col-6 col-lg-3"><StatCard icon="⚔️" label={selectedDay != null && weekData ? new Date(weekData.days[selectedDay].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : "Today's Quests"} value={todayCount} /></div>
                     <div className="col-6 col-lg-3"><StatCard icon="💰" label="Total Coins" value={(balance?.available ?? 0) + (balance?.reserved ?? 0)} /></div>
                     <div className="col-6 col-lg-3"><StatCard icon="✅" label="Completed" value={completedCount} /></div>
-                    <div className="col-6 col-lg-3"><StatCard icon="⭐" label="This week" value={plannedCount} /></div>
+                    <div className="col-6 col-lg-3"><StatCard icon="📅" label="This week" value={plannedCount} /></div>
                   </>
                 );
               })()}
             </div>
-            {/* Today (left), This Week (right) */}
+
+            {/* ── Today's Quests + This Week ── */}
             <div className="row g-3">
         <div className="col-12">
           <div className="card card--interactive h-100">
             <div className="card-body">
-              <h2 className="h6 today">{selectedDay != null && weekData ? new Date(weekData.days[selectedDay].date).toLocaleDateString(undefined, { weekday:'long', month: 'short', day: 'numeric' }) : 'Today'}</h2>
+              <h2 className="h6 today">{selectedDay != null && weekData ? new Date(weekData.days[selectedDay].date).toLocaleDateString(undefined, { weekday:'long', month: 'short', day: 'numeric' }) : "Today's Quests ⚔️"}</h2>
               {(selectedDay != null && weekData ? (weekData.days[selectedDay]?.items || []) : today).length === 0 ? (
-                <div className="text-muted">No chores for today.</div>
+                <div className="text-muted">No quests today — enjoy your day! 🌟</div>
               ) : (
-                <ul className="list-group list-group-flush">
+                <div>
                   {(selectedDay != null && weekData ? (weekData.days[selectedDay]?.items || []) : today).map((t: any) => {
                     const status = t.status as string | null | undefined;
                     const canUncomplete = (status === 'pending' || status === 'approved');
                     const canComplete = (!status || status === 'due' || status === 'planned' || status === 'missed');
                     return (
-                    <li key={t.id} className="list-group-item d-flex justify-content-between align-items-center">
-                      <div>
-                        <div className="fw-semibold d-flex align-items-center gap-2">
-                          <span>{t.name}</span>
-                          <span className="d-inline-flex align-items-center" title={`+${t.value} coins`}>
-                            {Array.from({ length: Math.min(t.value || 0, 5) }).map((_, idx) => (
-                              <span key={idx} className="ms-1" style={{ display: 'inline-flex' }}><GoldCoin /></span>
-                            ))}
-                            {(t.value || 0) > 5 && <span className="ms-1" aria-hidden>…</span>}
-                          </span>
-                        </div>
-                        <div className="small text-muted">{t.description || ''}</div>
+                    <div key={t.id} className="quest-item">
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="quest-name">{t.name}</div>
+                        {t.description && <div className="quest-desc">{t.description}</div>}
+                      </div>
+                      <div className="quest-coins" aria-label={`${t.value || 0} coins`}>
+                        <GoldCoin size={18} />
+                        {t.value || 0}
                       </div>
                       <div className="d-flex align-items-center gap-2">
                         {status === 'pending' && <span className="cc-chip cc-chip--pending">Pending</span>}
-                        {status === 'approved' && <span className="cc-chip cc-chip--done">Done</span>}
+                        {status === 'approved' && <span className="cc-chip cc-chip--done">✓ Done</span>}
                         {canUncomplete && (
                           <button
                             className="btn btn-sm btn-outline-secondary"
@@ -373,7 +431,7 @@ export default function ChildDashboard() {
                         )}
                         {canComplete && (
                           <button
-                            className="btn btn-primary btn-lg"
+                            className="quest-done-btn"
                             onClick={async () => {
                               const cid = child?.id;
                               if (!cid) return;
@@ -383,22 +441,27 @@ export default function ChildDashboard() {
                                  body: JSON.stringify({ childId: cid, ...(selectedDay != null && weekData ? { date: weekData.days[selectedDay].date } : {}) })
                                  });
                               if (!res.ok) return;
-                              const [r1, r2] = await Promise.all([
+                              const [r1, r2, rb, rs] = await Promise.all([
                                 fetch(`/children/${cid}/chores?scope=today`),
-                                fetch(`/children/${cid}/chores/week`)
+                                fetch(`/children/${cid}/chores/week`),
+                                fetch(`/bank/${cid}`),
+                                fetch(`/children/${cid}/savers`, { headers: { Authorization: `Bearer ${localStorage.getItem('childToken') ?? ''}` } }),
                               ]);
                               setToday(r1.ok ? await r1.json() : []);
                               setWeekData(r2.ok ? await r2.json() : null);
+                              if (rb.ok) { const b = await rb.json(); setBalance(b.balance); setLedger(b.entries || []); }
+                              setSavers(rs.ok ? await rs.json() : []);
                               setCelebrate((n) => n + 1);
+                              setCoinBurst((n) => n + 1);
                             }}
                           >
-                            Done
+                            ✓ Done
                           </button>
                         )}
                       </div>
-                    </li>
+                    </div>
                   );})}
-                </ul>
+                </div>
               )}
             </div>
           </div>
@@ -566,7 +629,7 @@ export default function ChildDashboard() {
         <div className="col-12">
           <div className="card card--interactive h-100">
             <div className="card-body">
-              <h2 className="h6">Bank</h2>
+              <h2 className="h6">💰 Treasure Chest</h2>
               <div className="mb-2 d-flex flex-wrap gap-3 align-items-center">
                 <div><span className="text-muted me-1">Total:</span><span className="badge bg-light text-dark">{(balance?.available ?? 0) + (balance?.reserved ?? 0)}</span></div>
                 <div><span className="text-muted me-1">Available:</span><span className="badge bg-success-subtle text-dark">{balance?.available ?? 0}</span></div>
@@ -686,7 +749,7 @@ export default function ChildDashboard() {
             <div className="card card--interactive h-100">
               <div className="card-body">
                 <div className="d-flex justify-content-between align-items-center mb-2">
-                  <h2 className="h6 mb-0">Saver Goals</h2>
+                  <h2 className="h6 mb-0">🎯 Wish List</h2>
                   <button
                     className="btn btn-sm btn-outline-primary"
                     onClick={async () => {
