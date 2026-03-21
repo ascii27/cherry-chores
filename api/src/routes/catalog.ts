@@ -76,11 +76,25 @@ export function catalogRoutes(opts: {
 
     try {
       console.log(`[catalog/preview] fetching URL: ${url}`);
-      const html = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CherryChores/1.0)' },
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
         signal: AbortSignal.timeout(8000),
-      }).then((r) => r.text());
-      console.log(`[catalog/preview] fetched ${html.length} bytes from ${url}`);
+      });
+      const html = await response.text();
+      console.log(`[catalog/preview] fetched ${html.length} bytes (status ${response.status}) from ${url}`);
+
+      // Detect bot-challenge / Cloudflare interstitial pages
+      const isBotChallenge =
+        html.length < 50_000 &&
+        /just a moment|challenge-platform|cf-browser-verification|enable javascript and cookies|checking your browser/i.test(html);
+      if (isBotChallenge) {
+        console.warn(`[catalog/preview] bot challenge detected for ${url}`);
+        return res.status(422).json({ error: 'This website blocks automated access. Try copying the product details manually.' });
+      }
 
       // Extract og meta tags
       const og = (prop: string) => {
