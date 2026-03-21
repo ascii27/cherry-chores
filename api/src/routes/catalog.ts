@@ -1,5 +1,5 @@
 import { Request, Router } from 'express';
-import Anthropic from '@anthropic-ai/sdk';
+import { llm } from '../llm';
 import { AuthedRequest, requireRole } from '../middleware/auth';
 import { FamiliesRepository, UsersRepository, BankRepository, ActivityRepository } from '../repositories';
 import { PgCatalogRepo, CatalogItem, CatalogPurchase } from '../repos.catalog.pg';
@@ -14,7 +14,6 @@ export function catalogRoutes(opts: {
 }) {
   const router = Router();
   const { catalog, users, families, bank } = opts;
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   // GET /api/families/:familyId/catalog
   router.get('/families/:familyId/catalog', async (req: Request, res) => {
@@ -101,15 +100,10 @@ export function catalogRoutes(opts: {
       // AI-generate a kid-friendly description
       let description = rawDescription;
       try {
-        const msg = await anthropic.messages.create({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 80,
-          messages: [{
-            role: 'user',
-            content: `Generate a fun, kid-friendly description (max 40 words) for this product: "${rawTitle}". Context: "${rawDescription}". Use simple language for a 10-year-old, enthusiastic tone. Reply with only the description text, no quotes.`,
-          }],
-        });
-        description = (msg.content[0] as any).text?.trim() || rawDescription;
+        description = await llm.generate(
+          `Generate a fun, kid-friendly description (max 40 words) for this product: "${rawTitle}". Context: "${rawDescription}". Use simple language for a 10-year-old, enthusiastic tone. Reply with only the description text, no quotes.`,
+          { maxTokens: 80, temperature: 0.7 },
+        );
       } catch {
         // Fall back to raw description if AI fails
       }
