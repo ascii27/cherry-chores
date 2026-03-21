@@ -9,4 +9,5 @@ export interface SaverItem {
   allocation: number; // 0..100 percentage of credits to reserve
   completed?: boolean;
   completedAt?: string; // ISO when purchased
+  catalogItemId?: string; // linked catalog item, if created from the shop
 }

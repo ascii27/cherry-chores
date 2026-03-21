@@ -44,10 +44,10 @@ export function saversRoutes(opts: { savers: SaversRepository; users: UsersRepos
     const isParent = actor?.role === 'parent' && !!fam && fam.parentIds.includes(actor.id);
     const isChildSelf = actor?.role === 'child' && actor.id === child.id;
     if (!(isParent || isChildSelf)) return res.status(403).json({ error: 'forbidden' });
-    const { name, description, imageUrl, target } = req.body || {};
+    const { name, description, imageUrl, target, catalogItemId } = req.body || {};
     if (!name || typeof target !== 'number') return res.status(400).json({ error: 'missing fields' });
     // All saver items are goals by default in Phase 4 UX
-    const item: SaverItem = { id: `saver_${Date.now()}`, childId: child.id, name, description, imageUrl, target, isGoal: true, allocation: 0 };
+    const item: SaverItem = { id: `saver_${Date.now()}`, childId: child.id, name, description, imageUrl, target, isGoal: true, allocation: 0, catalogItemId: catalogItemId || undefined };
     await savers.createSaver(item);
     res.status(201).json({ ...item, reserved: 0 });
   });
