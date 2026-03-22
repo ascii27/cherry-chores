@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import '../styles/app-theme.css';
 import { playCoinSound } from '../coinSound';
 // Bootstrap Icons (SVGs as URLs for avatars/patterns)
@@ -269,6 +269,28 @@ export default function ChildDashboard() {
       try { document.body.classList.remove('cute-bg-on'); } catch {}
     };
   }, [nav]);
+
+  // Poll every 30s to pick up parent approvals (chores, bonuses) without a reload
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const cid = child?.id;
+      const fid = child?.familyId;
+      if (!cid || !fid) return;
+      const token = localStorage.getItem('childToken') ?? '';
+      const auth = token ? { Authorization: `Bearer ${token}` } : {};
+      try {
+        const [rb, rClaims, rToday] = await Promise.all([
+          fetch(`/bank/${cid}`),
+          fetch(`/api/children/${cid}/bonus-claims`, { headers: auth }),
+          fetch(`/children/${cid}/chores?scope=today`),
+        ]);
+        if (rb.ok) { const b = await rb.json(); setBalance(b.balance); setLedger(b.entries || []); }
+        if (rClaims.ok) setMyBonusClaims(await rClaims.json());
+        if (rToday.ok) setToday(await rToday.json());
+      } catch { /* ignore poll errors */ }
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [child]);
 
   useEffect(() => {
     document.body.classList.add('arcade-body');
