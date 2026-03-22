@@ -33,6 +33,10 @@ export class PgBankRepo implements BankRepository {
       ALTER TABLE ledger ADD COLUMN IF NOT EXISTS actor_email TEXT;
       ALTER TABLE ledger ADD COLUMN IF NOT EXISTS saver_id TEXT;
     `);
+    // Migrate amount to NUMERIC to support fractional coins (e.g. 0.5)
+    await this.pool.query(`
+      ALTER TABLE ledger ALTER COLUMN amount TYPE NUMERIC(10,2);
+    `);
   }
 
   async addLedgerEntry(entry: LedgerEntry): Promise<LedgerEntry> {
