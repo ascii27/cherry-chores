@@ -437,16 +437,6 @@ export default function ParentDashboard() {
               <h2 className="h5">Family</h2>
               <p className="mb-1"><strong>Name:</strong> {selectedFamily?.name}</p>
               <p className="mb-3"><strong>Timezone:</strong> {selectedFamily?.timezone}</p>
-              <div className="mb-3">
-                <button
-                  className="btn btn-sm btn-outline-primary"
-                  type="button"
-                  disabled={payoutBusy || !selectedFamily}
-                  onClick={runPayout}
-                >
-                  {payoutBusy ? 'Paying…' : 'Run payout for this week'}
-                </button>
-              </div>
               <h3 className="h6">Parents</h3>
                 {parents.length === 0 ? (
                   <div className="text-muted mb-3">No parents yet.</div>

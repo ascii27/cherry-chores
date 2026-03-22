@@ -12,6 +12,8 @@ export interface LedgerEntry {
     saverId?: string; // for reserve/release against a saver goal
     bonusId?: string;
     claimId?: string;
+    choreId?: string;
+    completionId?: string;
   };
   actor?: {
     role: 'parent' | 'child' | 'system';
