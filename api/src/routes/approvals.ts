@@ -99,6 +99,20 @@ export function approvalsRoutes(opts: {
           status: 'approved',
         });
 
+        // Immediately credit the child
+        const choreEntry: LedgerEntry = {
+          id: `chore_entry_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          childId: pending.childId,
+          amount: choreItem.value,
+          type: 'payout',
+          note: `Chore: ${choreItem.name}`,
+          meta: { choreId: choreItem.id, completionId: pending.id },
+          actor: { role: 'parent', id: actor.id },
+          createdAt: new Date().toISOString(),
+        };
+        await bank.addLedgerEntry(choreEntry);
+        if (savers) await applyAllocation(bank, savers, pending.childId, choreItem.value);
+
         // Emit activity
         await emitActivity(activity, {
           familyId: choreItem.familyId,

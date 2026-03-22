@@ -100,7 +100,7 @@ export function createApp(deps?: { useDb?: boolean }) {
     bonusRepo.init().catch(() => {});
     const catalogRepo = new PgCatalogRepo(pool);
     catalogRepo.init().catch(() => {});
-    app.use(choresRoutes({ chores: choresRepo, families: repos, users: repos, activity: activityRepo }));
+    app.use(choresRoutes({ chores: choresRepo, families: repos, users: repos, bank: bankRepo, savers: saversRepo, activity: activityRepo }));
     app.use(bankRoutes({ bank: bankRepo, users: repos, families: repos, chores: choresRepo, savers: saversRepo, activity: activityRepo }));
     app.use(saversRoutes({ savers: saversRepo, users: repos, families: repos, bank: bankRepo }));
     app.use('/api', bonusRoutes({ bonus: bonusRepo, users: repos, families: repos, bank: bankRepo, savers: saversRepo }));
@@ -114,7 +114,7 @@ export function createApp(deps?: { useDb?: boolean }) {
   } else {
     const bonusRepo = new InMemoryBonusRepo();
     const activityRepo = new InMemoryActivityRepo();
-    app.use(choresRoutes({ chores: repos as any, families: repos, users: repos, activity: activityRepo }));
+    app.use(choresRoutes({ chores: repos as any, families: repos, users: repos, bank: repos as any, savers: repos as any, activity: activityRepo }));
     app.use(bankRoutes({ bank: repos as any, users: repos, families: repos, chores: repos as any, savers: repos as any, activity: activityRepo }));
     app.use(saversRoutes({ savers: repos as any, users: repos, families: repos, bank: repos as any }));
     app.use('/api', bonusRoutes({ bonus: bonusRepo, users: repos, families: repos, bank: repos as any, savers: repos as any }));

@@ -1,7 +1,9 @@
 import { Request, Router } from 'express';
 import { AuthedRequest, requireRole } from '../middleware/auth';
-import { ActivityRepository, ChoresRepository, FamiliesRepository, UsersRepository } from '../repositories';
+import { ActivityRepository, BankRepository, ChoresRepository, FamiliesRepository, SaversRepository, UsersRepository } from '../repositories';
 import { Chore, Completion } from '../chores.types';
+import { LedgerEntry } from '../bank.types';
+import { applyAllocation } from '../alloc';
 import { emitActivity } from '../activity';
 import { llm } from '../llm';
 
@@ -68,9 +70,9 @@ async function assignEmoji(chore: Chore, choresRepo: ChoresRepository): Promise<
   }
 }
 
-export function choresRoutes(opts: { chores: ChoresRepository; families: FamiliesRepository; users: UsersRepository; activity?: ActivityRepository }) {
+export function choresRoutes(opts: { chores: ChoresRepository; families: FamiliesRepository; users: UsersRepository; bank?: BankRepository; savers?: SaversRepository; activity?: ActivityRepository }) {
   const router = Router();
-  const { chores, families, users, activity } = opts;
+  const { chores, families, users, bank, savers, activity } = opts;
 
   // Parent creates chore
   router.post('/chores', requireRole('parent'), async (req: Request, res) => {
@@ -286,6 +288,21 @@ export function choresRoutes(opts: { chores: ChoresRepository; families: Familie
     await chores.deleteCompletion(pending.id);
     await chores.createCompletion({ ...pending, id: `comp_${Date.now()}`, status: 'approved' });
     const approvedChore = await chores.getChoreById(pending.choreId);
+    // Immediately credit the child
+    if (bank && approvedChore) {
+      const entry: LedgerEntry = {
+        id: `chore_entry_${Date.now()}`,
+        childId: pending.childId,
+        amount: approvedChore.value,
+        type: 'payout',
+        note: `Chore: ${approvedChore.name}`,
+        meta: { choreId: approvedChore.id, completionId: pending.id },
+        actor: { role: 'parent', id: (req as AuthedRequest).user!.id },
+        createdAt: new Date().toISOString(),
+      };
+      await bank.addLedgerEntry(entry);
+      if (savers) await applyAllocation(bank, savers, pending.childId, approvedChore.value);
+    }
     await emitActivity(activity, {
       familyId,
       childId: pending.childId,
