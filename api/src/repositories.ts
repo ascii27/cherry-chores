@@ -303,6 +303,7 @@ export interface BonusRepository {
   createClaim(claim: BonusClaim): Promise<BonusClaim>;
   getClaimById(id: string): Promise<BonusClaim | undefined>;
   listClaimsByBonus(bonusId: string): Promise<BonusClaim[]>;
+  listClaimsByChild(childId: string): Promise<BonusClaim[]>;
   listPendingClaimsByFamily(familyId: string): Promise<BonusClaim[]>;
   hasChildClaimed(bonusId: string, childId: string): Promise<boolean>;
   updateClaim(claim: BonusClaim): Promise<BonusClaim>;
@@ -372,9 +373,14 @@ export class InMemoryBonusRepo implements BonusRepository {
       (c) => c.status === 'pending' && bonusIds.includes(c.bonusId)
     );
   }
+  async listClaimsByChild(childId: string): Promise<BonusClaim[]> {
+    return Array.from(this.claims.values())
+      .filter((c) => c.childId === childId)
+      .sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
+  }
   async hasChildClaimed(bonusId: string, childId: string): Promise<boolean> {
     return Array.from(this.claims.values()).some(
-      (c) => c.bonusId === bonusId && c.childId === childId
+      (c) => c.bonusId === bonusId && c.childId === childId && c.status !== 'rejected'
     );
   }
   async updateClaim(claim: BonusClaim): Promise<BonusClaim> {

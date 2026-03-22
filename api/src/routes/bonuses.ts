@@ -106,6 +106,14 @@ export function bonusRoutes(opts: {
     return res.status(204).send();
   });
 
+  // GET /children/:childId/bonus-claims (child only — own claims)
+  router.get('/children/:childId/bonus-claims', requireRole('child'), async (req: Request, res) => {
+    const actor = (req as AuthedRequest).user!;
+    if (actor.id !== req.params.childId) return res.status(403).json({ error: 'forbidden' });
+    const claims = await bonus.listClaimsByChild(actor.id);
+    return res.json(claims);
+  });
+
   // POST /bonuses/:id/claim (child only)
   router.post('/bonuses/:id/claim', requireRole('child'), async (req: Request, res) => {
     const actor = (req as AuthedRequest).user!;

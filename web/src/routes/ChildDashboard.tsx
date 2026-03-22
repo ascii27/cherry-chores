@@ -224,12 +224,16 @@ export default function ChildDashboard() {
           setBalance(b.balance);
           setLedger(b.entries || []);
         }
-        // Fetch bonuses
+        // Fetch bonuses + my own claims
         try {
           const bonusToken = localStorage.getItem('childToken');
-          const rBonuses = await fetch(`/api/families/${data.familyId}/bonuses`, { headers: { Authorization: bonusToken ? `Bearer ${bonusToken}` : '' } });
+          const [rBonuses, rClaims] = await Promise.all([
+            fetch(`/api/families/${data.familyId}/bonuses`, { headers: { Authorization: bonusToken ? `Bearer ${bonusToken}` : '' } }),
+            fetch(`/api/children/${data.id}/bonus-claims`, { headers: { Authorization: bonusToken ? `Bearer ${bonusToken}` : '' } }),
+          ]);
           setBonuses(rBonuses.ok ? await rBonuses.json() : []);
-        } catch { setBonuses([]); }
+          setMyBonusClaims(rClaims.ok ? await rClaims.json() : []);
+        } catch { setBonuses([]); setMyBonusClaims([]); }
         try {
           const tok2 = localStorage.getItem('childToken');
           const rCatalog = await fetch(`/api/families/${data.familyId}/catalog`, { headers: { Authorization: tok2 ? `Bearer ${tok2}` : '' } });
@@ -702,7 +706,12 @@ export default function ChildDashboard() {
                               push('success', 'Bonus claimed! Waiting for parent approval.');
                               const rBonuses = await fetch(`/api/families/${child?.familyId}/bonuses`, { headers: { Authorization: tok ? `Bearer ${tok}` : '' } });
                               if (rBonuses.ok) setBonuses(await rBonuses.json());
-                            } else { push('error', 'Claim failed'); }
+                            } else if (r.status === 409) {
+                              push('error', 'Already submitted — waiting for approval!');
+                              setClaimingBonusId(null); setClaimNote('');
+                            } else {
+                              push('error', 'Claim failed. Please try again.');
+                            }
                           }}>Submit</button>
                           <button className="btn btn-sm btn-outline-secondary" onClick={() => { setClaimingBonusId(null); setClaimNote(''); }}>✕</button>
                         </div>

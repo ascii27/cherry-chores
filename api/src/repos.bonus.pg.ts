@@ -150,9 +150,17 @@ export class PgBonusRepo implements BonusRepository {
     return r.rows.map((row: any) => this.rowToClaim(row));
   }
 
+  async listClaimsByChild(childId: string): Promise<BonusClaim[]> {
+    const r = await this.pool.query(
+      'SELECT * FROM bonus_claims WHERE child_id=$1 ORDER BY created_at DESC',
+      [childId]
+    );
+    return r.rows.map((row: any) => this.rowToClaim(row));
+  }
+
   async hasChildClaimed(bonusId: string, childId: string): Promise<boolean> {
     const r = await this.pool.query(
-      'SELECT 1 FROM bonus_claims WHERE bonus_id=$1 AND child_id=$2 LIMIT 1',
+      "SELECT 1 FROM bonus_claims WHERE bonus_id=$1 AND child_id=$2 AND status != 'rejected' LIMIT 1",
       [bonusId, childId]
     );
     return (r.rowCount ?? 0) > 0;
