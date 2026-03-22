@@ -12,7 +12,7 @@ import { bankRoutes } from './routes/bank';
 import { InMemoryBankRepo } from './bank.memory';
 import { saversRoutes } from './routes/savers';
 import { choresRoutes } from './routes/chores';
-import { Pool } from 'pg';
+import { createPool } from './db';
 import { DevAuthProvider, JwtService } from './auth';
 import { withJwt, authMiddleware, withTokensRepo } from './middleware/auth';
 import { authRoutes } from './routes/auth';
@@ -67,7 +67,7 @@ export function createApp(deps?: { useDb?: boolean }) {
   app.use(familyRoutes({ families: repos, users: repos }));
   // Tokens routes and repo wiring
   if (useDb) {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const pool = createPool();
     const tokensRepo = new PgTokensRepo(pool);
     (tokensRepo as any).init?.().catch(() => {});
     withTokensRepo(tokensRepo);
@@ -78,7 +78,7 @@ export function createApp(deps?: { useDb?: boolean }) {
   }
   // Uploads (S3 presign + records) – enabled when S3 env configured
   if (useDb) {
-    const pool2 = new (require('pg').Pool)({ connectionString: process.env.DATABASE_URL });
+    const pool2 = createPool();
     const uploadsRepo = new (require('./repos.uploads.pg').PgUploadsRepo)(pool2);
     uploadsRepo.init().catch(() => {});
     app.use(uploadRoutes({ uploads: uploadsRepo }));
@@ -86,7 +86,7 @@ export function createApp(deps?: { useDb?: boolean }) {
     app.use(uploadRoutes({ uploads: repos as any }));
   }
   if (useDb) {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const pool = createPool();
     const choresRepo = new PgChoresRepo(pool);
     const bankRepo = new PgBankRepo(pool);
     const saversRepo = new PgSaversRepo(pool);
