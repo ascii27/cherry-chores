@@ -596,7 +596,7 @@ export default function ParentDashboard() {
                             </div>
                             <form className="row row-cols-2 g-2 mt-2" onSubmit={(e)=>e.preventDefault()}>
                               <div className="col-12">
-                                <input id={`adj-${c.id}`} type="number" className="form-control form-control-sm" defaultValue={1} />
+                                <input id={`adj-${c.id}`} type="number" min="0" step="0.5" className="form-control form-control-sm" defaultValue={1} />
                               </div>
                               <div className="col-6 d-grid">
                                 <button
@@ -604,7 +604,7 @@ export default function ParentDashboard() {
                                   type="button"
                                   onClick={async () => {
                                     if (!token) return;
-                                    const amt = parseInt((document.getElementById(`adj-${c.id}`) as HTMLInputElement).value || '0', 10);
+                                    const amt = parseFloat((document.getElementById(`adj-${c.id}`) as HTMLInputElement).value || '0');
                                     if (!amt) return;
                                     const r = await fetch(`/bank/${c.id}/adjust`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount: Math.abs(amt), note: 'credit' }) });
                                     if (r.ok) push('success', `Credited ${Math.abs(amt)} to ${c.displayName}`); else push('error', 'Credit failed');
@@ -618,7 +618,7 @@ export default function ParentDashboard() {
                                   type="button"
                                   onClick={async () => {
                                     if (!token) return;
-                                    const amt = parseInt((document.getElementById(`adj-${c.id}`) as HTMLInputElement).value || '0', 10);
+                                    const amt = parseFloat((document.getElementById(`adj-${c.id}`) as HTMLInputElement).value || '0');
                                     if (!amt) return;
                                     const r = await fetch(`/bank/${c.id}/adjust`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount: -Math.abs(amt), note: 'debit' }) });
                                     if (r.ok) push('success', `Debited ${Math.abs(amt)} from ${c.displayName}`); else push('error', 'Debit failed');
@@ -663,13 +663,13 @@ export default function ParentDashboard() {
                                 className="d-flex gap-2 align-items-stretch align-items-sm-center flex-column flex-sm-row mt-2"
                                 onSubmit={(e) => e.preventDefault()}
                               >
-                                <input id={`adj-${c.id}`} type="number" className="form-control form-control-sm w-100 w-sm-auto" defaultValue={1} />
+                                <input id={`adj-${c.id}`} type="number" min="0" step="0.5" className="form-control form-control-sm w-100 w-sm-auto" defaultValue={1} />
                                 <button
                                   className="btn btn-sm btn-outline-success"
                                   type="button"
                                   onClick={async () => {
                                     if (!token) return;
-                                    const amt = parseInt((document.getElementById(`adj-${c.id}`) as HTMLInputElement).value || '0', 10);
+                                    const amt = parseFloat((document.getElementById(`adj-${c.id}`) as HTMLInputElement).value || '0');
                                     if (!amt) return;
                                     const r = await fetch(`/bank/${c.id}/adjust`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount: Math.abs(amt), note: 'credit' }) });
                                     if (r.ok) push('success', `Credited ${Math.abs(amt)} to ${c.displayName}`); else push('error', 'Credit failed');
@@ -681,7 +681,7 @@ export default function ParentDashboard() {
                                   type="button"
                                   onClick={async () => {
                                     if (!token) return;
-                                    const amt = parseInt((document.getElementById(`adj-${c.id}`) as HTMLInputElement).value || '0', 10);
+                                    const amt = parseFloat((document.getElementById(`adj-${c.id}`) as HTMLInputElement).value || '0');
                                     if (!amt) return;
                                     const r = await fetch(`/bank/${c.id}/adjust`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ amount: -Math.abs(amt), note: 'debit' }) });
                                     if (r.ok) push('success', `Debited ${Math.abs(amt)} from ${c.displayName}`); else push('error', 'Debit failed');
