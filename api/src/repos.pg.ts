@@ -44,6 +44,11 @@ export class PgRepos implements UsersRepository, FamiliesRepository {
       ALTER TABLE children ADD COLUMN IF NOT EXISTS avatar_url TEXT;
       ALTER TABLE children ADD COLUMN IF NOT EXISTS theme_color TEXT;
     `);
+    // Case-insensitive usernames: lowercase any existing rows so the
+    // unique index continues to enforce global uniqueness after the
+    // application starts normalizing on write/read. Runs at most once
+    // per row — subsequent runs are no-ops.
+    await this.pool.query(`UPDATE children SET username = LOWER(username) WHERE username <> LOWER(username)`);
   }
 
   private async ensureReady() {
@@ -88,7 +93,7 @@ export class PgRepos implements UsersRepository, FamiliesRepository {
     await this.ensureReady();
     const c = await this.pool.query(
       'SELECT id, family_id, username, password_hash, display_name, avatar_url, theme_color FROM children WHERE username=$1',
-      [username]
+      [normalizeUsername(username)]
     );
     if (!c.rowCount) return undefined;
     const r = c.rows[0];
@@ -105,8 +110,9 @@ export class PgRepos implements UsersRepository, FamiliesRepository {
 
   async createChild(child: ChildUser): Promise<ChildUser> {
     await this.ensureReady();
+    const username = normalizeUsername(child.username);
     // pre-check global uniqueness for friendly error
-    const dup = await this.pool.query('SELECT 1 FROM children WHERE username=$1', [child.username]);
+    const dup = await this.pool.query('SELECT 1 FROM children WHERE username=$1', [username]);
     if (dup.rowCount) {
       const err: any = new Error('username taken');
       err.code = 409;
@@ -114,9 +120,9 @@ export class PgRepos implements UsersRepository, FamiliesRepository {
     }
     await this.pool.query(
       'INSERT INTO children(id, family_id, username, password_hash, display_name, avatar_url, theme_color) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [child.id, child.familyId, child.username, child.passwordHash, child.displayName, child.avatarUrl ?? null, child.themeColor ?? null]
+      [child.id, child.familyId, username, child.passwordHash, child.displayName, child.avatarUrl ?? null, child.themeColor ?? null]
     );
-    return child;
+    return { ...child, username };
   }
 
   async updateChild(id: string, update: Partial<Pick<ChildUser, 'username' | 'passwordHash' | 'displayName' | 'avatarUrl' | 'themeColor'>>) {
@@ -124,15 +130,16 @@ export class PgRepos implements UsersRepository, FamiliesRepository {
     const cur = await this.pool.query('SELECT id, family_id, username, password_hash, display_name FROM children WHERE id=$1', [id]);
     if (!cur.rowCount) return undefined;
     const r = cur.rows[0];
-    if (update.username && update.username !== r.username) {
-      const dup = await this.pool.query('SELECT 1 FROM children WHERE family_id=$1 AND username=$2 AND id<>$3', [r.family_id, update.username, id]);
+    const normalizedUpdateUsername = update.username ? normalizeUsername(update.username) : undefined;
+    if (normalizedUpdateUsername && normalizedUpdateUsername !== r.username) {
+      const dup = await this.pool.query('SELECT 1 FROM children WHERE family_id=$1 AND username=$2 AND id<>$3', [r.family_id, normalizedUpdateUsername, id]);
       if (dup.rowCount) {
         const err: any = new Error('username taken');
         err.code = 409;
         throw err;
       }
     }
-    const nextUsername = update.username ?? r.username;
+    const nextUsername = normalizedUpdateUsername ?? r.username;
     const nextPw = update.passwordHash ?? r.password_hash;
     const nextName = update.displayName ?? r.display_name;
     const nextAvatar = update.avatarUrl ?? r.avatar_url ?? null;
