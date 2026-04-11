@@ -7,6 +7,14 @@ import { Bonus, BonusClaim } from './bonus.types';
 import { ActivityEntry } from './activity.types';
 import crypto from 'crypto';
 
+/**
+ * Normalize a username to its canonical (case-insensitive) form.
+ * Children log in case-insensitively: "Alex" and "alex" are the same account.
+ */
+export function normalizeUsername(username: string): string {
+  return username.toLowerCase();
+}
+
 export interface UsersRepository {
   getParentByEmail(email: string): Promise<ParentUser | undefined>;
   getParentById(id: string): Promise<ParentUser | undefined>;
@@ -86,40 +94,44 @@ export class InMemoryRepos implements UsersRepository, FamiliesRepository, Chore
   }
 
   async getChildByUsername(username: string) {
-    for (const c of this.children.values()) if (c.username === username) return c;
+    const target = normalizeUsername(username);
+    for (const c of this.children.values()) if (c.username === target) return c;
     return undefined;
   }
   async getChildById(id: string) {
     return this.children.get(id);
   }
   async createChild(child: ChildUser) {
+    const username = normalizeUsername(child.username);
     // global username uniqueness
-    for (const c of this.children.values()) if (c.username === child.username) {
+    for (const c of this.children.values()) if (c.username === username) {
       const err: any = new Error('username taken');
       err.code = 409;
       throw err;
     }
-    this.children.set(child.id, child);
+    const normalized = { ...child, username };
+    this.children.set(child.id, normalized);
     const fam = this.families.get(child.familyId);
     if (fam && !fam.childIds.includes(child.id)) {
       fam.childIds.push(child.id);
       this.families.set(fam.id, fam);
     }
-    return child;
+    return normalized;
   }
 
   async updateChild(id: string, update: Partial<Pick<ChildUser, 'username' | 'passwordHash' | 'displayName' | 'avatarUrl' | 'themeColor'>>) {
     const cur = this.children.get(id);
     if (!cur) return undefined;
-    if (update.username && update.username !== cur.username) {
+    const normalizedUpdateUsername = update.username ? normalizeUsername(update.username) : undefined;
+    if (normalizedUpdateUsername && normalizedUpdateUsername !== cur.username) {
       // uniqueness per family
       for (const c of this.children.values()) {
-        if (c.familyId === cur.familyId && c.username === update.username) {
+        if (c.familyId === cur.familyId && c.username === normalizedUpdateUsername) {
           throw Object.assign(new Error('username taken'), { code: 409 });
         }
       }
     }
-    const next = { ...cur, ...update } as ChildUser;
+    const next = { ...cur, ...update, ...(normalizedUpdateUsername ? { username: normalizedUpdateUsername } : {}) } as ChildUser;
     this.children.set(id, next);
     return next;
   }
