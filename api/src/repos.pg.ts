@@ -1,6 +1,6 @@
 import { Pool } from 'pg';
 import { ChildUser, Family, ParentUser } from './types';
-import { FamiliesRepository, UsersRepository } from './repositories';
+import { FamiliesRepository, UsersRepository, normalizeUsername } from './repositories';
 import { createPool } from './db';
 
 export class PgRepos implements UsersRepository, FamiliesRepository {
