@@ -25,6 +25,7 @@ const proxyPaths = [
 export default defineConfig({
   plugins: [react()],
   server: {
+    allowedHosts: true,
     proxy: Object.fromEntries(
       proxyPaths.map((p) => [p, { target: API_TARGET, changeOrigin: true }])
     ),
