@@ -1,13 +1,14 @@
 import { Pool } from 'pg';
 import { ChildUser, Family, ParentUser } from './types';
 import { FamiliesRepository, UsersRepository } from './repositories';
+import { createPool } from './db';
 
 export class PgRepos implements UsersRepository, FamiliesRepository {
   private pool: Pool;
   private ready: Promise<void>;
 
   constructor(pool?: Pool) {
-    this.pool = pool ?? new Pool({ connectionString: process.env.DATABASE_URL });
+    this.pool = pool ?? createPool();
     this.ready = this.init();
   }
 

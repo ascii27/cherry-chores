@@ -65,11 +65,29 @@ export function createApp(deps?: { useDb?: boolean }) {
   app.use(meRoutes({ users: repos }));
   app.use(configRoutes());
   app.use(familyRoutes({ families: repos, users: repos }));
+  // Collect DB init promises so the server can await them before accepting traffic.
+  // Tables in chores/bank/savers/etc. reference children/parents via foreign keys, so
+  // they must run *after* PgRepos.init() has created the parent tables. Without
+  // ordering, the inits race and FK-dependent DDL silently fails.
+  const dbInits: Promise<void>[] = [];
+  const runInit = (name: string, p: Promise<unknown>) => {
+    dbInits.push(
+      p.then(() => undefined).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error(`[db init] ${name} failed:`, err?.message || err);
+        throw err;
+      })
+    );
+  };
+  // PgRepos kicks off its own init in the constructor; expose it as the root dependency.
+  const reposReady: Promise<void> = useDb ? (repos as any).ready ?? Promise.resolve() : Promise.resolve();
+  if (useDb) runInit('PgRepos', reposReady);
+
   // Tokens routes and repo wiring
   if (useDb) {
     const pool = createPool();
     const tokensRepo = new PgTokensRepo(pool);
-    (tokensRepo as any).init?.().catch(() => {});
+    runInit('PgTokensRepo', reposReady.then(() => (tokensRepo as any).init?.()));
     withTokensRepo(tokensRepo);
     app.use(tokenRoutes({ tokens: tokensRepo, users: repos }));
   } else {
@@ -80,7 +98,7 @@ export function createApp(deps?: { useDb?: boolean }) {
   if (useDb) {
     const pool2 = createPool();
     const uploadsRepo = new (require('./repos.uploads.pg').PgUploadsRepo)(pool2);
-    uploadsRepo.init().catch(() => {});
+    runInit('PgUploadsRepo(early)', reposReady.then(() => uploadsRepo.init()));
     app.use(uploadRoutes({ uploads: uploadsRepo }));
   } else {
     app.use(uploadRoutes({ uploads: repos as any }));
@@ -91,15 +109,15 @@ export function createApp(deps?: { useDb?: boolean }) {
     const bankRepo = new PgBankRepo(pool);
     const saversRepo = new PgSaversRepo(pool);
     const activityRepo = new PgActivityRepo(pool);
-    // fire and forget init
-    choresRepo.init().catch(() => {});
-    bankRepo.init().catch(() => {});
-    saversRepo.init().catch(() => {});
-    activityRepo.init().catch(() => {});
     const bonusRepo = new PgBonusRepo(pool);
-    bonusRepo.init().catch(() => {});
     const catalogRepo = new PgCatalogRepo(pool);
-    catalogRepo.init().catch(() => {});
+    // All of these FK into children/parents, so wait for PgRepos first.
+    runInit('PgChoresRepo', reposReady.then(() => choresRepo.init()));
+    runInit('PgBankRepo', reposReady.then(() => bankRepo.init()));
+    runInit('PgSaversRepo', reposReady.then(() => saversRepo.init()));
+    runInit('PgActivityRepo', reposReady.then(() => activityRepo.init()));
+    runInit('PgBonusRepo', reposReady.then(() => bonusRepo.init()));
+    runInit('PgCatalogRepo', reposReady.then(() => catalogRepo.init()));
     app.use(choresRoutes({ chores: choresRepo, families: repos, users: repos, bank: bankRepo, savers: saversRepo, activity: activityRepo }));
     app.use(bankRoutes({ bank: bankRepo, users: repos, families: repos, chores: choresRepo, savers: saversRepo, activity: activityRepo }));
     app.use(saversRoutes({ savers: saversRepo, users: repos, families: repos, bank: bankRepo }));
@@ -108,7 +126,7 @@ export function createApp(deps?: { useDb?: boolean }) {
     app.use('/api', approvalsRoutes({ chores: choresRepo, bonus: bonusRepo, bank: bankRepo, users: repos, families: repos, savers: saversRepo, activity: activityRepo }));
     app.use('/api', catalogRoutes({ catalog: catalogRepo, users: repos, families: repos, bank: bankRepo, activity: activityRepo }));
     const uploadsRepo = new (require('./repos.uploads.pg').PgUploadsRepo)(pool);
-    uploadsRepo.init().catch(() => {});
+    runInit('PgUploadsRepo(late)', reposReady.then(() => uploadsRepo.init()));
     app.use(childrenRoutes({ users: repos, families: repos, uploads: uploadsRepo }));
     app.use(uploadRoutes({ uploads: uploadsRepo }));
   } else {
@@ -132,6 +150,13 @@ export function createApp(deps?: { useDb?: boolean }) {
       res.sendFile(path.join(webDist, 'index.html'));
     });
   }
+
+  // Aggregate DB init promise — server should await this before accepting traffic.
+  // Swallow rejection here so unhandled-rejection warnings don't fire; callers that
+  // `await app.locals.dbReady` still see the error.
+  const dbReady: Promise<void> = Promise.all(dbInits).then(() => undefined);
+  dbReady.catch(() => {});
+  app.locals.dbReady = dbReady;
 
   return app;
 }
