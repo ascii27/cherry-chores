@@ -20,6 +20,8 @@ const proxyPaths = [
   '/healthz',
   '/version',
   '/tokens',
+  '/approvals',
+  '/activity',
 ];
 
 export default defineConfig({
