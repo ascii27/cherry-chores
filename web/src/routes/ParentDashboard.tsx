@@ -3,6 +3,7 @@ import '../styles/app-theme.css';
 import { useToast } from '../components/Toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TopBar from '../components/TopBar';
+import PinInput from '../components/PinInput';
 
 // Types for bonus/activity features
 interface Bonus { id: string; familyId: string; name: string; description?: string; value: number; claimType: 'one-time' | 'unlimited'; childIds?: string[]; active: boolean; createdAt: string; }
@@ -30,6 +31,7 @@ export default function ParentDashboard() {
   const [apiTokens, setApiTokens] = useState<Array<{ id: string; label?: string; createdAt: string; lastUsedAt?: string; expiresAt?: string | null }>>([]);
   const [newTokenLabel, setNewTokenLabel] = useState('');
   const [newTokenValue, setNewTokenValue] = useState<string | null>(null);
+  const [newChildPin, setNewChildPin] = useState('');
   const { push } = useToast();
   const [saversByChild, setSaversByChild] = useState<Record<string, any[]>>({});
   const [weekDayIndex, setWeekDayIndex] = useState(0); // mobile pager for Week Overview
@@ -335,19 +337,18 @@ export default function ParentDashboard() {
     e.preventDefault();
     if (!token || !selectedFamily) return;
     const username = (e.currentTarget.querySelector('#childUser') as HTMLInputElement).value;
-    const password = (e.currentTarget.querySelector('#childPw') as HTMLInputElement).value;
     const displayName = (e.currentTarget.querySelector('#childName') as HTMLInputElement).value;
     await fetch('/children', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ familyId: selectedFamily.id, username, password, displayName })
+      body: JSON.stringify({ familyId: selectedFamily.id, username, password: newChildPin, displayName })
     });
     // refresh list
     const r = await fetch(`/families/${selectedFamily.id}/children`, { headers: { Authorization: `Bearer ${token}` } });
     if (r.ok) setChildren(await r.json());
     (e.currentTarget.querySelector('#childUser') as HTMLInputElement).value = '';
-    (e.currentTarget.querySelector('#childPw') as HTMLInputElement).value = '';
     (e.currentTarget.querySelector('#childName') as HTMLInputElement).value = '';
+    setNewChildPin('');
   };
 
   const handleRenameChild = async (id: string) => {
@@ -481,18 +482,19 @@ export default function ParentDashboard() {
                 <form className="row g-2" onSubmit={handleAddChild}>
                   <div className="col-12">
                     <label htmlFor="childName" className="form-label">Display name</label>
-                    <input id="childName" className="form-control" />
-                  </div>
-                  <div className="col-md-6">
-                    <label htmlFor="childUser" className="form-label">Username</label>
-                    <input id="childUser" className="form-control" />
-                  </div>
-                  <div className="col-md-6">
-                    <label htmlFor="childPw" className="form-label">Password</label>
-                    <input id="childPw" type="password" className="form-control" />
+                    <input id="childName" className="form-control" required />
                   </div>
                   <div className="col-12">
-                    <button className="btn btn-success" type="submit">Add child</button>
+                    <label htmlFor="childUser" className="form-label">Username</label>
+                    <input id="childUser" className="form-control" required />
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label">PIN (numbers only)</label>
+                    <PinInput value={newChildPin} onChange={setNewChildPin} maxLength={6} />
+                    <div className="form-text">Set a numeric PIN the child will use to sign in.</div>
+                  </div>
+                  <div className="col-12">
+                    <button className="btn btn-success" type="submit" disabled={newChildPin.length < 1}>Add child</button>
                   </div>
                 </form>
               </div>

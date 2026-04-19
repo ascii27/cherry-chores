@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import './styles/landing.css';
+import NumericKeypad from './components/NumericKeypad';
 
 export default function App() {
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<null | 'parent' | 'child'>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [sticky, setSticky] = useState(false);
+  const [childPin, setChildPin] = useState('');
+  const [childUsername, setChildUsername] = useState('');
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const dialogTitleId = useId();
 
@@ -412,14 +415,14 @@ export default function App() {
       </footer>
 
       {/* ── DIALOGS ── */}
-      {dialog && <div className="lp-overlay" onClick={() => setDialog(null)} aria-hidden />}
+      {dialog && <div className="lp-overlay" onClick={() => { setDialog(null); setChildPin(''); setChildUsername(''); }} aria-hidden />}
       {dialog && (
         <div className="lp-modal" role="dialog" aria-modal="true" aria-labelledby={dialogTitleId}>
           <div className="lp-modal-card" onClick={e => e.stopPropagation()}>
             <button
               ref={closeBtnRef}
               className="lp-modal-close"
-              onClick={() => setDialog(null)}
+              onClick={() => { setDialog(null); setChildPin(''); setChildUsername(''); }}
               aria-label="Close"
             >×</button>
 
@@ -442,40 +445,52 @@ export default function App() {
               <>
                 <div className="lp-modal-icon" aria-hidden>🎮</div>
                 <h2 id={dialogTitleId}>Kid Sign In</h2>
-                <p className="lp-modal-sub">Welcome back, adventurer! Enter your username and password to continue your quest.</p>
+                <p className="lp-modal-sub">Welcome back, adventurer! Enter your username and PIN to continue your quest.</p>
                 <form
                   aria-label="Child Sign In Form"
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    const username = (e.currentTarget.querySelector('#child-login-username') as HTMLInputElement)?.value;
-                    const password = (e.currentTarget.querySelector('#child-login-password') as HTMLInputElement)?.value;
+                    if (!childPin) return;
                     try {
                       const r = await fetch('/auth/child/login', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password })
+                        body: JSON.stringify({ username: childUsername, password: childPin })
                       });
                       const data = await r.json();
                       if (r.ok && data.token) {
                         localStorage.setItem('childToken', data.token);
                         window.location.assign('/child');
                       } else {
-                        alert('Login failed — check your username and password!');
+                        setChildPin('');
+                        alert('Login failed — check your username and PIN!');
                       }
                     } catch {
+                      setChildPin('');
                       alert('Login failed — please try again!');
                     }
                   }}
                 >
                   <div className="lp-form-group">
                     <label htmlFor="child-login-username">Username</label>
-                    <input id="child-login-username" placeholder="Enter your username" autoComplete="username" />
+                    <input
+                      id="child-login-username"
+                      placeholder="Enter your username"
+                      autoComplete="username"
+                      value={childUsername}
+                      onChange={(e) => setChildUsername(e.target.value)}
+                    />
                   </div>
                   <div className="lp-form-group">
-                    <label htmlFor="child-login-password">Password</label>
-                    <input id="child-login-password" type="password" placeholder="Enter your password" autoComplete="current-password" />
+                    <label>PIN</label>
+                    <NumericKeypad value={childPin} onChange={setChildPin} maxLength={6} />
                   </div>
-                  <button className="lp-btn lp-btn-primary" type="submit" style={{ width: '100%', justifyContent: 'center', fontSize: 16, padding: '14px 20px', borderRadius: 12 }}>
+                  <button
+                    className="lp-btn lp-btn-primary"
+                    type="submit"
+                    disabled={!childUsername || childPin.length < 1}
+                    style={{ width: '100%', justifyContent: 'center', fontSize: 16, padding: '14px 20px', borderRadius: 12 }}
+                  >
                     Start My Quest 🚀
                   </button>
                 </form>

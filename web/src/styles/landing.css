@@ -928,3 +928,86 @@
   border-radius: 999px;
 }
 @media (min-width: 769px) { .lp-hamburger { display: none; } }
+
+/* ── Numeric Keypad (child login) ── */
+.kp-root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+/* PIN dot indicators */
+.kp-dots {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.kp-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: transparent;
+  transition: background 150ms, border-color 150ms, transform 120ms;
+}
+.kp-dot--filled {
+  background: var(--lp-cherry);
+  border-color: var(--lp-cherry);
+  transform: scale(1.15);
+}
+
+/* 3-column key grid */
+.kp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  max-width: 280px;
+}
+
+.kp-key {
+  aspect-ratio: 1;
+  min-height: 64px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 26px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms, transform 80ms, box-shadow 120ms;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.kp-key:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.kp-key:active:not(:disabled) {
+  transform: scale(0.93);
+  background: rgba(232, 41, 76, 0.25);
+}
+.kp-key--back {
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.6);
+}
+.kp-key--back:hover:not(:disabled) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+.kp-key--empty {
+  background: transparent;
+  border-color: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+
+@media (min-width: 400px) {
+  .kp-grid { max-width: 300px; }
+  .kp-key { min-height: 72px; font-size: 28px; }
+}

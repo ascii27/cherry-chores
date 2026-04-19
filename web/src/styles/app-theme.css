@@ -1317,3 +1317,46 @@
   color: var(--text-muted);
   white-space: nowrap;
 }
+
+/* ── PinInput (parent-facing numeric PIN setter) ── */
+.pin-input-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  cursor: text;
+}
+.pin-input-hidden {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+}
+.pin-input-dots {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border-color, #dee2e6);
+  border-radius: 8px;
+  min-width: 180px;
+}
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--text-muted, #6c757d);
+  background: transparent;
+  transition: background 120ms, border-color 120ms;
+  flex-shrink: 0;
+}
+.pin-dot--filled {
+  background: var(--primary, #0d6efd);
+  border-color: var(--primary, #0d6efd);
+}
+.pin-input-hint {
+  font-size: 11px;
+  color: var(--text-muted, #6c757d);
+}
