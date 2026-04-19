@@ -120,6 +120,8 @@
 
 @media (max-width: 768px) {
   .lp-nav-links { display: none; }
+  /* Hide the ghost "I'm a Kid" button in the nav on mobile — it's in the hamburger menu */
+  .lp-nav-actions .lp-btn-ghost { display: none; }
 }
 
 /* ── BUTTONS ── */
@@ -777,9 +779,22 @@
 }
 .lp-modal {
   position: fixed; inset: 0;
-  display: grid; place-items: center;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   z-index: 201;
   padding: 16px;
+  overflow-y: auto;
+  /* Center vertically when content fits, scroll when it doesn't */
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+/* Vertical centering trick: flex column with auto margins */
+.lp-modal::before,
+.lp-modal::after {
+  content: '';
+  flex: 1;
+  min-height: 16px;
 }
 .lp-modal-card {
   background: #1A1040;
@@ -790,7 +805,8 @@
   box-shadow: 0 40px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
   animation: scaleIn 200ms ease;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  flex-shrink: 0;
 }
 .lp-modal-card::before {
   content: '';
@@ -1010,4 +1026,47 @@
 @media (min-width: 400px) {
   .kp-grid { max-width: 300px; }
   .kp-key { min-height: 72px; font-size: 28px; }
+}
+
+/* ── iPhone / small-screen overrides ── */
+@media (max-width: 480px) {
+  /* Tighter modal padding so content fits without scrolling as much */
+  .lp-modal-card {
+    padding: 24px 20px;
+    border-radius: 20px;
+  }
+  .lp-modal-icon { font-size: 36px; margin-bottom: 8px; }
+  .lp-modal h2 { font-size: 22px; }
+  .lp-modal-sub { font-size: 13px; margin-bottom: 18px; }
+  .lp-form-group { margin-bottom: 12px; }
+
+  /* Compact keypad on small screens */
+  .kp-root { gap: 12px; }
+  .kp-grid { gap: 8px; }
+  .kp-key { min-height: 52px; font-size: 22px; border-radius: 12px; }
+  .kp-dot { width: 12px; height: 12px; }
+
+  /* Hero: reduce vertical padding and hide the game card mockup to save space */
+  .lp-hero {
+    padding-top: clamp(32px, 8vw, 60px);
+    padding-bottom: clamp(32px, 8vw, 60px);
+    gap: 32px;
+  }
+  .lp-hero-visual { display: none; }
+
+  /* Tighter hero text */
+  .lp-hero h1 { font-size: clamp(32px, 9vw, 48px); margin-bottom: 14px; }
+  .lp-hero-sub { font-size: 15px; margin-bottom: 24px; }
+  .lp-hero-cta { gap: 10px; }
+  .lp-hero-cta .lp-btn-lg { font-size: 15px; padding: 13px 22px; }
+
+  /* Social proof: smaller */
+  .lp-hero-social-proof { margin-top: 20px; }
+
+  /* Stats ribbon: 2-column grid */
+  .lp-stats-inner { flex-wrap: wrap; }
+  .lp-stat-item { min-width: 50%; }
+
+  /* Section headings */
+  .lp-section-h2 { font-size: clamp(26px, 7vw, 36px); }
 }
