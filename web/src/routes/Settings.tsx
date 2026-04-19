@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import { useToast } from '../components/Toast';
+import PinInput from '../components/PinInput';
 import '../styles/app-theme.css';
 
 const TIMEZONES = [
@@ -42,6 +43,11 @@ export default function Settings() {
 
   // Delete child confirmation
   const [deletingChild, setDeletingChild] = useState<string | null>(null);
+
+  // PIN change state
+  const [changingPinChild, setChangingPinChild] = useState<string | null>(null);
+  const [newPin, setNewPin] = useState('');
+  const [savingPin, setSavingPin] = useState(false);
 
   // Token creation state
   const [showCreateToken, setShowCreateToken] = useState(false);
@@ -185,6 +191,29 @@ export default function Settings() {
       }
     } catch {
       push('error', 'Failed to delete child');
+    }
+  }
+
+  async function handleChangePin(id: string) {
+    if (!token || !newPin) return;
+    setSavingPin(true);
+    try {
+      const r = await fetch(`/children/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ password: newPin }),
+      });
+      if (r.ok) {
+        setChangingPinChild(null);
+        setNewPin('');
+        push('success', 'PIN updated');
+      } else {
+        push('error', 'Failed to update PIN');
+      }
+    } catch {
+      push('error', 'Failed to update PIN');
+    } finally {
+      setSavingPin(false);
     }
   }
 
@@ -333,12 +362,18 @@ export default function Settings() {
                             )}
                           </div>
                           {renamingChild !== c.id && (
-                            <div className="d-flex gap-2">
+                            <div className="d-flex gap-2 flex-wrap">
                               <button
                                 className="btn btn-sm btn-outline-secondary"
                                 onClick={() => { setRenamingChild(c.id); setRenameValue(c.displayName || ''); }}
                               >
                                 Rename
+                              </button>
+                              <button
+                                className="btn btn-sm btn-outline-primary"
+                                onClick={() => { setChangingPinChild(c.id); setNewPin(''); setDeletingChild(null); }}
+                              >
+                                Change PIN
                               </button>
                               <button
                                 className="btn btn-sm btn-outline-danger"
@@ -349,6 +384,29 @@ export default function Settings() {
                             </div>
                           )}
                         </div>
+
+                        {/* PIN change inline */}
+                        {changingPinChild === c.id && (
+                          <div className="mt-2 p-3 border rounded" style={{ background: 'rgba(var(--bs-primary-rgb), 0.05)' }}>
+                            <div className="small fw-semibold mb-2">New PIN for {c.displayName}</div>
+                            <PinInput value={newPin} onChange={setNewPin} maxLength={6} />
+                            <div className="d-flex gap-2 mt-2">
+                              <button
+                                className="btn btn-sm btn-primary"
+                                disabled={newPin.length < 1 || savingPin}
+                                onClick={() => handleChangePin(c.id)}
+                              >
+                                {savingPin ? 'Saving…' : 'Save PIN'}
+                              </button>
+                              <button
+                                className="btn btn-sm btn-outline-secondary"
+                                onClick={() => { setChangingPinChild(null); setNewPin(''); }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Delete confirmation inline */}
                         {deletingChild === c.id && (
