@@ -365,6 +365,18 @@ export default function ParentDashboard() {
     if (r.ok) setChildren(await r.json());
   };
 
+  const handleChangeChildPassword = async (id: string) => {
+    if (!token) return;
+    const next = window.prompt('Enter new PIN for this child');
+    if (!next) return;
+    const r = await fetch(`/children/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ password: next })
+    });
+    if (r.ok) push('success', 'PIN updated'); else push('error', 'Failed to update PIN');
+  };
+
   const handleDeleteChild = async (id: string) => {
     if (!token) return;
     if (!window.confirm('Delete this child? This action cannot be undone.')) return;
@@ -622,6 +634,9 @@ export default function ParentDashboard() {
                                 <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => handleRenameChild(c.id)}>Rename</button>
                               </div>
                               <div className="col-6 d-grid">
+                                <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => handleChangeChildPassword(c.id)}>Change PIN</button>
+                              </div>
+                              <div className="col-6 d-grid">
                                 <button className="btn btn-outline-secondary btn-sm text-danger" type="button" onClick={() => handleDeleteChild(c.id)}>Delete</button>
                               </div>
                             </form>
@@ -700,6 +715,7 @@ export default function ParentDashboard() {
                             </td>
                             <td className="text-end">
                               <button className="btn btn-sm btn-outline-secondary me-2" type="button" onClick={() => handleRenameChild(c.id)}>Rename</button>
+                              <button className="btn btn-sm btn-outline-secondary me-2" type="button" onClick={() => handleChangeChildPassword(c.id)}>Change PIN</button>
                               <button className="btn btn-sm btn-outline-danger" type="button" onClick={() => handleDeleteChild(c.id)}>Delete</button>
                             </td>
                           </tr>
