@@ -780,21 +780,11 @@
 .lp-modal {
   position: fixed; inset: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   z-index: 201;
-  padding: 16px;
-  overflow-y: auto;
-  /* Center vertically when content fits, scroll when it doesn't */
-  padding-top: max(16px, env(safe-area-inset-top));
-  padding-bottom: max(16px, env(safe-area-inset-bottom));
-}
-/* Vertical centering trick: flex column with auto margins */
-.lp-modal::before,
-.lp-modal::after {
-  content: '';
-  flex: 1;
-  min-height: 16px;
+  padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
 }
 .lp-modal-card {
   background: #1A1040;
@@ -802,12 +792,16 @@
   border-radius: 24px;
   padding: 36px;
   width: min(480px, 100%);
+  /* Card scrolls internally when taller than the available space */
+  max-height: calc(100dvh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom)));
+  overflow-y: auto;
   box-shadow: 0 40px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
   animation: scaleIn 200ms ease;
   position: relative;
-  overflow: visible;
-  flex-shrink: 0;
 }
+/* Remove the centering spacers — no longer needed */
+.lp-modal::before,
+.lp-modal::after { display: none; }
 .lp-modal-card::before {
   content: '';
   position: absolute; top: 0; left: 0; right: 0;
@@ -983,8 +977,7 @@
 }
 
 .kp-key {
-  aspect-ratio: 1;
-  min-height: 64px;
+  height: 60px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.15);
   background: rgba(255, 255, 255, 0.07);
@@ -1025,7 +1018,7 @@
 
 @media (min-width: 400px) {
   .kp-grid { max-width: 300px; }
-  .kp-key { min-height: 72px; font-size: 28px; }
+  .kp-key { height: 68px; font-size: 28px; }
 }
 
 /* ── iPhone / small-screen overrides ── */
@@ -1041,9 +1034,9 @@
   .lp-form-group { margin-bottom: 12px; }
 
   /* Compact keypad on small screens */
-  .kp-root { gap: 12px; }
+  .kp-root { gap: 10px; }
   .kp-grid { gap: 8px; }
-  .kp-key { min-height: 52px; font-size: 22px; border-radius: 12px; }
+  .kp-key { height: 52px; font-size: 20px; border-radius: 12px; }
   .kp-dot { width: 12px; height: 12px; }
 
   /* Hero: reduce vertical padding and hide the game card mockup to save space */
